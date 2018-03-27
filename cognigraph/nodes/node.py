@@ -30,13 +30,19 @@ class Node(object):
 
     @property
     def UPSTREAM_CHANGES_IN_THESE_REQUIRE_REINITIALIZATION(self) -> Tuple[str]:
-        """A constant tuple of attributes after an *upstream* change in which an initialization should be scheduled."""
+        """ A constant tuple of attributes after an *upstream* change in which
+        an initialization should be scheduled.
+
+        """
+
         msg = 'Each subclass of Node must have a CHANGES_IN_THESE_REQUIRE_REINITIALIZATION constant defined'
         raise NotImplementedError(msg)
 
-    # Some upstream properties are mutable and thus saving them would not work. Saving a copy would trigger unnecessary
-    # reinitializations when something minor has changed. Thus, any concrete subclass has to provide a way to save only
-    # what is necessary. Keys are property names, values are functions that return an appropriate tuple.
+    # Some upstream properties are mutable and thus saving them would not work.
+    # Saving a copy would trigger unnecessary
+    # reinitializations when something minor has changed.
+    # Thus, any concrete subclass has to provide a way to save only what is necessary.
+    # Keys are property names, values are functions that return an appropriate tuple.
     SAVERS_FOR_UPSTREAM_MUTABLE_OBJECTS = dict()
 
     def __init__(self):
@@ -204,7 +210,7 @@ class Node(object):
     def _on_input_history_invalidation(self):
         """If the node state is dependent on previous inputs, reset whatever relies on them."""
         raise NotImplementedError
-        
+
     def traverse_back_and_find(self, item: str):
         """ This function will walk up the node tree until it finds a node with an attribute <item> """
         try:

@@ -176,8 +176,9 @@ class InverseModel(ProcessorNode):
         self._gain_matrix = G
 
         inverse_operator = make_inverse_operator(self.mne_forward_model_file_path, mne_info)
-        self._inverse_model_matrix = matrix_from_inverse_operator(inverse_operator=inverse_operator, mne_info=mne_info,
-                                                                  snr=self.snr, method=self.method)
+        self._inverse_model_matrix = matrix_from_inverse_operator(inverse_operator=inverse_operator,
+                                                                  mne_info=mne_info, snr=self.snr,
+                                                                  method=self.method)
 
         frequency = mne_info['sfreq']
         channel_count = self._inverse_model_matrix.shape[0]

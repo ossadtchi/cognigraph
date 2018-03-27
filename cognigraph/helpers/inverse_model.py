@@ -98,18 +98,19 @@ def assemble_gain_matrix(forward_model_path: str, mne_info: mne.Info, force_fixe
                 channel_indices)
 
     else:
-        return _pick_columns_from_matrix(G_forward.T, channel_labels_upper, channel_labels_forward).T
+        return _pick_columns_from_matrix(G_forward.T, channel_labels_upper,
+                                         channel_labels_forward).T
 
 
 def make_inverse_operator(forward_model_file_path, mne_info, sigma2=1):
-    # sigma2 is what will be used to scale the identity covariance matrix. This will not affect the MNE solution though.
+    # sigma2 is what will be used to scale the identity covariance matrix.
+    # This will not affect MNE solution though.
     # The inverse operator will use channels common to forward_model_file_path and mne_info.
     forward = mne.read_forward_solution(forward_model_file_path, verbose='ERROR')
     cov = mne.Covariance(data=sigma2 * np.identity(mne_info['nchan']),
-                         names=mne_info['ch_names'],
-                         bads=mne_info['bads'],
-                         projs=mne_info['projs'],
-                         nfree=1
-                         )
+                         names=mne_info['ch_names'], bads=mne_info['bads'],
+                         projs=mne_info['projs'], nfree=1)
 
-    return mne.minimum_norm.make_inverse_operator(mne_info, forward, cov, verbose='ERROR')
+    return mne.minimum_norm.make_inverse_operator(mne_info, forward,
+                                                  cov, depth=None, loose=0,
+                                                  fixed=True, verbose='ERROR')

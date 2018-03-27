@@ -18,7 +18,8 @@ class LSLStreamSource(SourceNode):
     CHANGES_IN_THESE_REQUIRE_RESET = ('source_name',)
 
     def _check_value(self, key, value):
-        pass  # Whether we can find one stream with self.source_name will be checked on initialize  # TODO: move here
+        pass  # Whether we can find one stream with self.source_name will be checked on initialize
+              # TODO: move here
 
     SECONDS_TO_WAIT_FOR_THE_STREAM = 0.5
 
@@ -125,7 +126,8 @@ class BrainvisionSource(SourceNode):
             # How many sample we would like to read
             max_samples_in_chunk = np.int64(seconds_since_last_update * frequency)
             # Lower it to the amount we can process in a reasonable amount of time
-            max_samples_in_chunk = min(max_samples_in_chunk, self.MAX_SAMPLES_IN_CHUNK)
+            max_samples_in_chunk = min(max_samples_in_chunk,
+                                       self.MAX_SAMPLES_IN_CHUNK)
 
             # We will have read max_samples_in_chunk samples unless we hit the end
             samples_in_data = self.data.shape[TIME_AXIS]
