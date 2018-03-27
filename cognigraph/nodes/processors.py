@@ -283,7 +283,7 @@ class EnvelopeExtractor(ProcessorNode):
 
     def _update(self):
         input = self.input_node.output
-        self.output = self._envelope_extractor.apply(input)
+        self.output = self._envelope_extractor.apply(np.abs(input))
 
 
 class Beamformer(ProcessorNode):
