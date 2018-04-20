@@ -110,7 +110,7 @@ raw.pick_types(eeg=True, stim=False)
 #                             meg=False, eeg=True, mindist=5.0, n_jobs=2)
 
 # mne.write_forward_solution('dmalt_custom_lr-fwd.fif', fwd)
-fwd = mne.read_forward_solution('dmalt_custom_lr-fwd.fif')
+fwd = mne.read_forward_solution('/home/dmalt/Code/python/playground_cognigraph/dmalt_custom_lr-fwd.fif')
 
 print(fwd)
 leadfield = fwd['sol']['data']
@@ -207,7 +207,7 @@ stc_smooth.data =  smooth
 # stc.plot(hemi='rh', subjects_dir=subjects_dir,
 #              initial_time=0.21, time_unit='s', time_viewer=True)
 
-stc_smooth.plot(hemi='split', initial_time=0, time_viewer=True,
+stc_smooth.plot(hemi='both', initial_time=0, time_viewer=True,
         # clim=dict(kind='value', lims =[1.e-8, 1.5e-8, 2e-8]),
                 subjects_dir=subjects_dir, transparent=True,  colormap='bwr')
 
