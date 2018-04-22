@@ -6,12 +6,19 @@ import mne
 from mne.preprocessing import find_outliers
 
 from .node import ProcessorNode, Message
-from ..helpers.matrix_functions import (make_time_dimension_second, put_time_dimension_back_from_second,
-                                        apply_quad_form_to_columns, get_a_subset_of_channels)
-from ..helpers.inverse_model import (get_default_forward_file, assemble_gain_matrix, make_inverse_operator,
+from ..helpers.matrix_functions import (make_time_dimension_second,
+                                        put_time_dimension_back_from_second,
+                                        apply_quad_form_to_columns,
+                                        get_a_subset_of_channels)
+from ..helpers.inverse_model import (get_default_forward_file,
+                                     assemble_gain_matrix,
+                                     make_inverse_operator,
                                      matrix_from_inverse_operator)
-from ..helpers.pynfb import pynfb_ndarray_function_wrapper, ExponentialMatrixSmoother
-from ..helpers.channels import calculate_interpolation_matrix, channel_labels_saver
+
+from ..helpers.pynfb import (pynfb_ndarray_function_wrapper,
+                             ExponentialMatrixSmoother)
+from ..helpers.channels import (calculate_interpolation_matrix,
+                                channel_labels_saver)
 from .. import TIME_AXIS
 from vendor.nfb.pynfb.signal_processing import filters
 
@@ -42,7 +49,8 @@ class Preprocessing(ProcessorNode):
 
     def _initialize(self):
         frequency = self.traverse_back_and_find('mne_info')['sfreq']
-        self._samples_to_be_collected = int(math.ceil(self.collect_for_x_seconds * frequency))
+        self._samples_to_be_collected = int(math.ceil(
+            self.collect_for_x_seconds * frequency))
 
     def _reset(self) -> bool:
         self._reset_statistics()
@@ -58,9 +66,11 @@ class Preprocessing(ProcessorNode):
 
     def _update(self):
         # Have we collected enough samples without the new input?
-        enough_collected = self._samples_collected >= self._samples_to_be_collected
+        enough_collected = self._samples_collected >=\
+                self._samples_to_be_collected
         if not enough_collected:
-            if self.input_node.output is not None and self.input_node.output.shape[TIME_AXIS] > 0:
+            if self.input_node.output is not None and\
+                    self.input_node.output.shape[TIME_AXIS] > 0:
                 self._update_statistics()
 
         elif not self._enough_collected:  # We just got enough samples
@@ -68,7 +78,8 @@ class Preprocessing(ProcessorNode):
             standard_deviations = self._calculate_standard_deviations()
             self._bad_channel_indices = find_outliers(standard_deviations)
             if any(self._bad_channel_indices):
-                self._interpolation_matrix = self._calculate_interpolation_matrix()
+                self._interpolation_matrix =\
+                        self._calculate_interpolation_matrix()
                 message = Message(there_has_been_a_change=True,
                                   output_history_is_no_longer_valid=True)
                 self._deliver_a_message_to_receivers(message)
@@ -77,25 +88,27 @@ class Preprocessing(ProcessorNode):
 
     def _update_statistics(self):
         input_array = self.input_node.output.astype(np.dtype('float64'))
-        # Using float64 is necessary because otherwise rounding error in recursive formula accumulate
+        # Using float64 is necessary because otherwise rounding error
+        # in recursive formula accumulate
         n = self._samples_collected
         m = input_array.shape[TIME_AXIS]  # number of new samples
         self._samples_collected += m
 
-        self._means = (self._means * n + np.sum(input_array, axis=TIME_AXIS)) / (n + m)
+        self._means = (self._means * n +
+                       np.sum(input_array, axis=TIME_AXIS)) / (n + m)
         self._mean_sums_of_squares = (self._mean_sums_of_squares * n
-                                    + np.sum(input_array ** 2, axis=TIME_AXIS)) / (n + m)
+                                      + np.sum(input_array ** 2, axis=TIME_AXIS)) / (n + m)
 
     def _calculate_standard_deviations(self):
         n = self._samples_collected
         return np.sqrt(n / (n - 1) * (self._mean_sums_of_squares - self._means ** 2))
 
     def _calculate_interpolation_matrix(self):
-        mne_info = self.traverse_back_and_find('mne_info').copy()  # type: mne.Info
-        mne_info['bads'] = [mne_info['ch_names'][i] for i in self._bad_channel_indices]
-        print('The following channels: {bads} were marked as bad and will be interpolated'.format(
-            bads=mne_info['bads']
-        ))
+        mne_info = self.traverse_back_and_find('mne_info').copy()
+        mne_info['bads'] = [mne_info['ch_names'][i]
+                            for i in self._bad_channel_indices]
+        print('The following channels: {bads} '.format(bads=mne_info['bads']) +
+              'were marked as bad and will be interpolated')
         return calculate_interpolation_matrix(mne_info)
 
     def _interpolate(self, input_array: np.ndarray):
@@ -117,17 +130,22 @@ class InverseModel(ProcessorNode):
         pass
 
     UPSTREAM_CHANGES_IN_THESE_REQUIRE_REINITIALIZATION = ('mne_info', )
-    CHANGES_IN_THESE_REQUIRE_RESET = ('mne_inverse_model_file_path', 'snr', 'method')
+    CHANGES_IN_THESE_REQUIRE_RESET = ('mne_inverse_model_file_path',
+                                      'snr', 'method')
     SAVERS_FOR_UPSTREAM_MUTABLE_OBJECTS = {'mne_info': channel_labels_saver}
 
     def _check_value(self, key, value):
         if key == 'method':
             if value not in self.SUPPORTED_METHODS:
-                raise ValueError('Method {} is not supported. We support only {}'.format(value, self.SUPPORTED_METHODS))
+                raise ValueError(
+                        'Method {} is not supported.'.format(value) +
+                        'We support only {}'.format(self.SUPPORTED_METHODS))
 
         if key == 'snr':
             if value <= 0:
-                raise ValueError('snr (signal-to-noise ratio) must be a positive number. See mne-python docs.')
+                raise ValueError(
+                        'snr (signal-to-noise ratio) must be a positive number.'
+                        'See mne-python docs.')
 
     def _reset(self):
         self._should_reinitialize = True
@@ -150,7 +168,8 @@ class InverseModel(ProcessorNode):
 
     @property
     def mne_forward_model_file_path(self):
-        return self._user_provided_forward_model_file_path or self._default_forward_model_file_path
+        return self._user_provided_forward_model_file_path or\
+                self._default_forward_model_file_path
 
     @mne_forward_model_file_path.setter
     def mne_forward_model_file_path(self, value):
