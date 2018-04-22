@@ -63,14 +63,26 @@ def data_fun(times):
                    for ii in (2 * n, 2 * n + 1)]
     window[start:stop] = 1.
     n += 1
-    data = 2e-7 * np.sin(2. * np.pi * 10.  * times)
+    data = 2e-7 * np.sin(2. * np.pi * 10. * times)
     data *= window
     return data
 
+
 times = raw.times[:int(raw.info['sfreq'] * epoch_duration)]
 src = read_source_spaces(src_fname)
-stc_sim = simulate_sparse_stc(src, n_dipoles=n_dipoles, times=times, labels=labels,
-                          data_fun=data_fun, random_state=0)
+stc_sim = simulate_sparse_stc(
+        src, n_dipoles=n_dipoles, times=times, labels=labels,
+        data_fun=data_fun, random_state=0)
+
+
+from load_data import subjects_dir, subject
+brain = stc_sim.plot(
+        subject=subject, surface='inflated', hemi='both',
+        subjects_dir=subjects_dir, initial_time=0.222)
+
+# vertno_max, time_max = stc_sim.get_peak(hemi='lh')
+brain.add_foci(stc_sim.lh_verto[0], coords_as_verts=True, hemi='lh', color='blue', scale_factor=0.6)
+# brain.show_view('lateral')
 
 # look at our source data
 fig, ax = plt.subplots(1)
@@ -85,10 +97,12 @@ raw_sim = simulate_raw(raw, stc_sim, trans_fname, src, bem_fname, cov='simple',
                        n_jobs=1, verbose=True)
 raw_sim.plot()
 
+# raw_sim.save('/home/dmalt/Data/cognigraph/data/raw_sim.fif', overwrite=True)
 ##############################################################################
 # Plot evoked data
-events = find_events(raw_sim)  # only 1 pos, so event number == 1
-epochs = Epochs(raw_sim, events, 1, -0.2, epoch_duration)
-cov = compute_covariance(epochs, tmax=0., method='empirical')  # quick calc
-evoked = epochs.average()
-evoked.plot_white(cov)
+
+# events = find_events(raw_sim)  # only 1 pos, so event number == 1
+# epochs = Epochs(raw_sim, events, 1, -0.2, epoch_duration)
+# cov = compute_covariance(epochs, tmax=0., method='empirical')  # quick calc
+# evoked = epochs.average()
+# evoked.plot_white(cov)
