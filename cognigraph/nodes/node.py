@@ -127,7 +127,7 @@ class Node(object):
 
     def _initialize(self):
         """Prepares everything for the first update. If called again, should remove all the traces from the past"""
-        raise NotImplementedError
+        raise NotImplementedError('_initialize should be implemented')
 
     @property
     def _no_pending_changes(self):
@@ -171,7 +171,7 @@ class Node(object):
                 self.on_input_history_invalidation()
 
     def _update(self):
-        raise NotImplementedError
+        raise NotImplementedError('_update should be implemented')
 
     def reset(self):
         if self._should_reset is False:
@@ -191,7 +191,7 @@ class Node(object):
         """Does what needs to be done when one of the self.CHANGES_IN_THESE_REQUIRE_RESET has been changed
         Must return whether output history is no longer valid. True if descendants should forget about anything that
         has happened before, False if changes are strictly local."""
-        raise NotImplementedError
+        raise NotImplementedError('_reset should be implemented')
 
     def on_input_history_invalidation(self):
         if self._input_history_is_no_longer_valid is False:
@@ -209,7 +209,7 @@ class Node(object):
 
     def _on_input_history_invalidation(self):
         """If the node state is dependent on previous inputs, reset whatever relies on them."""
-        raise NotImplementedError
+        raise NotImplementedError('_on_input_history_invalidation should be implemented')
 
     def traverse_back_and_find(self, item: str):
         """ This function will walk up the node tree until it finds a node with an attribute <item> """
@@ -242,7 +242,7 @@ class Node(object):
             self.CHANGES_IN_THESE_REQUIRE_RESET = backup
 
     def _check_value(self, key, value):
-        raise NotImplementedError
+        raise NotImplementedError('_check_value should be implemented')
 
     def _the_change_requires_reinitialization(self):
         """Checks if anything important changed upstream wrt value captured at initialization"""
