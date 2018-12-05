@@ -17,11 +17,16 @@ from ..helpers.pyqtgraph import MyGroupParameter
 from ..helpers.misc import class_name_of
 
 
-NodeControlClasses = namedtuple('NodeControlClasses', ['node_class', 'controls_class'])
+NodeControlClasses = namedtuple('NodeControlClasses',
+                                ['node_class', 'controls_class'])
 
 
 class MultipleNodeControls(MyGroupParameter):
-    """Base class for grouping of node settings (processors or outputs). Source is supported by a separate class."""
+    """
+    Base class for grouping of node settings (processors or outputs).
+    Source is supported by a separate class.
+
+    """
 
     @property
     def SUPPORTED_NODES(self):
@@ -33,7 +38,7 @@ class MultipleNodeControls(MyGroupParameter):
 
         for node in nodes:
             controls_class = self._find_controls_class_for_a_node(node)
-            self.addChild(controls_class(node))
+            self.addChild(controls_class(node), autoIncrementName=True)
 
     @classmethod
     def _find_controls_class_for_a_node(cls, processor_node):
@@ -43,7 +48,8 @@ class MultipleNodeControls(MyGroupParameter):
 
         # Raise an error if processor node is not supported
         msg = ("Node of class {0} is not supported by {1}.\n"
-               "Add NodeControlClasses(node_class, controls_class) to {1}.SUPPORTED_NODES").format(
+               "Add NodeControlClasses(node_class, controls_class) to"
+               " {1}.SUPPORTED_NODES").format(
                 class_name_of(processor_node), cls.__name__
             )
         raise ValueError(msg)
@@ -51,23 +57,37 @@ class MultipleNodeControls(MyGroupParameter):
 
 class ProcessorsControls(MultipleNodeControls):
     SUPPORTED_NODES = [
-        NodeControlClasses(processor_nodes.LinearFilter, processors_controls.LinearFilterControls),
-        NodeControlClasses(processor_nodes.InverseModel, processors_controls.InverseModelControls),
-        NodeControlClasses(processor_nodes.EnvelopeExtractor, processors_controls.EnvelopeExtractorControls),
-        NodeControlClasses(processor_nodes.Preprocessing, processors_controls.PreprocessingControls),
-        NodeControlClasses(processor_nodes.Beamformer, processors_controls.BeamformerControls),
-        NodeControlClasses(processor_nodes.MCE, processors_controls.MCEControls),
-        NodeControlClasses(processor_nodes.ICARejection, processors_controls.ICARejectionControls)
+        NodeControlClasses(processor_nodes.LinearFilter,
+                           processors_controls.LinearFilterControls),
+        NodeControlClasses(processor_nodes.InverseModel,
+                           processors_controls.InverseModelControls),
+        NodeControlClasses(processor_nodes.EnvelopeExtractor,
+                           processors_controls.EnvelopeExtractorControls),
+        NodeControlClasses(processor_nodes.Preprocessing,
+                           processors_controls.PreprocessingControls),
+        NodeControlClasses(processor_nodes.Beamformer,
+                           processors_controls.BeamformerControls),
+        NodeControlClasses(processor_nodes.MCE,
+                           processors_controls.MCEControls),
+        NodeControlClasses(processor_nodes.ICARejection,
+                           processors_controls.ICARejectionControls)
     ]
 
 
 class OutputsControls(MultipleNodeControls):
     SUPPORTED_NODES = [
-        NodeControlClasses(output_nodes.LSLStreamOutput, outputs_controls.LSLStreamOutputControls),
-        NodeControlClasses(output_nodes.ThreeDeeBrain, outputs_controls.ThreeDeeBrainControls),
-        NodeControlClasses(output_nodes.SignalViewer, outputs_controls.SignalViewerControls),
-        NodeControlClasses(output_nodes.FileOutput, outputs_controls.FileOutputControls),
-        NodeControlClasses(output_nodes.TorchOutput, outputs_controls.TorchOutputControls)
+        NodeControlClasses(output_nodes.LSLStreamOutput,
+                           outputs_controls.LSLStreamOutputControls),
+        NodeControlClasses(output_nodes.BrainViewer,
+                           outputs_controls.BrainViewerControls),
+        NodeControlClasses(output_nodes.SignalViewer,
+                           outputs_controls.SignalViewerControls),
+        NodeControlClasses(output_nodes.AtlasViewer,
+                           outputs_controls.AtlasViewerControls),
+        NodeControlClasses(output_nodes.FileOutput,
+                           outputs_controls.FileOutputControls),
+        NodeControlClasses(output_nodes.TorchOutput,
+                           outputs_controls.TorchOutputControls)
     ]
 
 
@@ -76,10 +96,13 @@ class BaseControls(MyGroupParameter):
         super().__init__(name='Base controls', type='BaseControls')
         self._pipeline = pipeline
 
-        # TODO: Change names to delineate source_controls as defined here and source_controls - gui.node_controls.source
+        # TODO: Change names to delineate source_controls as defined here and
+        # source_controls - gui.node_controls.source
         source_controls = SourceControls(pipeline=pipeline, name='Source')
-        processors_controls = ProcessorsControls(nodes=pipeline._processors, name='Processors')
-        outputs_controls = OutputsControls(nodes=pipeline._outputs, name='Outputs')
+        processors_controls = ProcessorsControls(nodes=pipeline._processors,
+                                                 name='Processors')
+        outputs_controls = OutputsControls(nodes=pipeline._outputs,
+                                           name='Outputs')
 
         self.source_controls = self.addChild(source_controls)
         self.processors_controls = self.addChild(processors_controls)
@@ -87,16 +110,21 @@ class BaseControls(MyGroupParameter):
 
 
 class SourceControls(MyGroupParameter):
-    """Represents a drop-down list with the names of supported source types. Selecting a type creates controls for that
-    type below the drop-down.
+    """
+    Represents a drop-down list with the names of supported source types.
+    Selecting a type creates controls for that type below the drop-down.
+
     """
 
-    # Order is important. Entries with node subclasses must precede entries with the parent class
+    # Order is important.
+    # Entries with node subclasses must precede entries with the parent class
     SOURCE_OPTIONS = OrderedDict((
-        ('LSL stream', NodeControlClasses(source_nodes.LSLStreamSource,
-                                          source_controls.LSLStreamSourceControls)),
-        ('File data', NodeControlClasses(source_nodes.FileSource,
-                                                source_controls.FileSourceControls)),
+        ('LSL stream',
+         NodeControlClasses(source_nodes.LSLStreamSource,
+                            source_controls.LSLStreamSourceControls)),
+        ('File data',
+         NodeControlClasses(source_nodes.FileSource,
+                            source_controls.FileSourceControls)),
     ))
 
     SOURCE_TYPE_COMBO_NAME = 'Source type: '
@@ -107,9 +135,12 @@ class SourceControls(MyGroupParameter):
         self._pipeline = pipeline
         super().__init__(**kwargs)
 
-        labels = [self.SOURCE_TYPE_PLACEHOLDER] + [label for label in self.SOURCE_OPTIONS]
-        source_type_combo = parameterTypes.ListParameter(name=self.SOURCE_TYPE_COMBO_NAME,
-                                                         values=labels, value=labels[0])
+        labels = ([self.SOURCE_TYPE_PLACEHOLDER] +
+                  [label for label in self.SOURCE_OPTIONS])
+
+        source_type_combo = parameterTypes.ListParameter(
+            name=self.SOURCE_TYPE_COMBO_NAME, values=labels, value=labels[0])
+
         source_type_combo.sigValueChanged.connect(self._on_source_type_changed)
         self.source_type_combo = self.addChild(source_type_combo)
 
@@ -127,11 +158,13 @@ class SourceControls(MyGroupParameter):
         if value != self.SOURCE_TYPE_PLACEHOLDER:
             # Update source controls
             source_classes = self.SOURCE_OPTIONS[value]
-            controls = source_classes.controls_class(pipeline=self._pipeline, name=self.SOURCE_CONTROLS_NAME)
+            controls = source_classes.controls_class(
+                pipeline=self._pipeline, name=self.SOURCE_CONTROLS_NAME)
             self.source_controls = self.addChild(controls)
 
             # Update source
-            if not isinstance(self._pipeline.source, source_classes.node_class):
+            if not isinstance(self._pipeline.source,
+                              source_classes.node_class):
                 self._pipeline.source = self.source_controls.create_node()
 
 

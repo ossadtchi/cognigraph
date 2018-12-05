@@ -1,3 +1,4 @@
+from PyQt5 import QtWidgets
 from pyqtgraph.parametertree import parameterTypes
 
 from ...nodes import outputs
@@ -18,7 +19,8 @@ class OutputNodeControls(MyGroupParameter):
         super().__init__(name=self.CONTROLS_LABEL, **kwargs)
 
         if output_node is None:
-            raise ValueError("Right now we can create controls only for an already existing node")
+            raise ValueError("Right now we can create controls"
+                             " only for an already existing node")
 
         self._output_node = output_node  # type: self.OUTPUT_CLASS
         self._create_parameters()
@@ -27,8 +29,8 @@ class OutputNodeControls(MyGroupParameter):
         raise NotImplementedError
 
 
-class ThreeDeeBrainControls(OutputNodeControls):
-    OUTPUT_CLASS = outputs.ThreeDeeBrain
+class BrainViewerControls(OutputNodeControls):
+    OUTPUT_CLASS = outputs.BrainViewer
     CONTROLS_LABEL = '3D visualization settings'
 
     TAKE_ABS_BOOL_NAME = 'Show absolute values: '
@@ -40,44 +42,54 @@ class ThreeDeeBrainControls(OutputNodeControls):
     THRESHOLD_SLIDER_NAME = 'Show activations exceeding '
 
     def _create_parameters(self):
-
-        take_abs_bool = parameterTypes.SimpleParameter(type='bool', name=self.TAKE_ABS_BOOL_NAME, value=True,
-                                                       readonly=True)
+        take_abs_bool = parameterTypes.SimpleParameter(
+            type='bool', name=self.TAKE_ABS_BOOL_NAME,
+            value=True, readonly=True)
         take_abs_bool.sigValueChanged.connect(self._on_take_abs_toggled)
         self.take_abs_bool = self.addChild(take_abs_bool)
 
         limits_modes = self.OUTPUT_CLASS.LIMITS_MODES
-        limits_mode_values = [limits_modes.LOCAL, limits_modes.GLOBAL, limits_modes.MANUAL]
+        limits_mode_values = [limits_modes.LOCAL,
+                              limits_modes.GLOBAL, limits_modes.MANUAL]
         limits_mode_value = self._output_node.limits_mode
-        limits_mode_combo = parameterTypes.ListParameter(name=self.LIMITS_MODE_COMBO_NAME,
-                                                         values=limits_mode_values, value=limits_mode_value)
+        limits_mode_combo = parameterTypes.ListParameter(
+            name=self.LIMITS_MODE_COMBO_NAME, values=limits_mode_values,
+            value=limits_mode_value)
         limits_mode_combo.sigValueChanged.connect(self._on_limits_mode_changed)
         self.limits_mode_combo = self.addChild(limits_mode_combo)
 
-        lock_limits_bool = parameterTypes.SimpleParameter(type='bool', name=self.LOCK_LIMITS_BOOL_NAME, value=False)
+        lock_limits_bool = parameterTypes.SimpleParameter(
+            type='bool', name=self.LOCK_LIMITS_BOOL_NAME, value=False)
         lock_limits_bool.sigValueChanged.connect(self._on_lock_limits_toggled)
         self.lock_limits_bool = self.addChild(lock_limits_bool)
 
         buffer_length_value = self._output_node.buffer_length
-        buffer_length_slider = SliderParameter(name=self.BUFFER_LENGTH_SLIDER_NAME, limits=(0.1, 10),
-                                               value=buffer_length_value, prec=3, suffix=' s')
-        buffer_length_slider.sigValueChanged.connect(self._on_buffer_length_changed)
+        buffer_length_slider = SliderParameter(
+            name=self.BUFFER_LENGTH_SLIDER_NAME, limits=(0.1, 10),
+            value=buffer_length_value, prec=3, suffix=' s')
+        buffer_length_slider.sigValueChanged.connect(
+            self._on_buffer_length_changed)
         self.buffer_length_slider = self.addChild(buffer_length_slider)
 
         lower_limit_value = self._output_node.colormap_limits.lower
         upper_limit_value = self._output_node.colormap_limits.upper
-        lower_limit_spinbox = parameterTypes.SimpleParameter(type='float', name=self.LOWER_LIMIT_SPIN_BOX_NAME,
-                                                             decimals=3, limits=(None, upper_limit_value))
-        upper_limit_spinbox = parameterTypes.SimpleParameter(type='float', name=self.UPPER_LIMIT_SPIN_BOX_NAME,
-                                                             decimals=3, limits=(lower_limit_value, None))
-        lower_limit_spinbox.sigValueChanged.connect(self._on_lower_limit_changed)
-        upper_limit_spinbox.sigValueChanged.connect(self._on_upper_limit_changed)
-        self.lower_limit_spinbox = self.addChild(lower_limit_spinbox)  # type: parameterTypes.SimpleParameter
-        self.upper_limit_spinbox = self.addChild(upper_limit_spinbox)  # type: parameterTypes.SimpleParameter
+        lower_limit_spinbox = parameterTypes.SimpleParameter(
+            type='float', name=self.LOWER_LIMIT_SPIN_BOX_NAME,
+            decimals=3, limits=(None, upper_limit_value))
+        upper_limit_spinbox = parameterTypes.SimpleParameter(
+            type='float', name=self.UPPER_LIMIT_SPIN_BOX_NAME,
+            decimals=3, limits=(lower_limit_value, None))
+        lower_limit_spinbox.sigValueChanged.connect(
+            self._on_lower_limit_changed)
+        upper_limit_spinbox.sigValueChanged.connect(
+            self._on_upper_limit_changed)
+        self.lower_limit_spinbox = self.addChild(lower_limit_spinbox)
+        self.upper_limit_spinbox = self.addChild(upper_limit_spinbox)
 
         threshold_value = self._output_node.threshold_pct
-        threshold_slider = SliderParameter(name=self.THRESHOLD_SLIDER_NAME, limits=(0, 99), value=threshold_value,
-                                           prec=0, suffix='%')
+        threshold_slider = SliderParameter(
+            name=self.THRESHOLD_SLIDER_NAME, limits=(0, 99),
+            value=threshold_value, prec=0, suffix='%')
         threshold_slider.sigValueChanged.connect(self._on_threshold_changed)
         self.threshold_slider = self.addChild(threshold_slider)
 
@@ -154,10 +166,10 @@ class LSLStreamOutputControls(OutputNodeControls):
     STREAM_NAME_STR_NAME = 'Output stream name: '
 
     def _create_parameters(self):
-
         stream_name = self._output_node.stream_name
-        stream_name_str = parameterTypes.SimpleParameter(type='str', name=self.STREAM_NAME_STR_NAME, value=stream_name,
-                                                         editable=False)
+        stream_name_str = parameterTypes.SimpleParameter(
+            type='str', name=self.STREAM_NAME_STR_NAME,
+            value=stream_name, editable=False)
         stream_name_str.sigValueChanged.connect(self._on_stream_name_changed)
         self.stream_name_str = self.addChild(stream_name_str)
 
@@ -169,7 +181,7 @@ class LSLStreamOutputControls(OutputNodeControls):
         self._output_node.stream_name = value
 
 
-# slot template
+    # slot template
     '''
     def _on__changed(self, param, value):
         # Changes to these setting
@@ -186,6 +198,24 @@ class SignalViewerControls(OutputNodeControls):
 
     def _create_parameters(self):
         pass
+
+class AtlasViewerControls(OutputNodeControls):
+    OUTPUT_CLASS = outputs.AtlasViewer
+    CONTROLS_LABEL = 'Atlas Viewer'
+
+    def _create_parameters(self):
+        for i, label in enumerate(self._output_node.label_states):
+            val = parameterTypes.SimpleParameter(
+                type='bool',
+                name=label['label_name'] + ' --> ' + str(label['label_id']),
+                value=label['state'])
+            val.sigValueChanged.connect(
+                lambda s, ss, ii=i, v=val: self._on_label_state_changed(ii, v))
+            self.addChild(val)
+
+    def _on_label_state_changed(self, i, val):
+        self._output_node.label_states[i]['state'] = val.value()
+        self._output_node.label_states = self._output_node.label_states
 
 
 class FileOutputControls(OutputNodeControls):

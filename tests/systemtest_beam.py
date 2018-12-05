@@ -4,29 +4,39 @@ import sys
 import os.path as op
 
 import os
-os.environ['PYQTGRAPH_QT_LIB'] = 'PyQt5'
-from pyqtgraph import QtCore, QtGui
-import pyqtgraph
+os.environ['PYQTGRAPH_QT_LIB'] = 'PyQt5'  # noqa
+from PyQt5 import QtCore, QtWidgets
+# import pyqtgraph
 
-pyqtgraph.setConfigOption('useOpenGL', True)
+# pyqtgraph.setConfigOption('useOpenGL', True)  # noqa
 
-from cognigraph.helpers.brainvision import read_fif_data
+# from cognigraph.helpers.brainvision import read_fif_data
 from cognigraph.pipeline import Pipeline
 from cognigraph.nodes import sources, processors, outputs
-from cognigraph import TIME_AXIS
+# from cognigraph import TIME_AXIS
 from cognigraph.gui.window import GUIWindow
 import logging
+import mne
+mne.set_log_level('WARNING')
 
-app = QtGui.QApplication(sys.argv)
+app = QtWidgets.QApplication(sys.argv)
 
+logging.basicConfig(level=logging.INFO,
+                    format='%(asctime)s:%(name)-17s:%(levelname)s:%(message)s')
+
+logger = logging.getLogger(__name__)
 pipeline = Pipeline()
 
-cur_dir =  '/home/dmalt/Code/python/cogni_submodules'
+cur_dir = '/home/dmalt/Code/python/cogni_submodules'
 test_data_path = cur_dir + '/tests/data/'
 print(test_data_path)
-sim_data_fname = 'raw_sim.fif'
+sim_data_fname = 'raw_sim_nobads.fif'
+# sim_data_fname = 'DF_2018-03-02_11-34-38.edf'
 # sim_data_fname = 'Koleno.fif'
 fwd_fname = 'dmalt_custom_mr-fwd.fif'
+# fwd_fname = 'sample_1005-eeg-ico-4-fwd.fif'
+# fwd_fname = 'sample_1005-eeg-oct-6-fwd.fif'
+# fwd_fname = 'DF_2018-03-02_11-34-38-fwd.fif'
 
 surf_dir = '/home/dmalt/mne_data/MNE-sample-data/subjects/sample/surf'
 
@@ -34,7 +44,8 @@ fwd_path = op.join(test_data_path, fwd_fname)
 sim_data_path = op.join(test_data_path, sim_data_fname)
 
 source = sources.FileSource(file_path=sim_data_path)
-source.MAX_SAMPLES_IN_CHUNK = 10000
+# source = sources.LSLStreamSource(stream_name='Mitsar')
+source.MAX_SAMPLES_IN_CHUNK = 100
 source.loop_the_file = True
 pipeline.source = source
 
@@ -48,26 +59,30 @@ pipeline.add_processor(linear_filter)
 beamformer = processors.Beamformer(forward_model_path=fwd_path,
                                    is_adaptive=True, output_type='activation',
                                    forgetting_factor_per_second=0.95)
+# inverse_model = processors.InverseModel(
+#         method='MNE', snr=1.0,
+#         forward_model_path=fwd_path)
 pipeline.add_processor(beamformer)
+# pipeline.add_processor(inverse_model)
 
 
 envelope_extractor = processors.EnvelopeExtractor(0.995)
 pipeline.add_processor(envelope_extractor)
 
 # Outputs
-global_mode = outputs.ThreeDeeBrain.LIMITS_MODES.GLOBAL
-three_dee_brain = outputs.ThreeDeeBrain(
+global_mode = outputs.BrainViewer.LIMITS_MODES.GLOBAL
+three_dee_brain = outputs.BrainViewer(
         limits_mode=global_mode, buffer_length=10, surfaces_dir=surf_dir)
 pipeline.add_output(three_dee_brain)
 # pipeline.add_output(outputs.LSLStreamOutput())
 # pipeline.initialize_all_nodes()
-file_output = outputs.FileOutput()
-torch_output = outputs.TorchOutput()
+# file_output = outputs.FileOutput()
+# torch_output = outputs.TorchOutput()
 
 signal_viewer = outputs.SignalViewer()
 pipeline.add_output(signal_viewer, input_node=linear_filter)
-pipeline.add_output(file_output, input_node=beamformer)
-pipeline.add_output(torch_output, input_node=source)
+# pipeline.add_output(file_output, input_node=beamformer)
+# pipeline.add_output(torch_output, input_node=source)
 
 window = GUIWindow(pipeline=pipeline)
 window.init_ui()
@@ -101,89 +116,103 @@ window.initialize()
 # with source.not_triggering_reset():
 #     source.data, _ = read_fif_data(sim_data_path, time_axis=TIME_AXIS, start_s=start_s, stop_s=stop_s)
 
-def run():
-    logging.debug('Start iteration')
-    pipeline.update_all_nodes()
-    logging.debug('End iteration')
+# def run():
+#     logging.debug('Start iteration')
+#     pipeline.update_all_nodes()
+#     logging.debug('End iteration')
     # pass
     # print(pipeline.source._samples_already_read / 500)
 
-class AsyncUpdater(QtCore.QRunnable):
+class Communicate(QtCore.QObject):
+    sync_signal = QtCore.pyqtSignal()
+
+
+class AsyncUpdater(QtCore.QThread):
     _stop_flag = False
-    
+
     def __init__(self):
         super(AsyncUpdater, self).__init__()
-        self.setAutoDelete(False)
+        self.sender = Communicate()
+        self.sender.sync_signal.connect(
+            self.process_events_on_main_thread,
+            type=QtCore.Qt.BlockingQueuedConnection)
+        # self.setAutoDelete(False)
+
+    def process_events_on_main_thread(self):
+        app.processEvents()
 
     def run(self):
         self._stop_flag = False
-        
-        while self._stop_flag == False:
+        logger.info('Start pipeline')
+
+        is_first_iter = True
+        while True:
             start = time.time()
             pipeline.update_all_nodes()
             end = time.time()
-            
+            if is_first_iter:
+                time.sleep(0.05)
+                is_first_iter = False
+
+            self.sender.sync_signal.emit()
             # Force sleep to update at 10Hz
-            if end - start < 0.1:
-                time.sleep(0.1 - (end - start))
-        
+            # if end - start < 0.05:
+            #     time.sleep(0.05 - (end - start))
+            # QtWidgets.QApplication.processEvents()
+            if self._stop_flag is True:
+                QtWidgets.QApplication.processEvents()
+                break
+
     def stop(self):
+        logger.info('Stop pipeline')
         self._stop_flag = True
 
-pool = QtCore.QThreadPool.globalInstance()
-updater = AsyncUpdater()
+
+# pool = QtCore.QThreadPool.globalInstance()
+pool = AsyncUpdater()
+# updater = AsyncUpdater()
 is_paused = True
+
 
 def toggle_updater():
     global pool
     global updater
     global is_paused
-    
-    if is_paused == True:
+
+    if is_paused:
         is_paused = False
-        pool.start(updater)
+        # pool.start(updater)
+        pool.start()
     else:
         is_paused = True
-        updater.stop()
-        pool.waitForDone()
-        
-window.run_button.clicked.connect(toggle_updater)
+        pool.stop()
+        # pool.waitForDone()
 
-# Убираем предупреждения numpy, иначе в iPython некрасиво как-то Ж)
-import numpy as np
-np.warnings.filterwarnings('ignore')
+
+def on_main_window_close():
+    global pipeline
+    global window
+    global app
+    logger.info('Exiting ...')
+    pool.stop()
+    pool.wait(100)
+    app.processEvents()
+    pool.quit()
+    try:
+        logger.info('Deleting main window ...')
+        window.deleteLater()
+    except RuntimeError:
+        logger.info('Window has already been deleted')
+    # del pipeline
+    # pool.deleteLater()
+
+
+window.run_button.clicked.connect(toggle_updater)
+# window.destroyed.connect(on_main_window_close)
 
 # Show window and exit on close
 window.show()
-updater.stop()
-pool.waitForDone()
+# updater.stop()
+# pool.waitForDone()
+app.aboutToQuit.connect(on_main_window_close)
 sys.exit(app.exec_())
-
-# timer = QtCore.QTimer()
-# timer.timeout.connect(run)
-# frequency = pipeline.frequency
-# output_frequency = 1000
-# # timer.setInterval(1000. / frequency * 10)
-# # timer.setInterval(1000. / output_frequency)
-# timer.setInterval(0)
-
-# source.loop_the_file = True
-# # source.MAX_SAMPLES_IN_CHUNK = int(frequency / output_frequency)
-# source.MAX_SAMPLES_IN_CHUNK = 10000
-# # source.MAX_SAMPLES_IN_CHUNK = 5
-# # envelope.disabled = True
-
-
-# if __name__ == '__main__':
-#     import sys
-
-#     timer.start()
-    # while True:
-    #     pipeline.update_all_nodes()
-    # timer.start()
-    # timer.stop()
-
-    # TODO: this runs when in iPython. It should not.
-    # Start Qt event loop unless running in interactive mode or using pyside.
-    # if (sys.flags.interactive != 1) or not hasattr(QtCore, 'PYQT_VERSION'):
-    #     sys.exit(QtGui.QApplication.instance().exec_())

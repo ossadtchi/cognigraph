@@ -609,7 +609,6 @@ class MCE(ProcessorNode):
         # pass
 
     def _initialize(self):
-        print('INITIALIZING MCE NODE ...')
         mne_info = self.traverse_back_and_find('mne_info')
         # mne_info['custom_ref_applied'] = True
         # -------- truncated svd for fwd_opr operator -------- #
@@ -621,7 +620,7 @@ class MCE(ProcessorNode):
 
         self._gain_matrix = fwd_fix['sol']['data']
 
-        print('MCE: COMPUTING SVD OF THE FORWARD OPERATOR')
+        self.logger.info('Computing SVD of the forward operator')
         U, S, V = svd(self._gain_matrix)
 
         Sn = np.zeros([self.n_comp, V.shape[0]])
@@ -649,19 +648,24 @@ class MCE(ProcessorNode):
         self.mne_inv = mne_make_inverse_operator(
                 mne_info, fwd_fix, noise_cov, depth=0.8,
                 loose=1, fixed=False, verbose='ERROR')
-        self.mne_info = mne_info
+        self._mne_info = mne_info
         self.Sn = Sn
         self.V = V
+        channel_count = fwd['nsource']
+        channel_labels = ['vertex #{}'.format(i + 1)
+                          for i in range(channel_count)]
+        self.mne_info = mne.create_info(channel_labels, mne_info['sfreq'])
 
     def _update(self):
         input_array = self.input_node.output
-        last_slice = last_sample(input_array)
+        # last_slice = last_sample(input_array)
+        last_slice = np.mean(input_array, axis=1)
         n_src = self.mne_inv['nsource']
         n_times = input_array.shape[1]
         output_mce = np.empty([n_src, n_times])
 
         raw_slice = mne.io.RawArray(np.expand_dims(last_slice, axis=1),
-                                    self.mne_info, verbose='ERROR')
+                                    self._mne_info, verbose='ERROR')
         raw_slice.pick_types(eeg=True, meg=False, stim=False, exclude='bads')
         raw_slice.set_eeg_reference(ref_channels='average', projection=True)
 
@@ -773,7 +777,7 @@ class ICARejection(ProcessorNode):
 
         elif not self._enough_collected:  # We just got enough samples
             self._enough_collected = True
-            print('COLLECTED ENOUGH SAMPLES')
+            self.logger.info('Collected enough samples')
             ica = ICADialog(
                 self._collected_timeseries.T,
                 list(np.array(self._mne_info['ch_names'])[self._good_ch_inds]),

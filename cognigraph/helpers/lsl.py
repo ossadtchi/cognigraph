@@ -5,6 +5,7 @@ import numpy as np
 from pylsl.pylsl import fmt2string, string2fmt
 
 from .. import TIME_AXIS
+import xml.etree.ElementTree as ET
 
 string2fmt['float64'] = string2fmt['double64']
 LSL_TIME_DIMENSION_ID = 0
@@ -65,16 +66,27 @@ convert_numpy_array_to_lsl_chunk.__doc__ = convert_lsl_chunk_to_numpy_array.__do
 
 
 def read_channel_labels_from_info(info: lsl.StreamInfo):
-    channels_tag = info.desc().child('channels')
-    if channels_tag.empty():
-        return None
-    else:
-        # TODO: this is hard to read. Write a generator for children with a given name in helpers
-        labels = list()
-        types = list()
-        single_channel_tag = channels_tag.child(name="channel")
-        for channel_id in range(info.channel_count()):
-            labels.append(single_channel_tag.child_value(name='label'))
-            types.append(single_channel_tag.child_value(name='type'))
-            single_channel_tag = single_channel_tag.next_sibling(name='channel')
-        return labels, types
+    info_xml = info.as_xml()
+    rt = ET.fromstring(info_xml)
+    channels_tree = rt.find('desc').findall("channel") or rt.find('desc').find("channels").findall(
+                                            "channel")
+    labels = [(ch.find('label') if ch.find('label') is not None else ch.find('name')).text
+                                                                        for ch in channels_tree]
+    # channels_tag = info.desc().child('channels')
+    # if channels_tag.empty():
+    #     return None
+    # else:
+    #     # TODO: this is hard to read. Write a generator for children with a given name in helpers
+    #     labels = list()
+    #     types = list()
+    #     single_channel_tag = channels_tag.child(name="channel")
+    #     for channel_id in range(info.channel_count()):
+    #         labels.append(single_channel_tag.child_value(name='label'))
+    #         types.append(single_channel_tag.child_value(name='type'))
+    #         single_channel_tag = single_channel_tag.next_sibling(name='channel')
+    #     return labels, types
+    types = []
+    for l in labels:
+        types.append('eeg')
+    labels = [l[:-3] for l in labels]
+    return labels, types
