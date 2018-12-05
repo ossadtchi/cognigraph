@@ -38,8 +38,8 @@ class LSLStreamSourceControls(SourceControls):
             value = self.source_node.stream_name
         except AttributeError:
             value = self.STREAM_NAME_PLACEHOLDER
-        stream_names_combo = parameterTypes.ListParameter(name=self.STREAM_NAMES_COMBO_NAME,
-                                                          values=values, value=value)
+        stream_names_combo = parameterTypes.ListParameter(
+            name=self.STREAM_NAMES_COMBO_NAME, values=values, value=value)
         stream_names_combo.sigValueChanged.connect(self._on_stream_name_picked)
         self.stream_names_combo = self.addChild(stream_names_combo)
 

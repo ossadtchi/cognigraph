@@ -22,7 +22,7 @@ class Pipeline(object):
     linear_filter = processors.LinearFilter(lower_cutoff=0.1, upper_cutoff=40)
     pipeline.add_processor(linear_filter)
     pipeline.add_processor(processors.InverseModel(method='MNE'))
-    pipeline.add_output(outputs.ThreeDeeBrain())
+    pipeline.add_output(outputs.BrainViewer())
     pipeline.initialize_all_nodes()
     """
 
@@ -70,15 +70,19 @@ class Pipeline(object):
 
     @accepts(object, OutputNode, (SourceNode, ProcessorNode))
     def add_output(self, output_node, input_node=None):
-        """If input_node is None, output_node will be kept connected to whatever node that is currently last"""
-        if output_node not in self._outputs:
-            self._outputs.append(output_node)
-            # If input_node is None we will need to reconnect output_node. So we keep track of those Nones.
-            self._inputs_of_outputs.append(input_node)
-            output_node.input_node = input_node or self._last_node_before_outputs()
-        else:
-            msg = "Trying to add a {} that has already been added".format(class_name_of(output_node))
-            raise ValueError(msg)
+        """
+        If input_node is None, output_node will be kept connected to
+        whatever node that is currently last
+
+        """
+        # if output_node not in self._outputs:
+        self._outputs.append(output_node)
+        # If input_node is None we will need to reconnect output_node. So we keep track of those Nones.
+        self._inputs_of_outputs.append(input_node)
+        output_node.input_node = input_node or self._last_node_before_outputs()
+        # else:
+        #     msg = "Trying to add a {} that has already been added".format(class_name_of(output_node))
+        #     raise ValueError(msg)
 
     def _last_node_before_outputs(self):
         try:
@@ -89,7 +93,6 @@ class Pipeline(object):
     def initialize_all_nodes(self):
         self.logger.info('Initialize')
         t1 = time.time()
-        t1 = time.time()
         for node in self.all_nodes:
             node.initialize()
         t2 = time.time()
@@ -97,14 +100,14 @@ class Pipeline(object):
                 'Finish initialization in {:.1f} ms'.format((t2 - t1) * 1000))
 
     def update_all_nodes(self):
-        self.logger.info('Start update ' + '>' * 6)
+        self.logger.debug('Start update ' + '>' * 6)
         t1 = time.time()
         for node in self.all_nodes:
             node.update()
             if node is self.source and node.output is not None and node.output.size > 0:
                 pass  # print(node.output.shape[TIME_AXIS])
         t2 = time.time()
-        self.logger.info('Finish in {:.1f} ms'.format((t2 - t1) * 1000))
+        self.logger.debug('Finish in {:.1f} ms'.format((t2 - t1) * 1000))
 
     def run(self):
         while self.source.is_alive:  # TODO: also stop if all outputs are dead

@@ -8,8 +8,9 @@ from mne.io.pick import channel_type
 from ..helpers.misc import class_name_of
 import logging
 
-logging.basicConfig(filename='cognigraph.log', level=logging.INFO,
-                    format='%(asctime)s:%(name)-17s:%(levelname)s:%(message)s')
+# logging.basicConfig(filename='cognigraph.log', level=logging.INFO,
+# logging.basicConfig(level=logging.INFO,
+#                     format='%(asctime)s:%(name)-17s:%(levelname)s:%(message)s')
 
 
 class Message(object):
@@ -127,8 +128,6 @@ class Node(object):
         self._receivers.pop(receiver_node, None)
 
     def initialize(self):
-        self.logger.info('Initialize')
-        t1 = time.time()
         if self._initialized is True and self._should_reinitialize is False:
             raise ValueError('Trying to initialize even though '
                              'there is no indication for it.')
@@ -142,7 +141,9 @@ class Node(object):
         }
 
         with self.not_triggering_reset():
-            print('Initializing the {} node'.format(class_name_of(self)))
+            t1 = time.time()
+            self.logger.info(
+                'Initializing the {} node'.format(class_name_of(self)))
             self._initialize()
             t2 = time.time()
             self.logger.info(
@@ -211,7 +212,7 @@ class Node(object):
             if self._input_history_is_no_longer_valid is True:
                 self.on_input_history_invalidation()
         t2 = time.time()
-        self.logger.info('Updated in {:.1f} ms'.format((t2 - t1) * 1000))
+        self.logger.debug('Updated in {:.1f} ms'.format((t2 - t1) * 1000))
 
     def _update(self):
         raise NotImplementedError('_update should be implemented')
@@ -222,8 +223,9 @@ class Node(object):
                 'Trying to reset even though there is no indication for it.')
 
         with self.not_triggering_reset():
-            print('Resetting the {} node '.format(class_name_of(self)) +
-                  'because of attribute changes')
+            self.logger.info(
+                'Resetting the {} node '.format(class_name_of(self)) +
+                'because of attribute changes')
             output_history_is_no_longer_valid = self._reset()
             self._should_reset = False
 
@@ -250,8 +252,9 @@ class Node(object):
                              'there is no indication for it.')
 
         with self.not_triggering_reset():
-            print('Resetting the {} node '.format(class_name_of(self)) +
-                  'because history is no longer valid')
+            self.logger.info(
+                'Resetting the {} node '.format(class_name_of(self)) +
+                'because history is no longer valid')
             self._on_input_history_invalidation()
             self._input_history_is_no_longer_valid = False
 

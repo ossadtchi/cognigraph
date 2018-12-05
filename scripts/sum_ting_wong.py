@@ -19,7 +19,7 @@ pipeline.source = source
 inverse = processors.InverseModel()
 pipeline.add_processor(inverse)
 
-three_dee = outputs.ThreeDeeBrain()
+three_dee = outputs.BrainViewer()
 pipeline.add_output(three_dee)
 
 pipeline.initialize_all_nodes()
@@ -87,7 +87,7 @@ assert(np.allclose(inverse.output, stc.data[:, 0][:, None]))
 
 ##############################################33
 
-three_dee = outputs.ThreeDeeBrain()
+three_dee = outputs.BrainViewer()
 pipeline.add_output(three_dee)
 three_dee.initialize()
 three_dee.update()

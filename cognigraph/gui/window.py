@@ -1,11 +1,14 @@
 from typing import List
-from PyQt5 import QtCore, QtGui, QtWidgets
+from PyQt5 import QtCore, QtWidgets
 from ..pipeline import Pipeline
 from .controls import Controls
 from .screen_recorder import ScreenRecorder
 
+import logging
+logger = logging.getLogger(name=__name__)
 
-class GUIWindow(QtGui.QMainWindow):
+
+class GUIWindow(QtWidgets.QMainWindow):
     def __init__(self, pipeline=Pipeline()):
         super().__init__()
         self._pipeline = pipeline  # type: Pipeline
@@ -13,18 +16,18 @@ class GUIWindow(QtGui.QMainWindow):
         self._controls_widget = self._controls.widget
 
         # Start button
-        self.run_button = QtGui.QPushButton("Start")
+        self.run_button = QtWidgets.QPushButton("Start")
         self.run_button.clicked.connect(self._toggle_run_button)
 
         # Record gif button and recorder
         self._gif_recorder = ScreenRecorder()
-        self.gif_button = QtGui.QPushButton("Record gif")
+        self.gif_button = QtWidgets.QPushButton("Record gif")
         self.gif_button.clicked.connect(self._toggle_gif_button)
 
         # Resize screen
         self.resize(QtCore.QSize(
-            QtGui.QDesktopWidget().availableGeometry().width() * 0.9,
-            QtGui.QDesktopWidget().availableGeometry().height() * 0.9))
+            QtWidgets.QDesktopWidget().availableGeometry().width() * 0.9,
+            QtWidgets.QDesktopWidget().availableGeometry().height() * 0.9))
 
     def init_ui(self):
         self._controls.initialize()
@@ -45,20 +48,24 @@ class GUIWindow(QtGui.QMainWindow):
         self._controls_widget.setMinimumWidth(400)
 
         # Add control portion to the main widget
-        controls_layout_wrapper = QtGui.QWidget()
+        controls_layout_wrapper = QtWidgets.QWidget()
         controls_layout_wrapper.setLayout(controls_layout)
         self.centralWidget().addWidget(controls_layout_wrapper)
 
     def initialize(self):
+        logger.debug('Initializing all nodes')
         self._pipeline.initialize_all_nodes()
         for node_widget in self._node_widgets:
-            node_widget.setMinimumWidth(600)
+            if node_widget:
+                # node_widget.setMinimumWidth(600)
 
-            # insert widget at before-the-end pos (just before controls widget)
-            self.centralWidget().insertWidget(self.centralWidget().count() - 1,
-                                              node_widget)
-            self.centralWidget().insertWidget(
-                self.centralWidget().count() - 1, node_widget)
+                # insert widget at before-the-end pos (just before controls widget)
+                self.centralWidget().insertWidget(self.centralWidget().count() - 1,
+                                                  node_widget)
+                self.centralWidget().insertWidget(
+                    self.centralWidget().count() - 1, node_widget)
+            else:
+                raise ValueError('Node widget is not defined')
 
     def moveEvent(self, event):
         self._reset_gif_sector()
@@ -82,7 +89,7 @@ class GUIWindow(QtGui.QMainWindow):
             self.gif_button.setText("Record gif")
 
             self._gif_recorder.stop()
-            save_path = QtGui.QFileDialog.getSaveFileName(
+            save_path = QtWidgets.QFileDialog.getSaveFileName(
                 caption="Save the recording", filter="Gif image (*.gif)")[0]
             self._gif_recorder.save(save_path)
         else:
@@ -91,7 +98,7 @@ class GUIWindow(QtGui.QMainWindow):
             self._gif_recorder.start()
 
     @property
-    def _node_widgets(self) -> List[QtGui.QWidget]:
+    def _node_widgets(self) -> List[QtWidgets.QWidget]:
         node_widgets = list()
         for node in self._pipeline.all_nodes:
             try:

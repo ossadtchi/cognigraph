@@ -21,13 +21,14 @@ app = QtGui.QApplication(sys.argv)
 
 pipeline = Pipeline()
 
-cur_dir =  '/home/dmalt/Code/python/cogni_submodules'
+cur_dir = '/home/dmalt/Code/python/cogni_submodules'
 test_data_path = cur_dir + '/tests/data/'
 print(test_data_path)
-sim_data_fname = 'raw_sim.fif'
-sim_data_fname = 'Koleno.fif'
+sim_data_fname = 'raw_sim_nobads.fif'
+# sim_data_fname = 'Koleno.fif'
 # fwd_fname = 'dmalt_custom_lr-fwd.fif'
 fwd_fname = 'dmalt_custom_mr-fwd.fif'
+# fwd_fname = 'sample_1005-eeg-oct-6-fwd.fif'
 
 surf_dir = '/home/dmalt/mne_data/MNE-sample-data/subjects/sample/surf'
 
@@ -55,8 +56,8 @@ envelope_extractor = processors.EnvelopeExtractor()
 # pipeline.add_processor(envelope_extractor)
 
 # Outputs
-global_mode = outputs.ThreeDeeBrain.LIMITS_MODES.GLOBAL
-three_dee_brain = outputs.ThreeDeeBrain(
+global_mode = outputs.BrainViewer.LIMITS_MODES.GLOBAL
+three_dee_brain = outputs.BrainViewer(
         limits_mode=global_mode, buffer_length=10, surfaces_dir=surf_dir)
 pipeline.add_output(three_dee_brain)
 # pipeline.add_output(outputs.LSLStreamOutput())
@@ -91,13 +92,13 @@ three_dee_brain_controls.threshold_slider.setValue(50)
 
 window.initialize()
 
-start_s, stop_s = 80, 100
-with source.not_triggering_reset():
-    source.data, _ = read_fif_data(sim_data_path, time_axis=TIME_AXIS, start_s=start_s, stop_s=stop_s)
+# start_s, stop_s = 80, 100
+# with source.not_triggering_reset():
+#     source.data, _ = read_fif_data(sim_data_path, time_axis=TIME_AXIS, start_s=start_s, stop_s=stop_s)
 
 class AsyncUpdater(QtCore.QRunnable):
     _stop_flag = False
-    
+
     def __init__(self):
         super(AsyncUpdater, self).__init__()
         self.setAutoDelete(False)
@@ -105,15 +106,15 @@ class AsyncUpdater(QtCore.QRunnable):
     def run(self):
         self._stop_flag = False
 
-        while self._stop_flag == False:
+        while not self._stop_flag:
             start = time.time()
             pipeline.update_all_nodes()
             end = time.time()
-            
+
             # Force sleep to update at 10Hz
             if end - start < 0.1:
                 time.sleep(0.1 - (end - start))
-        
+
     def stop(self):
         self._stop_flag = True
 
@@ -127,8 +128,8 @@ def toggle_updater():
     global pool
     global updater
     global is_paused
-    
-    if is_paused == True:
+
+    if is_paused:
         is_paused = False
         pool.start(updater)
     else:
