@@ -31,5 +31,7 @@ def get_mesh_data_from_surfaces_dir(surfaces_dir, translucent=False,
 
     mesh_data = BrainMesh(vertices=vertices, faces=faces)
     mesh_data.translucent = translucent
+    if translucent:
+        mesh_data.alpha = 0.2
 
     return mesh_data

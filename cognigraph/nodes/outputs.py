@@ -38,6 +38,11 @@ from vispy import scene
 import torch
 # import logging
 
+from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
+from matplotlib.figure import Figure
+
+
+
 
 class Communicate(QObject):
     init_widget_sig = pyqtSignal()
@@ -405,15 +410,13 @@ class TorchOutput(OutputNode):
     def _update(self):
         self.output = torch.from_numpy(self.input_node.output)
 
-from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
-from matplotlib.figure import Figure
 
 class ConnectivityViewer(WidgetOutput):
     """Plot connectivity matrix on circular graph"""
     CHANGES_IN_THESE_REQUIRE_RESET = ()
-    UPSTREAM_CHANGES_IN_THESE_REQUIRE_REINITIALIZATION = ()
+    UPSTREAM_CHANGES_IN_THESE_REQUIRE_REINITIALIZATION = ('mne_info',)
 
-    def __init__(self, n_lines=300):
+    def __init__(self, surfaces_dir, n_lines=30):
         super().__init__()
         self.mesh = None
         self.widget = None
@@ -421,14 +424,12 @@ class ConnectivityViewer(WidgetOutput):
         self.c_obj = None
         self.view = None
         self.n_lines = n_lines
-
-    def __init__(self):
-        super().__init__()
-        self.widget = None
+        self.surfaces_dir = surfaces_dir
 
     def _initialize(self):
         self.mne_info = self.traverse_back_and_find('mne_info')
-        self.mesh = get_mesh_data_from_surfaces_dir(self.surfaces_dir)
+        self.mesh = get_mesh_data_from_surfaces_dir(self.surfaces_dir,
+                                                    translucent=True)
         self.signal_sender.init_widget_sig.emit()
 
     def _update(self):
@@ -442,33 +443,38 @@ class ConnectivityViewer(WidgetOutput):
         # 2. Get corresponding vertices indices
         nodes_inds = np.unique(np.r_[ii, jj])
         labels = self.traverse_back_and_find('labels')
-        nodes_inds_surf = np.array([labels[i] for i in nodes_inds])
+        nodes_inds_surf = np.array([labels[i].mass_center for i in nodes_inds])
         # 3. Get nodes = xyz of these vertices
         nodes = self.mesh._vertices[nodes_inds_surf]
-        # 4. Edges are input data
-        edges = input_data
+        # 4. Edges are input data restricted to best n_lines nodes
+        edges = input_data[nodes_inds[:,None], nodes_inds]  # None needed
         # 5. Select = mask matrix with True in (i,j)-th positions
         select = np.zeros_like(input_data, dtype=bool)
         select[ii, jj] = True
-
+        select = select[nodes_inds[:, None], nodes_inds]
+        select += select.T
         nchan = self.mne_info['nchan']
         assert input_data.shape == (nchan, nchan), ('Number of channels doesnt'
                                                     ' conform to input data'
                                                     ' shape')
-        if self.s_obj:
-            self.s_obj.parent = None
-        if self.c_obj:
-            self.c_obj.parent = None
+        try:
+            self.s_obj._sources.visible = False
+        except Exception:
+            pass
+        try:
+            self.c_obj._connect.visible = False
+        except Exception:
+            pass
 
         self.s_obj = SourceObj(
-            'sources', nodes, color='olive', radius_min=15.)
+            'sources', nodes, color='#ab4642', radius_min=10.)
 
         self.c_obj = ConnectObj(
             'default', nodes, edges, select=select, line_width=2.,
             cmap='Spectral_r', color_by='strength')
 
-        self.view.add(self.s_obj.parent)
-        self.view.add(self.c_obj.parent)
+        self.view.add(self.s_obj._sources)
+        self.view.add(self.c_obj._connect)
 
     def _reset(self):
         ...

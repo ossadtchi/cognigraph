@@ -218,3 +218,12 @@ class TorchOutputControls(OutputNodeControls):
 
     def _create_parameters(self):
         pass
+
+
+class ConnectivityViewerControls(OutputNodeControls):
+    """Connectvity viewer controls"""
+    CONTROLS_LABEL = 'ConnectivityViewer controls'
+    PROCESSOR_CLASS = outputs.ConnectivityViewer
+
+    def _create_parameters(self):
+        ...

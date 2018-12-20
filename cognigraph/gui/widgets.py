@@ -104,15 +104,16 @@ class RoiSelectionDialog(QDialog):
         # reset colors to white
         self.mesh._alphas[:, :] = 0.
         self.mesh._alphas_buffer.set_data(self.mesh._alphas)
+        labels = self.table.labels
         labels_info = self.table.labels_info
         data_vec = np.zeros((len(self.mesh ),), dtype=np.float32)
         mask = np.zeros((len(self.mesh ),), dtype=bool)
         # colors = np.ones((len(data_vec), 3))
         # colors = np.ones((1,3))
-        colors = np.empty((0,3))
-        for label_info in labels_info:
-            data_vec[label_info['vertices']] = label_info['id']
-            mask[label_info['vertices']] = True
+        colors = np.empty((0, 3))
+        for label, label_info in zip(labels, labels_info):
+            data_vec[label.vertices] = label_info['id']
+            mask[label.vertices] = True
             colors = np.r_[colors, label_info['color'][:3].reshape([1,3])]
 
         kw = {}
@@ -127,9 +128,9 @@ class RoiSelectionDialog(QDialog):
         if np.any(mask):
             self.mesh.add_overlay(
                 data_vec[mask], vertices=np.where(mask)[0], to_overlay=1, **kw)
-        for label_info in labels_info:
-            if not label_info['state']:
-                self.mesh._alphas[label_info['vertices'], 1] = 0.3
+        for label in labels:
+            if not label.is_active:
+                self.mesh._alphas[label.vertices, 1] = 0.3
         self.mesh._alphas_buffer.set_data(self.mesh._alphas)
         # self.mesh._alphas[]
         self.mesh.update()

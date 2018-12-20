@@ -74,7 +74,9 @@ class ProcessorsControls(MultipleNodeControls):
         NodeControlClasses(processor_nodes.AtlasViewer,
                            processors_controls.AtlasViewerControls),
         NodeControlClasses(processor_nodes.AmplitudeEnvelopeCorrelations,
-                           processors_controls.AmplitudeEnvelopeCorrelationsControls)
+                           processors_controls.AmplitudeEnvelopeCorrelationsControls),
+        NodeControlClasses(processor_nodes.Coherence,
+                           processors_controls.CoherenceControls)
     ]
 
 
@@ -89,7 +91,9 @@ class OutputsControls(MultipleNodeControls):
         NodeControlClasses(output_nodes.FileOutput,
                            outputs_controls.FileOutputControls),
         NodeControlClasses(output_nodes.TorchOutput,
-                           outputs_controls.TorchOutputControls)
+                           outputs_controls.TorchOutputControls),
+        NodeControlClasses(output_nodes.ConnectivityViewer,
+                           outputs_controls.ConnectivityViewerControls)
     ]
 
 

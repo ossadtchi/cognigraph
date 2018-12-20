@@ -1,5 +1,6 @@
 import time
 import os
+import scipy as sc
 
 from typing import Tuple
 import math
@@ -811,7 +812,7 @@ class AtlasViewer(ProcessorNode):
     CHANGES_IN_THESE_REQUIRE_RESET = ('labels_info')
     UPSTREAM_CHANGES_IN_THESE_REQUIRE_REINITIALIZATION = ()
 
-    def __init__(self, subject, subjects_dir, parc='aparc.a2009s'):
+    def __init__(self, subject, subjects_dir, parc='aparc'):
         super().__init__()
         self.parc = parc
         self.subjects_dir = subjects_dir
@@ -974,11 +975,14 @@ class AmplitudeEnvelopeCorrelations(ProcessorNode):
 
     def _update(self):
         input_data = self.input_node.output
-        if self.SL_method:
-            input_data = self._orthogonalize(input_data)
+        # if self.SL_method:
+        #     input_data = self._orthogonalize(input_data)
 
-        envelopes = self._envelope_extractor.apply(np.abs(input_data))
-        self.output = np.corrcoef(envelopes)
+        self._envelopes = self._envelope_extractor.apply(np.abs(input_data))
+        if self.SL_method is None:
+            self.output = np.corrcoef(self._envelopes)
+        elif self.SL_method == 'temporal_orthogonalization':
+            self.output = self._orthogonalized_env_corr(input_data)
 
     def _reset(self):
         self._should_reinitialize = True
@@ -993,5 +997,49 @@ class AmplitudeEnvelopeCorrelations(ProcessorNode):
     def _check_value(self, key, value):
         pass
 
-    def _orthogonalize(self, input_data):
-        return input_data
+    def _orthogonalized_env_corr(self, data):
+        corrmat = np.empty([data.shape[0]] * 2)
+        envs = self._envelopes - self._envelopes.mean(axis=1)[:, np.newaxis]
+        # ddof=1 is for unbiased std estimator
+        envs = envs / envs.std(axis=1, ddof=1)[:, np.newaxis]
+        G = data.dot(data.T)  # Gramm matrix
+        for r in range(data.shape[0]):
+            data_orth_r = data - np.outer(G[:, r], data[r, :]) / G[r, r]
+            orth_envs = self._envelope_extractor.apply(np.abs(data_orth_r))
+            orth_envs -= orth_envs.mean(axis=1)[:, np.newaxis]
+            orth_envs /= orth_envs.std(axis=1, ddof=1)[:, np.newaxis]
+            corrmat[r, :] = envs[r, :].dot(orth_envs.T)
+        return (corrmat + corrmat.T) / 2
+
+
+class Coherence(ProcessorNode):
+    """Coherence and imaginary coherence computation for narrow-band signals"""
+    CHANGES_IN_THESE_REQUIRE_RESET = ()
+    UPSTREAM_CHANGES_IN_THESE_REQUIRE_REINITIALIZATION = ()
+
+    def __init__(self, method='imcoh'):
+        super().__init__()
+        self.method = method
+
+    def _initialize(self):
+        pass
+
+    def _update(self):
+        input_data = self.input_node.output
+        hilbert = sc.signal.hilbert(input_data, axis=1)
+        Cp = hilbert.dot(hilbert.conj().T)
+        D = np.sqrt(np.diag(Cp))
+        coh = Cp / np.outer(D, D)
+        if self.method == 'imcoh':
+            self.output = coh.imag
+        elif self.method == 'coh':
+            self.output = np.abs(coh)
+
+    def _reset(self):
+        pass
+
+    def _on_input_history_invalidation(self):
+        pass
+
+    def _check_value(self, key, value):
+        pass

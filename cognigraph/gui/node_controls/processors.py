@@ -408,3 +408,12 @@ class AmplitudeEnvelopeCorrelationsControls(ProcessorNodeControls):
 
     def _create_parameters(self):
         ...
+
+
+class CoherenceControls(ProcessorNodeControls):
+    """Coherence node controls"""
+    CONTROLS_LABEL = 'Coherence controls'
+    PROCESSOR_CLASS = processors.Coherence
+
+    def _create_parameters(self):
+        ...
