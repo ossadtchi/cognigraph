@@ -11,8 +11,8 @@ import vispy.visuals.transforms as vist
 
 # from ._projection import _project_sources_data
 # from .roi_obj import RoiObj
-from ..helpers.vispy_utils import (tal2mni, color2vb, normalize, vispy_array,
-                     wrap_properties, array2colormap)
+from ..helpers.vispy_utils import (color2vb, normalize, vispy_array,
+                                   wrap_properties, array2colormap)
 
 
 logger = logging.getLogger('visbrain')
@@ -138,7 +138,6 @@ class SourceObj():
             assert len(data) == len(self)
         self._data = vispy_array(data)
         # System :
-        pos = pos if system == 'mni' else tal2mni(pos)
         self._xyz = vispy_array(pos)
         # Color :
         self._color = color
@@ -802,148 +801,3 @@ class SourceObj():
         self._sources_text.update()
 
 
-class CombineSources(CombineObjects):
-    """Combine sources objects.
-
-    Parameters
-    ----------
-    sobjs : SourceObj/list | None
-        List of source objects.
-    select : string | None
-        The name of the source object to select.
-    parent : VisPy.parent | None
-        Markers object parent.
-    """
-
-    def __init__(self, sobjs=None, select=None, parent=None, **kwargs):
-        """Init."""
-        CombineObjects.__init__(self, SourceObj, sobjs, select, parent)
-
-    def project_sources(self, b_obj, project='modulation', radius=10.,
-                        contribute=False, cmap='viridis', clim=None, vmin=None,
-                        under='black', vmax=None, over='red',
-                        mask_color=None):
-        """Project source's activity or repartition onto the brain object."""
-        kw = self._update_cbar_args(cmap, clim, vmin, vmax, under, over)
-        self._default_cblabel = "Source's %s" % project
-        _project_sources_data(self, b_obj, project, radius, contribute,
-                              mask_color=mask_color, **kw)
-
-    def fit_to_vertices(self, v):
-        """See sources doc."""
-        for k in self:
-            k.fit_to_vertices(v)
-
-    def set_visible_sources(self, *args, **kwargs):
-        """See sources doc."""
-        for k in self:
-            k.set_visible_sources(*args, **kwargs)
-
-    def analyse_sources(self, *args, **kwargs):
-        """See sources doc."""
-        import pandas as pd
-        df = []
-        for k in self:
-            df.append(k.analyse_sources(*args, **kwargs))
-        return pd.concat(df, ignore_index=True)
-
-    # ----------- _XYZ -----------
-    @property
-    def _xyz(self):
-        """Get the _xyz value."""
-        _xyz = np.array([])
-        for k in self:
-            _xyz = np.r_[_xyz, k._xyz] if _xyz.size else k._xyz
-        return _xyz
-
-    # ----------- XYZ -----------
-    @property
-    def xyz(self):
-        """Get the xyz value."""
-        xyz = np.array([])
-        for k in self:
-            xyz = np.r_[xyz, k.xyz] if xyz.size else k.xyz
-        return xyz
-
-    # ----------- _DATA -----------
-    @property
-    def _data(self):
-        """Get the _data value."""
-        _data = np.array([])
-        for k in self:
-            _data = np.r_[_data, k._data] if _data.size else k._data
-        return _data
-
-    # ----------- DATA -----------
-    @property
-    def data(self):
-        """Get the data value."""
-        data = np.array([])
-        for k in self:
-            data = np.r_[data, k.data] if data.size else k.data
-        return data
-
-    # ----------- _TEXT -----------
-    @property
-    def _text(self):
-        """Get the _text value."""
-        _text = np.array([])
-        for k in self:
-            _text = np.r_[_text, k._text] if _text.size else k._text
-        return _text
-
-    # ----------- TEXT -----------
-    @property
-    def text(self):
-        """Get the text value."""
-        text = np.array([])
-        for k in self:
-            text = np.r_[text, k.text] if text.size else k.text
-        return text
-
-    # ----------- VISIBLE -----------
-    @property
-    def visible(self):
-        """Get the visible value."""
-        visible = np.array([])
-        for k in self:
-            visible = np.r_[visible, k.visible] if visible.size else k.visible
-        return visible
-
-    # ----------- MASK -----------
-    @property
-    def mask(self):
-        """Get the mask value."""
-        mask = np.array([])
-        for k in self:
-            mask = np.r_[mask, k.mask] if mask.size else k.mask
-        return mask
-
-    # ----------- IS_MASKED -----------
-    @property
-    def is_masked(self):
-        """Get the is_masked value."""
-        is_masked = []
-        for k in self:
-            is_masked.append(k.is_masked)
-        return any(is_masked)
-
-    # ----------- VISIBLE_AND_NOT_MASKED -----------
-    @property
-    def visible_and_not_masked(self):
-        """Get the visible_and_not_masked value."""
-        vnm = np.array([])
-        for k in self:
-            vnm_obj = k.visible_and_not_masked
-            vnm = np.r_[vnm, vnm_obj] if vnm.size else vnm_obj
-        return vnm
-
-# proj_doc = """v : array_like
-#             The vertices of shape (nv, 3) or (nv, 3, 3) if index faced.
-#         radius : float
-#             The radius under which activity is projected on vertices.
-#         contribute: bool | False
-#             Specify if sources contribute on both hemisphere."""
-# for k in ['project_modulation', 'project_repartition', 'get_masked_index']:
-#     st = 'SourceObj.%s.__doc__' % k
-#     exec('%s = %s.format(proj_doc)' % (st, st))
