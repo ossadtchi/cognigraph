@@ -9,10 +9,9 @@ from vispy import scene
 from vispy.scene import visuals
 import vispy.visuals.transforms as vist
 
-from .visbrain_obj import VisbrainObject, CombineObjects
-from ._projection import _project_sources_data
-from .roi_obj import RoiObj
-from ..utils import (tal2mni, color2vb, normalize, vispy_array,
+# from ._projection import _project_sources_data
+# from .roi_obj import RoiObj
+from ..helpers.vispy_utils import (tal2mni, color2vb, normalize, vispy_array,
                      wrap_properties, array2colormap)
 
 

@@ -1,4 +1,4 @@
-﻿"""Main launching script"""
+"""Main launching script"""
 
 import argparse
 import sys
@@ -153,7 +153,6 @@ class AsyncUpdater(QtCore.QThread):
             self.is_paused = True
             self.stop()
             self.wait(1000)
-
 
 def on_main_window_close():
     thread.stop()

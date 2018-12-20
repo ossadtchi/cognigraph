@@ -18,7 +18,6 @@ from ..helpers.misc import class_name_of
 
 import logging
 
-
 NodeControlClasses = namedtuple('NodeControlClasses',
                                 ['node_class', 'controls_class'])
 
@@ -29,7 +28,6 @@ class MultipleNodeControls(MyGroupParameter):
     Source is supported by a separate class.
 
     """
-
 
     @property
     def SUPPORTED_NODES(self):
@@ -42,7 +40,6 @@ class MultipleNodeControls(MyGroupParameter):
         for node in nodes:
             controls_class = self._find_controls_class_for_a_node(node)
             self.addChild(controls_class(node), autoIncrementName=True)
-
 
     @classmethod
     def _find_controls_class_for_a_node(cls, processor_node):

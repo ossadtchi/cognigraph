@@ -5,8 +5,7 @@ from collections import Counter
 from vispy import scene
 from vispy.scene import visuals
 
-from .visbrain_obj import VisbrainObject, CombineObjects
-from ..utils import array2colormap, normalize, color2vb, wrap_properties
+from ..helpers.vispy_utils import array2colormap, normalize, color2vb, wrap_properties
 
 
 class ConnectObj():
@@ -254,21 +253,3 @@ class ConnectObj():
         self._connect.color[:, -1] = value
         self._alpha = value
         self.update()
-
-
-class CombineConnect(CombineObjects):
-    """Combine connectivity objects.
-
-    Parameters
-    ----------
-    cobjs : ConnectObj/list | None
-        List of source objects.
-    select : string | None
-        The name of the connectivity object to select.
-    parent : VisPy.parent | None
-        Markers object parent.
-    """
-
-    def __init__(self, cobjs=None, select=None, parent=None):
-        """Init."""
-        CombineObjects.__init__(self, ConnectObj, cobjs, select, parent)

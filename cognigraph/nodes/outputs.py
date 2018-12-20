@@ -422,6 +422,10 @@ class ConnectivityViewer(WidgetOutput):
         self.view = None
         self.n_lines = n_lines
 
+    def __init__(self):
+        super().__init__()
+        self.widget = None
+
     def _initialize(self):
         self.mne_info = self.traverse_back_and_find('mne_info')
         self.mesh = get_mesh_data_from_surfaces_dir(self.surfaces_dir)
