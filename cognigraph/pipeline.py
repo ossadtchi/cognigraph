@@ -65,7 +65,8 @@ class Pipeline(object):
             self._processors.append(processor_node)
             self._reconnect_outputs_to_last_node()
         else:
-            msg = "Trying to add a {} that has already been added".format(class_name_of(processor_node))
+            msg = ("Trying to add a {} that has already"
+                   " been added".format(class_name_of(processor_node)))
             raise ValueError(msg)
 
     @accepts(object, OutputNode, (SourceNode, ProcessorNode))
@@ -77,7 +78,8 @@ class Pipeline(object):
         """
         # if output_node not in self._outputs:
         self._outputs.append(output_node)
-        # If input_node is None we will need to reconnect output_node. So we keep track of those Nones.
+        # If input_node is None we will need to reconnect output_node. So we
+        # keep track of those Nones.
         self._inputs_of_outputs.append(input_node)
         output_node.input_node = input_node or self._last_node_before_outputs()
         # else:

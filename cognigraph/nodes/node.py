@@ -174,7 +174,7 @@ class Node(object):
                 and self._input_history_is_no_longer_valid is False
                 and self._should_reset is False)
 
-    @ _no_pending_changes.setter
+    @_no_pending_changes.setter
     def _no_pending_changes(self, value):
         if value is True:
             self._should_reinitialize = False

@@ -14,8 +14,8 @@ Textures
 2D texture : overlays (limited to 4 overlays)
 
 """
-import numpy as np
 import logging
+import numpy as np
 
 from vispy import gloo
 from vispy.visuals import Visual

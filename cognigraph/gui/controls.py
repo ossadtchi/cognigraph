@@ -16,6 +16,8 @@ from .node_controls import (
 from ..helpers.pyqtgraph import MyGroupParameter
 from ..helpers.misc import class_name_of
 
+import logging
+
 
 NodeControlClasses = namedtuple('NodeControlClasses',
                                 ['node_class', 'controls_class'])
@@ -27,6 +29,7 @@ class MultipleNodeControls(MyGroupParameter):
     Source is supported by a separate class.
 
     """
+
 
     @property
     def SUPPORTED_NODES(self):
@@ -40,6 +43,7 @@ class MultipleNodeControls(MyGroupParameter):
             controls_class = self._find_controls_class_for_a_node(node)
             self.addChild(controls_class(node), autoIncrementName=True)
 
+
     @classmethod
     def _find_controls_class_for_a_node(cls, processor_node):
         for node_control_classes in cls.SUPPORTED_NODES:
@@ -50,8 +54,7 @@ class MultipleNodeControls(MyGroupParameter):
         msg = ("Node of class {0} is not supported by {1}.\n"
                "Add NodeControlClasses(node_class, controls_class) to"
                " {1}.SUPPORTED_NODES").format(
-                class_name_of(processor_node), cls.__name__
-            )
+                class_name_of(processor_node), cls.__name__)
         raise ValueError(msg)
 
 
@@ -70,7 +73,11 @@ class ProcessorsControls(MultipleNodeControls):
         NodeControlClasses(processor_nodes.MCE,
                            processors_controls.MCEControls),
         NodeControlClasses(processor_nodes.ICARejection,
-                           processors_controls.ICARejectionControls)
+                           processors_controls.ICARejectionControls),
+        NodeControlClasses(processor_nodes.AtlasViewer,
+                           processors_controls.AtlasViewerControls),
+        NodeControlClasses(processor_nodes.AmplitudeEnvelopeCorrelations,
+                           processors_controls.AmplitudeEnvelopeCorrelationsControls)
     ]
 
 
@@ -82,8 +89,6 @@ class OutputsControls(MultipleNodeControls):
                            outputs_controls.BrainViewerControls),
         NodeControlClasses(output_nodes.SignalViewer,
                            outputs_controls.SignalViewerControls),
-        NodeControlClasses(output_nodes.AtlasViewer,
-                           outputs_controls.AtlasViewerControls),
         NodeControlClasses(output_nodes.FileOutput,
                            outputs_controls.FileOutputControls),
         NodeControlClasses(output_nodes.TorchOutput,

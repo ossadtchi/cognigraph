@@ -71,17 +71,18 @@ def matrix_from_inverse_operator(
 
 
 def get_mesh_data_from_forward_solution(forward_solution):
+    """Get reduced source space for which the forward was computed"""
 
     left_hemi, right_hemi = forward_solution['src']
 
-    vertexes = np.r_[left_hemi['rr'], right_hemi['rr']]
+    vertices = np.r_[left_hemi['rr'], right_hemi['rr']]
     lh_vertex_cnt = left_hemi['rr'].shape[0]
     faces = np.r_[left_hemi['use_tris'],
                   lh_vertex_cnt + right_hemi['use_tris']]
     sources_idx = np.r_[left_hemi['vertno'],
                         lh_vertex_cnt + right_hemi['vertno']]
 
-    return sources_idx, vertexes, faces
+    return sources_idx, vertices, faces, lh_vertex_cnt
 
 
 def get_default_forward_file(mne_info: mne.Info):

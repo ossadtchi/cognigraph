@@ -25,10 +25,13 @@ from ..helpers.matrix_functions import last_sample, make_time_dimension_second
 from ..helpers.ring_buffer import RingBuffer
 from ..helpers.channels import read_channel_types, channel_labels_saver
 from ..helpers.inverse_model import get_mesh_data_from_forward_solution
+from ..helpers.brain_visualization import get_mesh_data_from_surfaces_dir
 from vendor.nfb.pynfb.widgets.signal_viewers import RawSignalViewer
 
 # visbrain visualization imports
-from ..gui.brain_visual import BrainMesh
+# from ..gui.brain_visual import BrainMesh
+from ..gui.connect_obj import ConnectObj
+from ..gui.source_obj import SourceObj
 from vispy import scene
 # from vispy.app import Canvas
 
@@ -46,10 +49,10 @@ class WidgetOutput(OutputNode):
     def __init__(self, *pargs, **kwargs):
         OutputNode.__init__(self, *pargs, **kwargs)
         self.signal_sender = Communicate()
-        self.signal_sender.init_widget_sig.connect(self.init_widget)
+        self.signal_sender.init_widget_sig.connect(self._init_widget)
         self.signal_sender.draw_sig.connect(self.on_draw)
 
-    def init_widget(self):
+    def _init_widget(self):
         if self.widget is not None:
             parent = self.widget.parent()
             ind = parent.indexOf(self.widget)
@@ -164,7 +167,7 @@ class BrainViewer(WidgetOutput):
 
         self.forward_solution = mne.read_forward_solution(
             mne_forward_model_file_path, verbose='ERROR')
-        self.mesh_data = self._get_mesh_data_from_surfaces_dir()
+        self.mesh_data = get_mesh_data_from_surfaces_dir(self.surfaces_dir)
         self.signal_sender.init_widget_sig.emit()
         self.smoothing_matrix = self._get_smoothing_matrix(
             mne_forward_model_file_path)
@@ -240,44 +243,16 @@ class BrainViewer(WidgetOutput):
             self.mesh_data.add_overlay(sources_smoothed[~mask],
                                        vertices=np.where(~mask)[0],
                                        to_overlay=1)
+
         self.mesh_data.update()
-        if self.logger.getEffectiveLevel() == 20:  # DEBUG level
+        if self.logger.getEffectiveLevel() == 20:  # INFO level
             self.canvas.measure_fps(
                 window=10,
                 callback=(lambda x:
                           self.logger.info('Updating at %1.1f FPS' % x)))
 
-    def _get_mesh_data_from_surfaces_dir(self, cortex_type='inflated'):
-        if self.surfaces_dir:
-            surf_paths = [os.path.join(self.surfaces_dir,
-                                       '{}.{}'.format(h, cortex_type))
-                          for h in ('lh', 'rh')]
-        else:
-            raise NameError('surfaces_dir is not set')
-        lh_mesh, rh_mesh = [nib.freesurfer.read_geometry(surf_path)
-                            for surf_path in surf_paths]
-        lh_vertexes, lh_faces = lh_mesh
-        rh_vertexes, rh_faces = rh_mesh
-
-        # Move all the vertices so that the lh has x (L-R) <= 0 and rh - >= 0
-        lh_vertexes[:, 0] -= np.max(lh_vertexes[:, 0])
-        rh_vertexes[:, 0] -= np.min(rh_vertexes[:, 0])
-
-        # Combine two meshes
-        vertices = np.r_[lh_vertexes, rh_vertexes]
-        lh_vertex_cnt = lh_vertexes.shape[0]
-        faces = np.r_[lh_faces, lh_vertex_cnt + rh_faces]
-
-        # Move the mesh so that the center of the brain is at (0, 0, 0) (kinda)
-        vertices[:, 1:2] -= np.mean(vertices[:, 1:2])
-
-        mesh_data = BrainMesh(vertices=vertices, faces=faces)
-
-        return mesh_data
-
-
     def _create_widget(self):
-        canvas = scene.SceneCanvas(keys='interactive', show=True)
+        canvas = scene.SceneCanvas(keys='interactive', show=False)
         self.canvas = canvas
 
         # Add a ViewBox to let the user zoom/rotate
@@ -318,122 +293,6 @@ class BrainViewer(WidgetOutput):
             smoothing_mat = smoothing_matrix(sources_idx, adj_mat)
             sparse.save_npz(smoothing_matrix_file_path, smoothing_mat)
             return smoothing_mat
-
-
-class AtlasViewer(OutputNode):
-    CHANGES_IN_THESE_REQUIRE_RESET = ('label_states')
-    UPSTREAM_CHANGES_IN_THESE_REQUIRE_REINITIALIZATION = ()
-
-    def __init__(self, surface_dir, annot_file='aparc.a2009s.annot'):
-        super().__init__()
-        self.annotation = None
-        self.annot_file = annot_file
-
-        # base, fname = os.path.split(self.annot_file)
-        self.annot_files = [
-            os.path.join(surface_dir, 'label', hemi + self.annot_file)
-            for hemi in ('lh.', 'rh.')]
-
-        self._read_annotation(self.annot_files)
-
-        n_labels = len(self.label_names)
-        self.label_states = []
-        for i_label in range(n_labels):
-            label_id = (i_label + 1
-                        if self.label_names[i_label] != 'Unknown' else -1)
-            label_dict = {'label_name': self.label_names[i_label],
-                          'label_id': label_id, 'state': False}
-            self.label_states.append(label_dict)
-
-    def _reset(self):
-        self.active_labels = [l for l in self.label_states if l['state']]
-        self.mne_info = mne.create_info(
-            ch_names=[str(a['label_id']) for a in self.active_labels],
-            sfreq=self.sfreq)
-
-
-    # def _create_widget(self):
-    #     ...
-
-    def _initialize(self):
-        mne_forward_model_file_path = self.traverse_back_and_find(
-            'mne_forward_model_file_path')
-        self.forward_solution = mne.read_forward_solution(
-            mne_forward_model_file_path, verbose='ERROR')
-        # Map sources for which we solve the inv problem to the dense
-        # cortex which we use for plotting
-        sources_idx, _, _ = get_mesh_data_from_forward_solution(
-            self.forward_solution)
-        # self.sources_idx, self.vetices = sources_idx, vertices
-        # print(sources_idx.shape)
-
-        # Assign labels to available sources
-        self.source_labels = np.array(
-            [self.vert_labels[i] for i in sources_idx])
-
-        self.active_labels = [l for l in self.label_states if l['state']]
-
-        self.sfreq = self.traverse_back_and_find('mne_info')['sfreq']
-        self.mne_info = mne.create_info(
-            ch_names=[str(a['label_id']) for a in self.active_labels],
-            sfreq=self.sfreq)
-
-    def _read_annotation(self, annot_files):
-        try:
-            # Merge numeric labels and label names from both hemispheres
-            annot_lh = nib.freesurfer.io.read_annot(filepath=annot_files[0])
-            annot_rh = nib.freesurfer.io.read_annot(filepath=annot_files[1])
-
-            # Get label for each vertex in dense source space
-            vert_labels_lh = annot_lh[0]
-            vert_labels_rh = annot_rh[0]
-
-            vert_labels_rh[vert_labels_rh > 0] += np.max(vert_labels_lh)
-
-            label_names_lh = annot_lh[2]
-            label_names_rh = annot_rh[2]
-
-            label_names_lh = np.array(
-                [ln.decode('utf-8') for ln in label_names_lh])
-            label_names_rh = np.array(
-                [ln.decode('utf-8') for ln in label_names_rh])
-
-            label_names_lh = np.array([ln + '_LH' if ln != 'Unknown'
-                                       else ln for ln in label_names_lh])
-            label_names_rh = np.array([ln + '_RH' for ln in label_names_rh
-                                       if ln != 'Unknown'])
-
-            self.label_names = np.r_[label_names_lh, label_names_rh]
-            self.logger.debug(
-                'Found the following labels in annotation: {}'
-                .format(self.label_names))
-            self.vert_labels = np.r_[vert_labels_lh, vert_labels_rh]
-        except FileNotFoundError:
-            self.logger.error(
-                'Annotation files not found: {}'.format(annot_files))
-            # Open file picker dialog here
-            ...
-
-    def _update(self):
-        data = self.input_node.output
-
-
-        n_times = data.shape[1]
-        n_active_labels = len(self.active_labels)
-
-        data_label = np.empty([n_active_labels, n_times])
-        for i_label, label in enumerate(self.active_labels):
-            # print(label)
-            # print(self.source_labels)
-            label_mask = self.source_labels == label['label_id']
-            # print(label_mask)
-            data_label[i_label, :] = np.mean(data[label_mask, :], axis=0)
-            # print(data_label)
-        self.output = data_label
-        self.logger.debug(data.shape)
-
-    def _check_value(self, key, value):
-        ...
 
 
 class SignalViewer(WidgetOutput):
@@ -545,3 +404,87 @@ class TorchOutput(OutputNode):
 
     def _update(self):
         self.output = torch.from_numpy(self.input_node.output)
+
+from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
+from matplotlib.figure import Figure
+
+class ConnectivityViewer(WidgetOutput):
+    """Plot connectivity matrix on circular graph"""
+    CHANGES_IN_THESE_REQUIRE_RESET = ()
+    UPSTREAM_CHANGES_IN_THESE_REQUIRE_REINITIALIZATION = ()
+
+    def __init__(self, n_lines=300):
+        super().__init__()
+        self.mesh = None
+        self.widget = None
+        self.s_obj = None
+        self.c_obj = None
+        self.view = None
+        self.n_lines = n_lines
+
+    def _initialize(self):
+        self.mne_info = self.traverse_back_and_find('mne_info')
+        self.mesh = get_mesh_data_from_surfaces_dir(self.surfaces_dir)
+        self.signal_sender.init_widget_sig.emit()
+
+    def _update(self):
+        input_data = np.abs(self.input_node.output)  # connectivity matrix
+        # 1. Get n_lines stronges connections indices (i, j)
+        # get only off-diagonal elements
+        l_triang = np.tril(input_data, k=-1)
+        nl = self.n_lines
+        ii, jj = np.unravel_index(
+             np.argpartition(-l_triang, nl, axis=None)[:nl], l_triang.shape)
+        # 2. Get corresponding vertices indices
+        nodes_inds = np.unique(np.r_[ii, jj])
+        labels = self.traverse_back_and_find('labels')
+        nodes_inds_surf = np.array([labels[i] for i in nodes_inds])
+        # 3. Get nodes = xyz of these vertices
+        nodes = self.mesh._vertices[nodes_inds_surf]
+        # 4. Edges are input data
+        edges = input_data
+        # 5. Select = mask matrix with True in (i,j)-th positions
+        select = np.zeros_like(input_data, dtype=bool)
+        select[ii, jj] = True
+
+        nchan = self.mne_info['nchan']
+        assert input_data.shape == (nchan, nchan), ('Number of channels doesnt'
+                                                    ' conform to input data'
+                                                    ' shape')
+        if self.s_obj:
+            self.s_obj.parent = None
+        if self.c_obj:
+            self.c_obj.parent = None
+
+        self.s_obj = SourceObj(
+            'sources', nodes, color='olive', radius_min=15.)
+
+        self.c_obj = ConnectObj(
+            'default', nodes, edges, select=select, line_width=2.,
+            cmap='Spectral_r', color_by='strength')
+
+        self.view.add(self.s_obj.parent)
+        self.view.add(self.c_obj.parent)
+
+    def _reset(self):
+        ...
+
+    def _on_input_history_invalidation(self):
+        ...
+
+    def _check_value(self, key, value):
+        ...
+
+    def _create_widget(self):
+        canvas = scene.SceneCanvas(keys='interactive', show=False)
+        self.canvas = canvas
+
+        # Add a ViewBox to let the user zoom/rotate
+        self.view = canvas.central_widget.add_view()
+        self.view.camera = 'turntable'
+        self.view.camera.fov = 50
+        self.view.camera.distance = 400
+        # Make light follow the camera
+        self.mesh.shared_program.frag['camtf'] = self.view.camera.transform
+        self.view.add(self.mesh)
+        return canvas.native

@@ -1,22 +1,24 @@
-﻿import argparse
+﻿"""Main launching script"""
+
+import argparse
 import sys
 import time
+import os.path as op
+import logging
 from PyQt5 import QtCore, QtWidgets
 import mne
-import os.path as op
+import numpy as np
 
 from cognigraph.pipeline import Pipeline
 from cognigraph.nodes import sources, processors, outputs
 from cognigraph.gui.window import GUIWindow
 
-import numpy as np
 np.warnings.filterwarnings('ignore')  # noqa
 
 # ----------------------------- setup logging  ----------------------------- #
-import logging
 logfile = None
 format = '%(asctime)s:%(name)-17s:%(levelname)s:%(message)s'
-logging.basicConfig(level=logging.INFO, filename=logfile, format=format)
+logging.basicConfig(level=logging.DEBUG, filename=logfile, format=format)
 logger = logging.getLogger(__name__)
 mne.set_log_level('INFO')
 mne.set_log_file(fname=logfile, output_format=format)
@@ -24,7 +26,7 @@ mne.set_log_file(fname=logfile, output_format=format)
 
 # ----------------------------- setup argparse ----------------------------- #
 parser = argparse.ArgumentParser()
-parser.add_argument('-d','--data', type=argparse.FileType('r'),
+parser.add_argument('-d', '--data', type=argparse.FileType('r'),
                     help='data path')
 parser.add_argument('-f', '--forward', type=argparse.FileType('r'),
                     help='forward model path')
@@ -33,7 +35,8 @@ args = parser.parse_args()
 
 sys.path.append('../vendor/nfb')  # For nfb submodule
 
-SURF_DIR = op.join(mne.datasets.sample.data_path(), 'subjects/sample/surf')
+SURF_DIR = op.join(mne.datasets.sample.data_path(), 'subjects')
+SUBJECT = 'sample'
 DATA_DIR = '/home/dmalt/Code/python/cogni_submodules/tests/data'
 FWD_MODEL_NAME = 'dmalt_custom_mr-fwd.fif'
 
@@ -76,11 +79,20 @@ def assemble_pipeline(file_path, inverse_method='mne'):
 
     # ------------------------------ outputs ------------------------------ #
     global_mode = outputs.BrainViewer.LIMITS_MODES.GLOBAL
+
     brain_viewer = outputs.BrainViewer(
-            limits_mode=global_mode, buffer_length=6, surfaces_dir=SURF_DIR)
-    pipeline.add_output(brain_viewer)
-    roi_average = outputs.AtlasViewer(op.split(SURF_DIR)[0])
-    pipeline.add_output(roi_average, input_node=brain_viewer)
+        limits_mode=global_mode, buffer_length=6,
+        surfaces_dir=op.join(SURF_DIR, SUBJECT))
+    pipeline.add_output(brain_viewer, input_node=envelope_extractor)
+
+    roi_average = processors.AtlasViewer(SUBJECT, SURF_DIR)
+    roi_average.input_node = inverse_model
+    pipeline.add_processor(roi_average)
+
+    aec = processors.AmplitudeEnvelopeCorrelations()
+    aec.input_node = roi_average
+    pipeline.add_processor(aec)
+
     # pipeline.add_output(outputs.LSLStreamOutput())
     signal_viewer = outputs.SignalViewer()
     signal_viewer_src = outputs.SignalViewer()
@@ -142,6 +154,7 @@ class AsyncUpdater(QtCore.QThread):
             self.stop()
             self.wait(1000)
 
+
 def on_main_window_close():
     thread.stop()
     thread.wait(100)
@@ -155,13 +168,12 @@ def on_main_window_close():
     # del pipeline
     # thread.deleteLater()
 
-
 if __name__ == '__main__':
     app = QtWidgets.QApplication(sys.argv)
 
     if not args.data:
         try:
-            file_tuple = QtWidgets.QFileDialo.getOpenFileName(
+            file_tuple = QtWidgets.QFileDialog.getOpenFileName(
                 caption="Select Data",
                 filter="Brainvision (*.eeg *.vhdr *.vmrk);;"
                        "MNE-python (*.fif);;"
@@ -191,7 +203,7 @@ if __name__ == '__main__':
         logger.info('Exiting ...')
 
     logger.debug('Assembling pipeline')
-    pipeline = assemble_pipeline(file_path, inverse_method='beamformer')
+    pipeline = assemble_pipeline(file_path, inverse_method='mne')
     logger.debug('Finished assembling pipeline')
     # Create window
     window = GUIWindow(pipeline=pipeline)

@@ -1,9 +1,11 @@
-from PyQt5 import QtWidgets
+# from PyQt5.QtWidgets import QDialog, QHBoxLayout, QDialogButtonBox
 from pyqtgraph.parametertree import parameterTypes
 
 from ...nodes import outputs
 from ...helpers.pyqtgraph import MyGroupParameter, SliderParameter
+from ..widgets import RoiSelectionDialog
 
+import logging
 
 class OutputNodeControls(MyGroupParameter):
 
@@ -24,6 +26,9 @@ class OutputNodeControls(MyGroupParameter):
 
         self._output_node = output_node  # type: self.OUTPUT_CLASS
         self._create_parameters()
+
+        self.logger = logging.getLogger(type(self).__name__)
+        self.logger.debug('Constructor called')
 
     def _create_parameters(self):
         raise NotImplementedError
@@ -198,24 +203,6 @@ class SignalViewerControls(OutputNodeControls):
 
     def _create_parameters(self):
         pass
-
-class AtlasViewerControls(OutputNodeControls):
-    OUTPUT_CLASS = outputs.AtlasViewer
-    CONTROLS_LABEL = 'Atlas Viewer'
-
-    def _create_parameters(self):
-        for i, label in enumerate(self._output_node.label_states):
-            val = parameterTypes.SimpleParameter(
-                type='bool',
-                name=label['label_name'] + ' --> ' + str(label['label_id']),
-                value=label['state'])
-            val.sigValueChanged.connect(
-                lambda s, ss, ii=i, v=val: self._on_label_state_changed(ii, v))
-            self.addChild(val)
-
-    def _on_label_state_changed(self, i, val):
-        self._output_node.label_states[i]['state'] = val.value()
-        self._output_node.label_states = self._output_node.label_states
 
 
 class FileOutputControls(OutputNodeControls):

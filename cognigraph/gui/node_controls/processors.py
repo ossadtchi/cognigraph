@@ -1,8 +1,11 @@
+import os.path as op
 from PyQt5 import QtGui
 from ...nodes.node import ProcessorNode
 from ...nodes import processors
 from ...helpers.pyqtgraph import MyGroupParameter, parameterTypes
 from ...helpers.misc import class_name_of
+from ..widgets import RoiSelectionDialog
+import logging
 
 
 class ProcessorNodeControls(MyGroupParameter):
@@ -27,6 +30,9 @@ class ProcessorNodeControls(MyGroupParameter):
         self._processor_node = processor_node  # type: self.PROCESSOR_CLASS
         self._create_parameters()
         self._add_disable_parameter()
+
+        self.logger = logging.getLogger(type(self).__name__)
+        self.logger.debug('Constructor called')
 
     def _create_parameters(self):
         raise NotImplementedError
@@ -292,8 +298,6 @@ class MCEControls(ProcessorNodeControls):
     CONTROLS_LABEL = 'MCE Inverse modelling'
     PROCESSOR_CLASS = processors.MCE
 
-    METHODS_COMBO_NAME = 'Method: '
-
     FILE_PATH_STR_NAME = 'Path to forward solution: '
     def _create_parameters(self):
         # method_values = self.PROCESSOR_CLASS.SUPPORTED_METHODS
@@ -361,3 +365,46 @@ class ICARejectionControls(ProcessorNodeControls):
     def _on_method_changed(self, param, value):
         # self._processor_node.method = value
         pass
+
+
+class AtlasViewerControls(ProcessorNodeControls):
+    OUTPUT_CLASS = processors.AtlasViewer
+    CONTROLS_LABEL = 'Atlas Viewer'
+
+    def _create_parameters(self):
+        # for i, label in enumerate(self._processor_node.labels_info):
+        #     val = parameterTypes.SimpleParameter(
+        #         type='bool',
+        #         name=label['name'] + ' --> ' + str(label['label_id']),
+        #         value=label['state'])
+        #     val.sigValueChanged.connect(
+        #         lambda s, ss, ii=i, v=val: self._on_label_state_changed(ii, v))
+        #     self.addChild(val)
+        roi_selection_button = parameterTypes.ActionParameter(
+            type='action', name='Select ROI')
+        roi_selection_button.sigActivated.connect(self._choose_roi)
+        self.roi_selection_button = self.addChild(roi_selection_button)
+
+    def _choose_roi(self):
+        # print(self._nodes)
+        dialog = RoiSelectionDialog(self._processor_node.labels_info,
+                                    self._processor_node.labels,
+                                    op.join(self._processor_node.subjects_dir,
+                                            self._processor_node.subject))
+        if dialog.exec_():
+            self._processor_node.labels_info = dialog.table.labels_info
+            print('Ok')
+        self.logger.debug('ROI selection button was clicked')
+
+    def _on_label_state_changed(self, i, val):
+        self._processor_node.labels_info[i]['state'] = val.value()
+        self._processor_node.labels_info = self._processor_node.labels_info
+
+
+class AmplitudeEnvelopeCorrelationsControls(ProcessorNodeControls):
+    """Controls class for AEC node"""
+    CONTROLS_LABEL = 'AmplitudeEnvelopeCorrelations controls'
+    PROCESSOR_CLASS = processors.AmplitudeEnvelopeCorrelations
+
+    def _create_parameters(self):
+        ...
