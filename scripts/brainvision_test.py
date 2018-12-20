@@ -15,7 +15,7 @@ pipeline.source = sources.FileSource(file_path=file_path)
 # pipeline.add_processor(linear_filter)
 # pipeline.add_processor(processors.InverseModel(method='MNE'))
 # pipeline.add_processor(processors.EnvelopeExtractor())
-# pipeline.add_output(outputs.ThreeDeeBrain())
+# pipeline.add_output(outputs.BrainViewer())
 # pipeline.add_output(outputs.LSLStreamOutput())
 # pipeline.initialize_all_nodes()
 

@@ -1,4 +1,6 @@
 import time
+import os
+import scipy as sc
 
 from typing import Tuple
 import math
@@ -16,6 +18,7 @@ from mne.minimum_norm import make_inverse_operator as mne_make_inverse_operator
 from mne.beamformer import apply_lcmv_raw
 from ..helpers.make_lcmv import make_lcmv
 
+import nibabel as nib
 from .node import ProcessorNode
 from ..helpers.matrix_functions import (make_time_dimension_second,
                                         put_time_dimension_back_from_second,
@@ -23,7 +26,8 @@ from ..helpers.matrix_functions import (make_time_dimension_second,
 from ..helpers.inverse_model import (get_default_forward_file,
                                      get_clean_forward,
                                      make_inverse_operator,
-                                     matrix_from_inverse_operator)
+                                     matrix_from_inverse_operator,
+                                     get_mesh_data_from_forward_solution)
 
 from ..helpers.pynfb import (pynfb_ndarray_function_wrapper,
                              ExponentialMatrixSmoother)
@@ -247,11 +251,11 @@ class LinearFilter(ProcessorNode):
             self._linear_filter = None
 
     def _update(self):
-        input = self.input_node.output
+        input_data = self.input_node.output
         if self._linear_filter is not None:
-            self.output = self._linear_filter.apply(input)
+            self.output = self._linear_filter.apply(input_data)
         else:
-            self.output = input
+            self.output = input_data
 
     def _check_value(self, key, value):
         if value is None:
@@ -301,8 +305,8 @@ class EnvelopeExtractor(ProcessorNode):
             self._envelope_extractor.apply)
 
     def _update(self):
-        input = self.input_node.output
-        self.output = self._envelope_extractor.apply(np.abs(input))
+        input_data = self.input_node.output
+        self.output = self._envelope_extractor.apply(np.abs(input_data))
 
     def _check_value(self, key, value):
         if key == 'factor':
@@ -594,9 +598,6 @@ def pynfb_filter_based_processor_class(pynfb_filter_class):
 
 
 class MCE(ProcessorNode):
-    input = []
-    output = []
-
     UPSTREAM_CHANGES_IN_THESE_REQUIRE_REINITIALIZATION = ()
     CHANGES_IN_THESE_REQUIRE_RESET = ('mne_forward_model_file_path', 'snr')
 
@@ -606,10 +607,11 @@ class MCE(ProcessorNode):
         self.mne_forward_model_file_path = forward_model_path
         self.n_comp = n_comp
         self.mne_info = None
+        self.input_data = []
+        self.output = []
         # pass
 
     def _initialize(self):
-        print('INITIALIZING MCE NODE ...')
         mne_info = self.traverse_back_and_find('mne_info')
         # mne_info['custom_ref_applied'] = True
         # -------- truncated svd for fwd_opr operator -------- #
@@ -621,7 +623,7 @@ class MCE(ProcessorNode):
 
         self._gain_matrix = fwd_fix['sol']['data']
 
-        print('MCE: COMPUTING SVD OF THE FORWARD OPERATOR')
+        self.logger.info('Computing SVD of the forward operator')
         U, S, V = svd(self._gain_matrix)
 
         Sn = np.zeros([self.n_comp, V.shape[0]])
@@ -649,19 +651,24 @@ class MCE(ProcessorNode):
         self.mne_inv = mne_make_inverse_operator(
                 mne_info, fwd_fix, noise_cov, depth=0.8,
                 loose=1, fixed=False, verbose='ERROR')
-        self.mne_info = mne_info
+        self._mne_info = mne_info
         self.Sn = Sn
         self.V = V
+        channel_count = fwd['nsource']
+        channel_labels = ['vertex #{}'.format(i + 1)
+                          for i in range(channel_count)]
+        self.mne_info = mne.create_info(channel_labels, mne_info['sfreq'])
 
     def _update(self):
         input_array = self.input_node.output
-        last_slice = last_sample(input_array)
+        # last_slice = last_sample(input_array)
+        last_slice = np.mean(input_array, axis=1)
         n_src = self.mne_inv['nsource']
         n_times = input_array.shape[1]
         output_mce = np.empty([n_src, n_times])
 
         raw_slice = mne.io.RawArray(np.expand_dims(last_slice, axis=1),
-                                    self.mne_info, verbose='ERROR')
+                                    self._mne_info, verbose='ERROR')
         raw_slice.pick_types(eeg=True, meg=False, stim=False, exclude='bads')
         raw_slice.set_eeg_reference(ref_channels='average', projection=True)
 
@@ -773,7 +780,7 @@ class ICARejection(ProcessorNode):
 
         elif not self._enough_collected:  # We just got enough samples
             self._enough_collected = True
-            print('COLLECTED ENOUGH SAMPLES')
+            self.logger.info('Collected enough samples')
             ica = ICADialog(
                 self._collected_timeseries.T,
                 list(np.array(self._mne_info['ch_names'])[self._good_ch_inds]),
@@ -799,3 +806,240 @@ class ICARejection(ProcessorNode):
 
     UPSTREAM_CHANGES_IN_THESE_REQUIRE_REINITIALIZATION = ('mne_info', )
     SAVERS_FOR_UPSTREAM_MUTABLE_OBJECTS = {'mne_info': channel_labels_saver}
+
+
+class AtlasViewer(ProcessorNode):
+    CHANGES_IN_THESE_REQUIRE_RESET = ('labels_info')
+    UPSTREAM_CHANGES_IN_THESE_REQUIRE_REINITIALIZATION = ()
+
+    def __init__(self, subject, subjects_dir, parc='aparc'):
+        super().__init__()
+        self.parc = parc
+        self.subjects_dir = subjects_dir
+        self.subject = subject
+        self.active_labels = []
+
+        # base, fname = os.path.split(self.annot_file)
+        # self.annot_files = [
+        #     os.path.join(surfaces_dir, 'label', hemi + self.annot_file)
+        #     for hemi in ('lh.', 'rh.')]
+
+
+    def _reset(self):
+        self.active_labels = [l for l in self.labels if l.is_active]
+        self.mne_info = {'ch_names': [a.name for a in self.active_labels],
+                         'nchan': len(self.active_labels),
+                         'sfreq': self.sfreq}
+
+    def _on_input_history_invalidation(self):
+        pass
+
+    def _initialize(self):
+        # Map sources for which we solve the inv problem to the dense
+        # cortex which we use for plotting
+        # rh_offset = number of vertices in left hemisphere; used for
+        # indexing the right hemisphere sources when both hemispheres
+        # are stored together intead of being split in lh and rh
+        # as in freesurfer
+
+        # Assign labels to available sources
+        # self.source_labels = np.array(
+        #     [self.vert_labels[i] for i in sources_idx])
+        self._read_annotation()
+
+        self.active_labels = [l for l in self.labels if l.is_active]
+
+        self.sfreq = self.traverse_back_and_find('mne_info')['sfreq']
+        # self.mne_info = mne.create_info(
+        #     ch_names=[a.name for a in self.active_labels], sfreq=self.sfreq)
+        self.mne_info = {'ch_names': [a.name for a in self.active_labels],
+                         'nchan': len(self.active_labels),
+                         'sfreq': self.sfreq}
+
+    def _read_annotation(self):
+        mne_forward_model_file_path = self.traverse_back_and_find(
+            'mne_forward_model_file_path')
+        forward_solution = mne.read_forward_solution(
+            mne_forward_model_file_path, verbose='ERROR')
+        sources_idx, _, _, rh_offset = get_mesh_data_from_forward_solution(
+            forward_solution)
+        try:
+            labels = mne.read_labels_from_annot(
+                self.subject, parc=self.parc, surf_name='white',
+                subjects_dir=self.subjects_dir)
+
+            for i, l in enumerate(labels):
+                labels[i].mass_center = labels[i].center_of_mass(
+                    subject=self.subject, subjects_dir=self.subjects_dir)
+                if l.hemi == 'rh':
+                    labels[i].vertices += rh_offset
+                    labels[i].mass_center += rh_offset
+                labels[i].forward_vertices = np.where(
+                    np.isin(sources_idx, labels[i].vertices))[0]
+                labels[i].is_active = True
+
+            self.labels = labels
+
+
+            # Merge numeric labels and label names from both hemispheres
+            # annot_lh = nib.freesurfer.io.read_annot(filepath=annot_files[0])
+            # annot_rh = nib.freesurfer.io.read_annot(filepath=annot_files[1])
+
+            # Get label_id for each vertex in dense source space
+            # vert_labels_lh = annot_lh[0]
+            # vert_labels_rh = annot_rh[0]
+
+            # vert_labels_rh[vert_labels_rh > 0] += np.max(vert_labels_lh)
+
+            # label_names_lh = annot_lh[2]
+            # label_names_rh = annot_rh[2]
+
+            # label_names_lh = np.array(
+            #     [ln.decode('utf-8') for ln in label_names_lh])
+            # label_names_rh = np.array(
+            #     [ln.decode('utf-8') for ln in label_names_rh])
+
+            # label_names_lh = np.array([ln + '_LH' if ln != 'Unknown'
+            #                            else ln for ln in label_names_lh])
+            # label_names_rh = np.array([ln + '_RH' for ln in label_names_rh
+            #                            if ln != 'Unknown'])
+
+            # label_colors_lh = annot_lh[1][:, :3] / 255
+            # label_colors_rh = annot_rh[1][:, :3] / 255
+
+            # label_colors = np.r_[label_colors_lh, label_colors_rh]
+            label_colors = np.array([l.color for l in labels])
+
+            # label_names = np.r_[label_names_lh, label_names_rh]
+            label_names = np.array([l.name for l in labels])
+            self.logger.debug(
+                'Found the following labels in annotation: {}'
+                .format(label_names))
+            # self.vert_labels = np.r_[vert_labels_lh, vert_labels_rh]
+
+            self.labels_info = []
+            for i_label, label_name in enumerate(label_names):
+                label_id = (i_label
+                            if label_names[i_label] != 'Unknown' else -1)
+                label_dict = {
+                    'name': label_names[i_label],
+                    'id': label_id,
+                    'state': True,
+                    'color': label_colors[i_label, :],
+                    'vertices': labels[i_label].vertices}
+
+                self.labels_info.append(label_dict)
+
+        except FileNotFoundError:
+            self.logger.error(
+                'Annotation files not found: {}'.format(annot_files))
+            # Open file picker dialog here
+            ...
+
+    def _update(self):
+        data = self.input_node.output
+
+        n_times = data.shape[1]
+        n_active_labels = len(self.active_labels)
+
+        data_label = np.zeros([n_active_labels, n_times])
+        for i, l in enumerate(self.active_labels):
+            # Average inverse solution inside label
+            # label_mask = self.source_labels == label['id']
+            data_label[i, :] = np.mean(data[l.forward_vertices, :], axis=0)
+        self.output = data_label
+        self.logger.debug(data.shape)
+
+    def _check_value(self, key, value):
+        ...
+
+
+class AmplitudeEnvelopeCorrelations(ProcessorNode):
+    """Node computing amplitude envelopes correlation"""
+    CHANGES_IN_THESE_REQUIRE_RESET = ()
+    UPSTREAM_CHANGES_IN_THESE_REQUIRE_REINITIALIZATION = ('mne_info', )
+
+    def __init__(self, SL_method=None, factor=0.9):
+        super().__init__()
+        self.SL_method = SL_method
+        self._envelope_extractor = None
+        self.factor = factor
+
+    def _initialize(self):
+        channel_count = self.traverse_back_and_find('mne_info')['nchan']
+        self.logger.debug('Channel count: %d' % channel_count)
+        self._envelope_extractor = ExponentialMatrixSmoother(
+            factor=self.factor, column_count=channel_count)
+        self._envelope_extractor.apply = pynfb_ndarray_function_wrapper(
+            self._envelope_extractor.apply)
+
+    def _update(self):
+        input_data = self.input_node.output
+        # if self.SL_method:
+        #     input_data = self._orthogonalize(input_data)
+
+        self._envelopes = self._envelope_extractor.apply(np.abs(input_data))
+        if self.SL_method is None:
+            self.output = np.corrcoef(self._envelopes)
+        elif self.SL_method == 'temporal_orthogonalization':
+            self.output = self._orthogonalized_env_corr(input_data)
+
+    def _reset(self):
+        self._should_reinitialize = True
+        self.initialize()
+        output_history_is_no_longer_valid = True
+        return output_history_is_no_longer_valid
+
+    def _on_input_history_invalidation(self):
+        # self._reset()
+        pass
+
+    def _check_value(self, key, value):
+        pass
+
+    def _orthogonalized_env_corr(self, data):
+        corrmat = np.empty([data.shape[0]] * 2)
+        envs = self._envelopes - self._envelopes.mean(axis=1)[:, np.newaxis]
+        # ddof=1 is for unbiased std estimator
+        envs = envs / envs.std(axis=1, ddof=1)[:, np.newaxis]
+        G = data.dot(data.T)  # Gramm matrix
+        for r in range(data.shape[0]):
+            data_orth_r = data - np.outer(G[:, r], data[r, :]) / G[r, r]
+            orth_envs = self._envelope_extractor.apply(np.abs(data_orth_r))
+            orth_envs -= orth_envs.mean(axis=1)[:, np.newaxis]
+            orth_envs /= orth_envs.std(axis=1, ddof=1)[:, np.newaxis]
+            corrmat[r, :] = envs[r, :].dot(orth_envs.T)
+        return (corrmat + corrmat.T) / 2
+
+
+class Coherence(ProcessorNode):
+    """Coherence and imaginary coherence computation for narrow-band signals"""
+    CHANGES_IN_THESE_REQUIRE_RESET = ()
+    UPSTREAM_CHANGES_IN_THESE_REQUIRE_REINITIALIZATION = ()
+
+    def __init__(self, method='imcoh'):
+        super().__init__()
+        self.method = method
+
+    def _initialize(self):
+        pass
+
+    def _update(self):
+        input_data = self.input_node.output
+        hilbert = sc.signal.hilbert(input_data, axis=1)
+        Cp = hilbert.dot(hilbert.conj().T)
+        D = np.sqrt(np.diag(Cp))
+        coh = Cp / np.outer(D, D)
+        if self.method == 'imcoh':
+            self.output = coh.imag
+        elif self.method == 'coh':
+            self.output = np.abs(coh)
+
+    def _reset(self):
+        pass
+
+    def _on_input_history_invalidation(self):
+        pass
+
+    def _check_value(self, key, value):
+        pass

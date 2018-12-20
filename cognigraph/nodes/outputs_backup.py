@@ -3,8 +3,8 @@ import time
 from types import SimpleNamespace
 
 import tables
-from PyQt5.QtCore import pyqtSignal, QObject,  QThread
-from PyQt5.QtWidgets import QSizePolicy, QApplication
+from PyQt5.QtCore import pyqtSignal, QObject
+from PyQt5.QtWidgets import QSizePolicy
 
 import mne
 import nibabel as nib
@@ -24,40 +24,18 @@ from ..helpers.lsl import (convert_numpy_format_to_lsl,
 from ..helpers.matrix_functions import last_sample, make_time_dimension_second
 from ..helpers.ring_buffer import RingBuffer
 from ..helpers.channels import read_channel_types, channel_labels_saver
-from ..helpers.inverse_model import get_mesh_data_from_forward_solution
-from ..helpers.brain_visualization import get_mesh_data_from_surfaces_dir
 from vendor.nfb.pynfb.widgets.signal_viewers import RawSignalViewer
 
 # visbrain visualization imports
-# from ..gui.brain_visual import BrainMesh
-from ..gui.connect_obj import ConnectObj
-from ..gui.source_obj import SourceObj
+from ..gui.brain_visual import BrainMesh
 from vispy import scene
 # from vispy.app import Canvas
 
 import torch
-# import logging
-
-from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
-from matplotlib.figure import Figure
-
-
-
-
-class Communicate(QObject):
-    init_widget_sig = pyqtSignal()
-    draw_sig = pyqtSignal('PyQt_PyObject')
 
 
 class WidgetOutput(OutputNode):
-    """Abstract class for widget initialization logic with qt signals"""
-    def __init__(self, *pargs, **kwargs):
-        OutputNode.__init__(self, *pargs, **kwargs)
-        self.signal_sender = Communicate()
-        self.signal_sender.init_widget_sig.connect(self._init_widget)
-        self.signal_sender.draw_sig.connect(self.on_draw)
-
-    def _init_widget(self):
+    def init_widget(self):
         if self.widget is not None:
             parent = self.widget.parent()
             ind = parent.indexOf(self.widget)
@@ -71,11 +49,8 @@ class WidgetOutput(OutputNode):
             self.widget = self._create_widget()
             self.widget.setMinimumWidth(50)
 
-    def _create_widget(self):
-        raise NotImplementedError
-
-    def on_draw(self):
-        raise NotImplementedError
+        def _create_widget(self):
+            raise NotImplementedError
 
 
 class LSLStreamOutput(OutputNode):
@@ -133,7 +108,7 @@ class LSLStreamOutput(OutputNode):
         self._outlet.push_chunk(lsl_chunk)
 
 
-class BrainViewer(WidgetOutput):
+class BrainViewer(OutputNode):
 
     CHANGES_IN_THESE_REQUIRE_RESET = ('buffer_length', 'take_abs', )
     UPSTREAM_CHANGES_IN_THESE_REQUIRE_REINITIALIZATION = (
@@ -145,7 +120,7 @@ class BrainViewer(WidgetOutput):
                                    MANUAL='Manual')
 
     def __init__(self, take_abs=True, limits_mode=LIMITS_MODES.LOCAL,
-                 buffer_length=1, threshold_pct=50, surfaces_dir=None):
+                 buffer_length=1, threshold_pct=50, **brain_painter_kwargs):
         super().__init__()
 
         self.limits_mode = limits_mode
@@ -155,27 +130,30 @@ class BrainViewer(WidgetOutput):
         self.colormap_limits = SimpleNamespace(lower=None, upper=None)
         self._threshold_pct = threshold_pct
 
-        self._limits_buffer = None
-        self.surfaces_dir = surfaces_dir
-        self.mesh_data = None
-        self.smoothing_matrix = None
-        self.widget = None
-        self.output = None
+        self._limits_buffer = None  # type: RingBuffer
+        self._brain_painter = BrainPainter(threshold_pct=threshold_pct,
+                                           **brain_painter_kwargs)
 
     def _initialize(self):
         mne_forward_model_file_path = self.traverse_back_and_find(
             'mne_forward_model_file_path')
+        self._brain_painter.initialize(mne_forward_model_file_path)
+
+        self.background_colors = self._calculate_background_colors(
+            self.show_curvature)
+        self.sender.reinit.emit()
+        # if self.widget is None:
+        #     self.mesh_data = self._get_mesh_data_from_surfaces_dir()
+        #     self.widget = self._create_widget()
+        self.smoothing_matrix = self._get_smoothing_matrix(
+            mne_forward_model_file_path)
+        # else:  # Do not recreate the widget, just clear it
+        #     for item in self.widget.items:
+        #         self.widget.removeItem(item)
 
         frequency = self.traverse_back_and_find('mne_info')['sfreq']
         buffer_sample_count = np.int(self.buffer_length * frequency)
         self._limits_buffer = RingBuffer(row_cnt=2, maxlen=buffer_sample_count)
-
-        self.forward_solution = mne.read_forward_solution(
-            mne_forward_model_file_path, verbose='ERROR')
-        self.mesh_data = get_mesh_data_from_surfaces_dir(self.surfaces_dir)
-        self.signal_sender.init_widget_sig.emit()
-        self.smoothing_matrix = self._get_smoothing_matrix(
-            mne_forward_model_file_path)
 
     def _on_input_history_invalidation(self):
         self._should_reset = True
@@ -194,15 +172,19 @@ class BrainViewer(WidgetOutput):
     @threshold_pct.setter
     def threshold_pct(self, value):
         self._threshold_pct = value
+        self._brain_painter.threshold_pct = value
 
+    counter = 0
     def _update(self):
+        self.counter += 1
+        if self.counter == 50:
+            self._should_reinitialize = True
         sources = self.input_node.output
-        self.output = sources
         if self.take_abs:
             sources = np.abs(sources)
         self._update_colormap_limits(sources)
         normalized_sources = self._normalize_sources(last_sample(sources))
-        self.signal_sender.draw_sig.emit(normalized_sources)
+        self._brain_painter.draw(normalized_sources)
 
     def _update_colormap_limits(self, sources):
         self._limits_buffer.extend(np.array([
@@ -229,14 +211,93 @@ class BrainViewer(WidgetOutput):
         else:
             return (last_sources - minimum) / (maximum - minimum)
 
+    @property
+    def widget(self):
+        if self._brain_painter.widget is not None:
+            return self._brain_painter.widget
+        else:
+            raise AttributeError('{} does not have widget yet.' +
+                                 'Probably has not been initialized')
+
+
+class BrainPainter():
+    # draw_sig = pyqtSignal('PyQt_PyObject')
+    time_since_draw = time.time()
+
+    def __init__(self, threshold_pct=50,
+                 brain_colormap: matplotlib_Colormap = cm.Greys,
+                 data_colormap: matplotlib_Colormap = cm.Reds,
+                 show_curvature=True, surfaces_dir=None):
+        """
+        This is the last step.
+        Object of this class draws any data on the cortex mesh given to it.
+        No changes, except for thresholding, are made.
+
+        :param threshold_pct:
+        Only values exceeding this percentage threshold will be shown
+        :param show_curvature:
+        If True, concave areas will be shown in darker grey,
+        convex - in lighter
+        :param surfaces_dir:
+        Path to the Fressurfer surf directory.
+        If None, mne's sample's surfaces will be used.
+        """
+        # super().__init__()
+
+        self.threshold_pct = threshold_pct
+        self.show_curvature = show_curvature
+
+        self.brain_colormap = brain_colormap
+        self.data_colormap = data_colormap
+
+        self.surfaces_dir = surfaces_dir
+        self.mesh_data = None
+        self.smoothing_matrix = None
+        self.widget = None
+
+        self.background_colors = None
+        self.mesh_item = None
+
+        self.sender = Communicate()
+        self.sender.draw_sig.connect(self.on_draw)
+        self.sender.reinit.connect(self.init_widget)
+
+    def initialize(self, mne_forward_model_file_path):
+
+        self.background_colors = self._calculate_background_colors(
+            self.show_curvature)
+        self.sender.reinit.emit()
+        # if self.widget is None:
+        #     self.mesh_data = self._get_mesh_data_from_surfaces_dir()
+        #     self.widget = self._create_widget()
+        self.smoothing_matrix = self._get_smoothing_matrix(
+            mne_forward_model_file_path)
+        # else:  # Do not recreate the widget, just clear it
+        #     for item in self.widget.items:
+        #         self.widget.removeItem(item)
+
+    def init_widget(self):
+        if self.widget is not None:
+            parent = self.widget.parent()
+            ind = parent.children().index(self.widget)
+            cur_width = self.widget.size().width()
+            cur_height = self.widget.size().height()
+            self.widget.deleteLater()
+            self.widget = None
+            self.mesh_data = self._get_mesh_data_from_surfaces_dir()
+            self.widget = self._create_widget()
+            self.widget.resize(cur_width, cur_height)
+            parent.insertWidget(ind, self.widget)
+            self.widget.resize(cur_width, cur_height)
+        else:
+            self.mesh_data = self._get_mesh_data_from_surfaces_dir()
+            self.widget = self._create_widget()
+            self.widget.setMinimumWidth(50)
+
 
     def on_draw(self, normalized_values):
-        QApplication.processEvents()
-        if self.smoothing_matrix is not None:
-            sources_smoothed = self.smoothing_matrix.dot(normalized_values)
-        else:
-            self.logger.debug('Draw without smoothing')
-            sources_smoothed = normalized_values
+
+        sources_smoothed = self.smoothing_matrix.dot(normalized_values)
         threshold = self.threshold_pct / 100
         mask = sources_smoothed <= threshold
 
@@ -248,17 +309,55 @@ class BrainViewer(WidgetOutput):
             self.mesh_data.add_overlay(sources_smoothed[~mask],
                                        vertices=np.where(~mask)[0],
                                        to_overlay=1)
-
         self.mesh_data.update()
-        if self.logger.getEffectiveLevel() == 20:  # INFO level
-            self.canvas.measure_fps(
-                window=10,
-                callback=(lambda x:
-                          self.logger.info('Updating at %1.1f FPS' % x)))
+
+    def draw(self, normalized_values):
+        self.sender.draw_sig.emit(normalized_values)
+
+    def _get_mesh_data_from_surfaces_dir(self, cortex_type='inflated'):
+        if self.surfaces_dir:
+            surf_paths = [os.path.join(self.surfaces_dir,
+                                       '{}.{}'.format(h, cortex_type))
+                          for h in ('lh', 'rh')]
+        else:
+            raise NameError('surfaces_dir is not set')
+        lh_mesh, rh_mesh = [nib.freesurfer.read_geometry(surf_path) for surf_path in surf_paths]
+        lh_vertexes, lh_faces = lh_mesh
+        rh_vertexes, rh_faces = rh_mesh
+
+        # Move all the vertices so that the lh has x (L-R) <= 0 and rh - >= 0
+        lh_vertexes[:, 0] -= np.max(lh_vertexes[:, 0])
+        rh_vertexes[:, 0] -= np.min(rh_vertexes[:, 0])
+
+        # Combine two meshes
+        vertices = np.r_[lh_vertexes, rh_vertexes]
+        lh_vertex_cnt = lh_vertexes.shape[0]
+        faces = np.r_[lh_faces, lh_vertex_cnt + rh_faces]
+
+        # Move the mesh so that the center of the brain is at (0, 0, 0) (kinda)
+        vertices[:, 1:2] -= np.mean(vertices[:, 1:2])
+
+        mesh_data = BrainMesh(vertices=vertices, faces=faces)
+
+        return mesh_data
+
+    def _get_mesh_data_from_forward_solution(self, forward_solution_file_path):
+        forward_solution = mne.read_forward_solution(
+            forward_solution_file_path, verbose='ERROR')
+
+        left_hemi, right_hemi = forward_solution['src']
+
+        vertexes = np.r_[left_hemi['rr'], right_hemi['rr']]
+        lh_vertex_cnt = left_hemi['rr'].shape[0]
+        faces = np.r_[left_hemi['use_tris'],
+                      lh_vertex_cnt + right_hemi['use_tris']]
+        sources_idx = np.r_[left_hemi['vertno'],
+                            lh_vertex_cnt + right_hemi['vertno']]
+
+        return sources_idx, vertexes, faces
 
     def _create_widget(self):
-        canvas = scene.SceneCanvas(keys='interactive', show=False)
-        self.canvas = canvas
+        canvas = scene.SceneCanvas(keys='interactive', show=True)
 
         # Add a ViewBox to let the user zoom/rotate
         view = canvas.central_widget.add_view()
@@ -269,6 +368,42 @@ class BrainViewer(WidgetOutput):
         self.mesh_data.shared_program.frag['camtf'] = view.camera.transform
         view.add(self.mesh_data)
         return canvas.native
+
+
+    def _calculate_background_colors(self, show_curvature):
+        if show_curvature:
+            curvature_file_paths = [os.path.join(self.surfaces_dir,
+                                                 "{}.curv".format(h)) for h in ('lh', 'rh')]
+            curvatures = [nib.freesurfer.read_morph_data(path) for path in curvature_file_paths]
+            curvature = np.concatenate(curvatures)
+            return self.brain_colormap((curvature > 0) / 3 + 1 / 3)  # 1/3 for concave, 2/3 for convex
+        else:
+            background_color = self.brain_colormap(0.5)
+            total_vertex_cnt = self.mesh_data.vertexes().shape[0]
+            return np.tile(background_color, total_vertex_cnt)
+
+    @staticmethod
+    def _guess_surfaces_dir_based_on(mne_forward_model_file_path):
+        # If the forward model that was used is from the mne's sample dataset, then we can use curvatures from there
+        path_to_sample = os.path.realpath(sample.data_path(verbose='ERROR'))
+        if os.path.realpath(mne_forward_model_file_path).startswith(path_to_sample):
+            return os.path.join(path_to_sample, "subjects", "sample", "surf")
+
+    @staticmethod
+    def read_smoothing_matrix():
+        lh_npz = np.load('playground/vs_pysurfer/smooth_mat_lh.npz')
+        rh_npz = np.load('playground/vs_pysurfer/smooth_mat_rh.npz')
+
+        smooth_mat_lh = sparse.coo_matrix((
+            lh_npz['data'], (lh_npz['row'], lh_npz['col'])),
+            shape=lh_npz['shape'] + rh_npz['shape'])
+
+        lh_row_cnt, lh_col_cnt = lh_npz['shape']
+        smooth_mat_rh = sparse.coo_matrix((
+            rh_npz['data'], (rh_npz['row'] + lh_row_cnt, rh_npz['col'] + lh_col_cnt)),
+            shape=rh_npz['shape'] + lh_npz['shape'])
+
+        return smooth_mat_lh.tocsc() + smooth_mat_rh.tocsc()
 
     def _get_smoothing_matrix(self, mne_forward_model_file_path):
         """
@@ -292,50 +427,56 @@ class BrainViewer(WidgetOutput):
         except FileNotFoundError:
             self.logger.info('Calculating smoothing matrix.' +
                              ' This might take a while the first time.')
-            sources_idx, vertexes, faces = get_mesh_data_from_forward_solution(
-                self.forward_solution)
+            sources_idx, vertexes, faces =\
+                self._get_mesh_data_from_forward_solution(
+                    mne_forward_model_file_path)
             adj_mat = mesh_edges(self.mesh_data._faces)
             smoothing_mat = smoothing_matrix(sources_idx, adj_mat)
             sparse.save_npz(smoothing_matrix_file_path, smoothing_mat)
             return smoothing_mat
 
 
+class Communicate(QObject):
+    reinit = pyqtSignal()
+    draw_sig = pyqtSignal('PyQt_PyObject')
+
+
 class SignalViewer(WidgetOutput):
     CHANGES_IN_THESE_REQUIRE_RESET = ()
 
-    UPSTREAM_CHANGES_IN_THESE_REQUIRE_REINITIALIZATION = ('mne_info',)
+    UPSTREAM_CHANGES_IN_THESE_REQUIRE_REINITIALIZATION = ('mne_info', )
     SAVERS_FOR_UPSTREAM_MUTABLE_OBJECTS = {'mne_info': channel_labels_saver}
 
     def __init__(self):
         super().__init__()
-        self.widget = None
+        self.widget = None  # type: RawSignalViewer
+        self.signal_sender = Communicate()
+        self.signal_sender.reinit.connect(self.init_widget)
 
     def _initialize(self):
-        self.signal_sender.init_widget_sig.emit()
+        mne_info = self.traverse_back_and_find('mne_info')
+        # if self.widget is None:
+        self.signal_sender.reinit.emit()
+        # else:
+        #     self.widget = RawSignalViewer(fs=mne_info['sfreq'],
+        #                                   names=mne_info['ch_names'],
+        #                                   seconds_to_plot=10)
 
     def _create_widget(self):
         mne_info = self.traverse_back_and_find('mne_info')
-        if mne_info['nchan']:
-            return RawSignalViewer(fs=mne_info['sfreq'],
-                                   names=mne_info['ch_names'],
-                                   seconds_to_plot=10)
-        else:
-            return RawSignalViewer(fs=mne_info['sfreq'],
-                                   names=[''],
-                                   seconds_to_plot=10)
+        return RawSignalViewer(fs=mne_info['sfreq'],
+                               names=mne_info['ch_names'], seconds_to_plot=10)
 
-
+    counter = 0
     def _update(self):
+        self.counter += 1
+        if not self.counter % 121:
+            self._should_reinitialize = True
         chunk = self.input_node.output
-        self.signal_sender.draw_sig.emit(chunk)
-
-    def on_draw(self, chunk):
-        QApplication.processEvents()
-        if chunk.size:
-            if TIME_AXIS == PYNFB_TIME_AXIS:
-                self.widget.update(chunk)
-            else:
-                self.widget.update(chunk.T)
+        if TIME_AXIS == PYNFB_TIME_AXIS:
+            self.widget.update(chunk)
+        else:
+            self.widget.update(chunk.T)
 
     def _reset(self) -> bool:
         # Nothing to reset, really
@@ -409,92 +550,3 @@ class TorchOutput(OutputNode):
 
     def _update(self):
         self.output = torch.from_numpy(self.input_node.output)
-
-
-class ConnectivityViewer(WidgetOutput):
-    """Plot connectivity matrix on circular graph"""
-    CHANGES_IN_THESE_REQUIRE_RESET = ()
-    UPSTREAM_CHANGES_IN_THESE_REQUIRE_REINITIALIZATION = ('mne_info',)
-
-    def __init__(self, surfaces_dir, n_lines=30):
-        super().__init__()
-        self.mesh = None
-        self.widget = None
-        self.s_obj = None
-        self.c_obj = None
-        self.view = None
-        self.n_lines = n_lines
-        self.surfaces_dir = surfaces_dir
-
-    def _initialize(self):
-        self.mne_info = self.traverse_back_and_find('mne_info')
-        self.mesh = get_mesh_data_from_surfaces_dir(self.surfaces_dir,
-                                                    translucent=True)
-        self.signal_sender.init_widget_sig.emit()
-
-    def _update(self):
-        input_data = np.abs(self.input_node.output)  # connectivity matrix
-        # 1. Get n_lines stronges connections indices (i, j)
-        # get only off-diagonal elements
-        l_triang = np.tril(input_data, k=-1)
-        nl = self.n_lines
-        ii, jj = np.unravel_index(
-             np.argpartition(-l_triang, nl, axis=None)[:nl], l_triang.shape)
-        # 2. Get corresponding vertices indices
-        nodes_inds = np.unique(np.r_[ii, jj])
-        labels = self.traverse_back_and_find('labels')
-        nodes_inds_surf = np.array([labels[i].mass_center for i in nodes_inds])
-        # 3. Get nodes = xyz of these vertices
-        nodes = self.mesh._vertices[nodes_inds_surf]
-        # 4. Edges are input data restricted to best n_lines nodes
-        edges = input_data[nodes_inds[:,None], nodes_inds]  # None needed
-        # 5. Select = mask matrix with True in (i,j)-th positions
-        select = np.zeros_like(input_data, dtype=bool)
-        select[ii, jj] = True
-        select = select[nodes_inds[:, None], nodes_inds]
-        select += select.T
-        nchan = self.mne_info['nchan']
-        assert input_data.shape == (nchan, nchan), ('Number of channels doesnt'
-                                                    ' conform to input data'
-                                                    ' shape')
-        try:
-            self.s_obj._sources.visible = False
-        except Exception:
-            pass
-        try:
-            self.c_obj._connect.visible = False
-        except Exception:
-            pass
-
-        self.s_obj = SourceObj(
-            'sources', nodes, color='#ab4642', radius_min=10.)
-
-        self.c_obj = ConnectObj(
-            'default', nodes, edges, select=select, line_width=2.,
-            cmap='Spectral_r', color_by='strength')
-
-        self.view.add(self.s_obj._sources)
-        self.view.add(self.c_obj._connect)
-
-    def _reset(self):
-        ...
-
-    def _on_input_history_invalidation(self):
-        ...
-
-    def _check_value(self, key, value):
-        ...
-
-    def _create_widget(self):
-        canvas = scene.SceneCanvas(keys='interactive', show=False)
-        self.canvas = canvas
-
-        # Add a ViewBox to let the user zoom/rotate
-        self.view = canvas.central_widget.add_view()
-        self.view.camera = 'turntable'
-        self.view.camera.fov = 50
-        self.view.camera.distance = 400
-        # Make light follow the camera
-        self.mesh.shared_program.frag['camtf'] = self.view.camera.transform
-        self.view.add(self.mesh)
-        return canvas.native

@@ -53,9 +53,9 @@ pipeline.add_processor(envelope_extractor)
 signal_viewer = outputs.SignalViewer()
 pipeline.add_output(signal_viewer, input_node=linear_filter)
 
-global_mode = outputs.ThreeDeeBrain.LIMITS_MODES.GLOBAL
-three_dee_brain = outputs.ThreeDeeBrain(limits_mode=global_mode,
-                                        buffer_length=6)
+global_mode = outputs.BrainViewer.LIMITS_MODES.GLOBAL
+three_dee_brain = outputs.BrainViewer(limits_mode=global_mode,
+                                      buffer_length=6)
 pipeline.add_output(three_dee_brain)
 
 window = GUIWindow(pipeline=pipeline)

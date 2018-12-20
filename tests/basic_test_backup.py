@@ -7,7 +7,7 @@ import numpy as np
 
 from cognigraph.nodes.sources import LSLStreamSource
 from cognigraph.nodes.processors import InverseModel, LinearFilter, EnvelopeExtractor
-from cognigraph.nodes.outputs import LSLStreamOutput, ThreeDeeBrain
+from cognigraph.nodes.outputs import LSLStreamOutput, BrainViewer
 from cognigraph.helpers.lsl import convert_lsl_chunk_to_numpy_array
 from cognigraph.helpers.matrix_functions import last_sample
 from cognigraph import TIME_AXIS, CHANNEL_AXIS
@@ -54,7 +54,7 @@ assert(len(inverse.channel_labels) == inverse.channel_count)
 
 # Visualize sources
 
-brain = ThreeDeeBrain()
+brain = BrainViewer()
 brain.input_node = inverse
 brain.initialize()
 

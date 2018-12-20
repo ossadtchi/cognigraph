@@ -16,14 +16,27 @@ from ..helpers.brainvision import (read_brain_vision_data,
                                    read_edf_data)
 
 
+class FixedStreamInfo(lsl.StreamInfo):
+    def as_xml(self):
+        return lsl.pylsl.lib.lsl_get_xml(self.obj).decode('utf-8', 'ignore')
+
+
+class FixedStreamInlet(lsl.StreamInlet):
+    def info(self, timeout=lsl.pylsl.FOREVER):
+        errcode = lsl.pylsl.c_int()
+        result = lsl.pylsl.lib.lsl_get_fullinfo(self.obj,
+                                                lsl.pylsl.c_double(timeout),
+                                                lsl.pylsl.byref(errcode))
+        lsl.pylsl.handle_error(errcode)
+        return FixedStreamInfo(handle=result) # StreamInfo(handle=result)
+
 class LSLStreamSource(SourceNode):
     """ Class for reading data from an LSL stream defined by its name """
 
     CHANGES_IN_THESE_REQUIRE_RESET = ('source_name',)
 
     def _check_value(self, key, value):
-        pass  # Whether we can find one stream with self.source_name will be checked on initialize
-              # TODO: move here
+        pass
 
     SECONDS_TO_WAIT_FOR_THE_STREAM = 0.5
 
@@ -46,24 +59,31 @@ class LSLStreamSource(SourceNode):
 
     def _initialize(self):
 
-        stream_infos = lsl.resolve_byprop('name', self.source_name, timeout=self.SECONDS_TO_WAIT_FOR_THE_STREAM)
+        stream_infos = lsl.resolve_byprop(
+            'name', self.source_name,
+            timeout=self.SECONDS_TO_WAIT_FOR_THE_STREAM)
         if len(stream_infos) == 0:
-            raise ValueError('Could not find an LSL stream with name {}'.format(self.source_name))
+            raise ValueError(
+                'Cannot find LSL stream with name {}'.format(self.source_name))
         elif len(stream_infos) > 1:
-            raise ValueError('There are multiple LSL streams with name {}, so I don''t know which to use'
-                             .format(self.source_name))
+            raise ValueError(
+                'Multiple LSL streams with name {}.'.format(self.source_name))
         else:
             info = stream_infos[0]
-            self._inlet = lsl.StreamInlet(info)
+            # self._inlet = lsl.StreamInlet(info)
+            self._inlet = FixedStreamInlet(info)
             self._inlet.open_stream()
             frequency = info.nominal_srate()
             self.dtype = DTYPE
-            channel_labels, channel_types = read_channel_labels_from_info(self._inlet.info())
-            self.mne_info = mne.create_info(channel_labels, frequency, ch_types=channel_types)
+            channel_labels, channel_types = read_channel_labels_from_info(
+                self._inlet.info())
+            self.mne_info = mne.create_info(channel_labels, frequency,
+                                            ch_types=channel_types)
 
     def _update(self):
         lsl_chunk, timestamps = self._inlet.pull_chunk()
-        self.output = convert_lsl_chunk_to_numpy_array(lsl_chunk, dtype=self.dtype)
+        self.output = convert_lsl_chunk_to_numpy_array(lsl_chunk,
+                                                       dtype=self.dtype)
 
 
 class FileSource(SourceNode):
@@ -106,8 +126,8 @@ class FileSource(SourceNode):
 
             if extension not in all_ext:
                 raise ValueError(
-                        'Cannot read {}.'.format(basename) +
-                        'Extension must be one of the following: {}'.format(all_ext))
+                    'Cannot read {}.'.format(basename) +
+                    'Extension must be one of: {}'.format(all_ext))
             else:
                 self._file_path = file_path
                 self.source_name = file_name

@@ -38,8 +38,8 @@ envelope_extractor = processors.EnvelopeExtractor()
 pipeline.add_processor(envelope_extractor)
 
 # Outputs
-global_mode = outputs.ThreeDeeBrain.LIMITS_MODES.GLOBAL
-three_dee_brain = outputs.ThreeDeeBrain(limits_mode=global_mode, buffer_length=6)
+global_mode = outputs.BrainViewer.LIMITS_MODES.GLOBAL
+three_dee_brain = outputs.BrainViewer(limits_mode=global_mode, buffer_length=6)
 pipeline.add_output(three_dee_brain)
 pipeline.add_output(outputs.LSLStreamOutput())
 # pipeline.initialize_all_nodes()
