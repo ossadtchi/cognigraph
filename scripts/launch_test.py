@@ -89,21 +89,29 @@ def assemble_pipeline(file_path, inverse_method='mne'):
     roi_average.input_node = inverse_model
     pipeline.add_processor(roi_average)
 
-    # aec = processors.AmplitudeEnvelopeCorrelations(
-    #     SL_method='temporal_orthogonalization')
-    aec = processors.Coherence(
-        method='coh')
-    aec.input_node = roi_average
-    pipeline.add_processor(aec)
+    coh = processors.AmplitudeEnvelopeCorrelations(
+        # method='temporal_orthogonalization',
+        method=None,
+        seed=0)
+    # coh = processors.Coherence(
+    #     method='coh', seed=0)
+
+    seed_viewer = outputs.BrainViewer(
+        limits_mode=global_mode, buffer_length=6,
+        surfaces_dir=op.join(SURF_DIR, SUBJECT))
+
+    coh.input_node = inverse_model
+    pipeline.add_processor(coh)
+    pipeline.add_output(seed_viewer, input_node=coh)
 
     # pipeline.add_output(outputs.LSLStreamOutput())
-    signal_viewer = outputs.SignalViewer()
+    # signal_viewer = outputs.SignalViewer()
     # signal_viewer_src = outputs.SignalViewer()
-    pipeline.add_output(signal_viewer, input_node=linear_filter)
+    # pipeline.add_output(signal_viewer, input_node=linear_filter)
     # pipeline.add_output(signal_viewer_src, input_node=roi_average)
-    con_viewer = outputs.ConnectivityViewer(
-        surfaces_dir=op.join(SURF_DIR, SUBJECT))
-    pipeline.add_output(con_viewer, input_node=aec)
+    # con_viewer = outputs.ConnectivityViewer(
+    #     surfaces_dir=op.join(SURF_DIR, SUBJECT))
+    # pipeline.add_output(con_viewer, input_node=aec)
     # --------------------------------------------------------------------- #
     return pipeline
 

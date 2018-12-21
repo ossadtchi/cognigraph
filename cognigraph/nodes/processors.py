@@ -955,18 +955,34 @@ class AtlasViewer(ProcessorNode):
 
 
 class AmplitudeEnvelopeCorrelations(ProcessorNode):
-    """Node computing amplitude envelopes correlation"""
+    """Node computing amplitude envelopes correlation
+
+    Parameters
+    ----------
+    method: str (default None)
+        Method to deal with signal leakage
+    factor: float
+        Exponential smoothing factor
+    seed: int
+        Seed index
+
+    """
     CHANGES_IN_THESE_REQUIRE_RESET = ()
     UPSTREAM_CHANGES_IN_THESE_REQUIRE_REINITIALIZATION = ('mne_info', )
 
-    def __init__(self, SL_method=None, factor=0.9):
+    def __init__(self, method=None, factor=0.9, seed=None):
         super().__init__()
-        self.SL_method = SL_method
+        self.method = method
         self._envelope_extractor = None
         self.factor = factor
+        self.seed = seed
 
     def _initialize(self):
         channel_count = self.traverse_back_and_find('mne_info')['nchan']
+        if self.seed:
+            assert self.seed < channel_count, ('Seed index {} exceeds max'
+                                               ' channel number {}'.format(
+                                                   self.seed, channel_count))
         self.logger.debug('Channel count: %d' % channel_count)
         self._envelope_extractor = ExponentialMatrixSmoother(
             factor=self.factor, column_count=channel_count)
@@ -975,13 +991,20 @@ class AmplitudeEnvelopeCorrelations(ProcessorNode):
 
     def _update(self):
         input_data = self.input_node.output
-        # if self.SL_method:
-        #     input_data = self._orthogonalize(input_data)
+        n_times = input_data.shape[1]
+        ddof = 1
 
         self._envelopes = self._envelope_extractor.apply(np.abs(input_data))
-        if self.SL_method is None:
-            self.output = np.corrcoef(self._envelopes)
-        elif self.SL_method == 'temporal_orthogonalization':
+        if self.method is None:
+            if self.seed is None:
+                self.output = np.corrcoef(self._envelopes)
+            else:
+                envs_z = self._envelopes
+                envs_z -= envs_z.mean(axis=1)[:, np.newaxis]
+                envs_z /= envs_z.std(axis=1, ddof=ddof)[:, np.newaxis]
+                seed_env = envs_z[self.seed, :]
+                self.output = (seed_env.dot(envs_z.T) / (n_times - ddof))[:, np.newaxis]
+        elif self.method == 'temporal_orthogonalization':
             self.output = self._orthogonalized_env_corr(input_data)
 
     def _reset(self):
@@ -998,28 +1021,53 @@ class AmplitudeEnvelopeCorrelations(ProcessorNode):
         pass
 
     def _orthogonalized_env_corr(self, data):
-        corrmat = np.empty([data.shape[0]] * 2)
+        if self.seed is None:
+            corrmat = np.empty([data.shape[0]] * 2)
+        else:
+            corrmat = np.empty([data.shape[0], 1])
         envs = self._envelopes - self._envelopes.mean(axis=1)[:, np.newaxis]
+        n_times = envs.shape[1]
+        ddof = 1
         # ddof=1 is for unbiased std estimator
-        envs = envs / envs.std(axis=1, ddof=1)[:, np.newaxis]
+        envs = envs / envs.std(axis=1, ddof=ddof)[:, np.newaxis]
         G = data.dot(data.T)  # Gramm matrix
-        for r in range(data.shape[0]):
+        if self.seed is None:
+            channels_iter = range(data.shape[0])
+        else:
+            channels_iter = [self.seed]
+
+        for i, r in enumerate(channels_iter):
             data_orth_r = data - np.outer(G[:, r], data[r, :]) / G[r, r]
             orth_envs = self._envelope_extractor.apply(np.abs(data_orth_r))
             orth_envs -= orth_envs.mean(axis=1)[:, np.newaxis]
-            orth_envs /= orth_envs.std(axis=1, ddof=1)[:, np.newaxis]
-            corrmat[r, :] = envs[r, :].dot(orth_envs.T)
-        return (corrmat + corrmat.T) / 2
+            orth_envs /= orth_envs.std(axis=1, ddof=ddof)[:, np.newaxis]
+            corrmat[:, i] = envs[r, :].dot(orth_envs.T) / (n_times - ddof)
+
+        if self.seed is None:
+            return (corrmat + corrmat.T) / 2
+        else:
+            # return corrmat[:, np.newaxis]
+            return corrmat
 
 
 class Coherence(ProcessorNode):
-    """Coherence and imaginary coherence computation for narrow-band signals"""
+    """Coherence and imaginary coherence computation for narrow-band signals
+
+    Parameters
+    ----------
+    method: str (default imcoh)
+        Connectivity method
+    seed: int (default None)
+        Seed index
+
+    """
     CHANGES_IN_THESE_REQUIRE_RESET = ()
     UPSTREAM_CHANGES_IN_THESE_REQUIRE_REINITIALIZATION = ()
 
-    def __init__(self, method='imcoh'):
+    def __init__(self, method='imcoh', seed=None):
         super().__init__()
         self.method = method
+        self.seed = seed
 
     def _initialize(self):
         pass
@@ -1027,9 +1075,17 @@ class Coherence(ProcessorNode):
     def _update(self):
         input_data = self.input_node.output
         hilbert = sc.signal.hilbert(input_data, axis=1)
-        Cp = hilbert.dot(hilbert.conj().T)
-        D = np.sqrt(np.diag(Cp))
-        coh = Cp / np.outer(D, D)
+        if self.seed is None:
+            Cp = hilbert.dot(hilbert.conj().T)
+            D = np.sqrt(np.diag(Cp))
+            coh = Cp / np.outer(D, D)
+        else:
+            seed_Cp = hilbert[self.seed, :].dot(hilbert.conj().T)
+            D = np.sqrt(np.mean(hilbert * hilbert.conj(), axis=1))
+            seed_outer_D = D[self.seed] * D  # coherence denominator
+            coh = seed_Cp[:, np.newaxis] / seed_outer_D[:, np.newaxis]
+            # coh = seed_Cp[:, np.newaxis] * 1e16
+
         if self.method == 'imcoh':
             self.output = coh.imag
         elif self.method == 'coh':
