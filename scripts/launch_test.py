@@ -58,8 +58,10 @@ def assemble_pipeline(file_path, inverse_method='mne'):
     pipeline.add_processor(linear_filter)
 
     if inverse_method == 'mne':
-        inverse_model = processors.InverseModel(method='MNE', snr=1.0,
-                                                forward_model_path=fwd_path)
+        # inverse_model = processors.InverseModel(method='MNE', snr=1.0,
+        #                                         forward_model_path=fwd_path)
+        inverse_model = processors.MneGcs(snr=1.0, seed=1000,
+                                          forward_model_path=fwd_path)
         pipeline.add_processor(inverse_model)
         envelope_extractor = processors.EnvelopeExtractor(0.99)
         pipeline.add_processor(envelope_extractor)
@@ -89,20 +91,25 @@ def assemble_pipeline(file_path, inverse_method='mne'):
     roi_average.input_node = inverse_model
     pipeline.add_processor(roi_average)
 
-    coh = processors.AmplitudeEnvelopeCorrelations(
-        # method='temporal_orthogonalization',
+    aec = processors.AmplitudeEnvelopeCorrelations(
         method=None,
-        seed=0)
+        seed=1000
+        # method='temporal_orthogonalization',
+        # method='geometric_correction',
+        # seed=0
+    )
+    pipeline.add_processor(aec)
+    aec.input_node = inverse_model
     # coh = processors.Coherence(
     #     method='coh', seed=0)
+    aec_env = processors.EnvelopeExtractor(0.995)
+    pipeline.add_processor(aec_env)
 
     seed_viewer = outputs.BrainViewer(
         limits_mode=global_mode, buffer_length=6,
         surfaces_dir=op.join(SURF_DIR, SUBJECT))
 
-    coh.input_node = inverse_model
-    pipeline.add_processor(coh)
-    pipeline.add_output(seed_viewer, input_node=coh)
+    pipeline.add_output(seed_viewer, input_node=aec_env)
 
     # pipeline.add_output(outputs.LSLStreamOutput())
     # signal_viewer = outputs.SignalViewer()

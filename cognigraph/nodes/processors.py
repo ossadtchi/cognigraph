@@ -988,6 +988,35 @@ class AmplitudeEnvelopeCorrelations(ProcessorNode):
             factor=self.factor, column_count=channel_count)
         self._envelope_extractor.apply = pynfb_ndarray_function_wrapper(
             self._envelope_extractor.apply)
+        if self.method == 'geometric_correction':
+            mne_forward_model_file_path = self.traverse_back_and_find(
+                'mne_forward_model_file_path')
+            fwd = mne.read_forward_solution(
+                mne_forward_model_file_path, verbose='ERROR')
+            gain_matrix = fwd['sol']['data']
+            # Prepare topographies
+            if self.seed is None:
+                # Do all-to-all
+
+                # Get first singular vectors for each orientation inside label
+                g_xyz = [gain_matrix[:, ::3],
+                         gain_matrix[:, 1::3],
+                         gain_matrix[:, 2::3]]
+
+                labels = self.traverse_back_and_find('labels')
+                self.roi_forwards = []
+                for label in labels:
+                    g_xyz_label = [g[:, label.forward_vertices] for g in g_xyz]
+                    g_svd_label = [svd(g)[0][:, 0] for g in g_xyz_label]
+                    self.roi_forwards.append(svd(
+                        np.c_[g_svd_label[0], g_svd_label[1], g_svd_label[2]]
+                    )[0][:, :3])
+
+            else:
+                # Get seed topographies
+                fwd_seed_slice = slice(self.seed * 3, (self.seed + 1) * 3)
+                self.roi_forwards = [
+                    svd(gain_matrix[:, fwd_seed_slice])[0][:, :3]]
 
     def _update(self):
         input_data = self.input_node.output
@@ -1003,8 +1032,9 @@ class AmplitudeEnvelopeCorrelations(ProcessorNode):
                 envs_z -= envs_z.mean(axis=1)[:, np.newaxis]
                 envs_z /= envs_z.std(axis=1, ddof=ddof)[:, np.newaxis]
                 seed_env = envs_z[self.seed, :]
-                self.output = (seed_env.dot(envs_z.T) / (n_times - ddof))[:, np.newaxis]
-        elif self.method == 'temporal_orthogonalization':
+                self.output = (
+                    seed_env.dot(envs_z.T) / (n_times - ddof))[:, np.newaxis]
+        else:
             self.output = self._orthogonalized_env_corr(input_data)
 
     def _reset(self):
@@ -1030,14 +1060,21 @@ class AmplitudeEnvelopeCorrelations(ProcessorNode):
         ddof = 1
         # ddof=1 is for unbiased std estimator
         envs = envs / envs.std(axis=1, ddof=ddof)[:, np.newaxis]
-        G = data.dot(data.T)  # Gramm matrix
-        if self.seed is None:
-            channels_iter = range(data.shape[0])
-        else:
-            channels_iter = [self.seed]
+        if self.method == 'temporal_orthogonalization':
+            gramm = data.dot(data.T)  # Gramm matrix
 
-        for i, r in enumerate(channels_iter):
-            data_orth_r = data - np.outer(G[:, r], data[r, :]) / G[r, r]
+        if self.seed is None:
+            labels_iter = range(data.shape[0])
+        else:
+            labels_iter = [self.seed]
+
+        for i, r in enumerate(labels_iter):
+            if self.method == 'temporal_orthogonalization':
+                data_orth_r = (data -
+                               np.outer(gramm[:, r], data[r, :]) / gramm[r, r])
+            elif self.method == 'geometric_correction':
+                data_orth_r = data - self.roi_forwards[i].dot(
+                    self.roi_forwards[i].T.dot(data))
             orth_envs = self._envelope_extractor.apply(np.abs(data_orth_r))
             orth_envs -= orth_envs.mean(axis=1)[:, np.newaxis]
             orth_envs /= orth_envs.std(axis=1, ddof=ddof)[:, np.newaxis]
@@ -1099,3 +1136,38 @@ class Coherence(ProcessorNode):
 
     def _check_value(self, key, value):
         pass
+
+
+class MneGcs(InverseModel):
+    """
+    Minimum norm fixed orientation inverse with geometric correction for
+    signal leakage
+
+    Parameters
+    ----------
+    seed: int
+    forward_model_path: str
+    snr: float
+
+    """
+    def __init__(self, seed, forward_model_path, snr=1.0):
+        method = 'MNE'
+        InverseModel.__init__(self, forward_model_path=forward_model_path,
+                              snr=snr, method=method)
+        self.seed = seed
+
+    def _initialize(self):
+        InverseModel._initialize(self)
+        self.fwd = mne.convert_forward_solution(
+            self.fwd, force_fixed=True, surf_ori=True)
+
+    def _apply_inverse_model_matrix(self, input_array: np.ndarray):
+        gain = self.fwd['sol']['data']
+        seed_topo = gain[:, self.seed]
+        W = self._inverse_model_matrix  # VERTICES x CHANNELS
+        seed_filter = W[self.seed, :]
+        input_array -= (np.outer(seed_topo[:, np.newaxis],
+                                 seed_filter[np.newaxis, :].dot(input_array)) /
+                        seed_filter.dot(seed_topo))
+        output_array = W.dot(input_array)
+        return output_array
