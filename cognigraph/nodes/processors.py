@@ -369,7 +369,6 @@ class Beamformer(ProcessorNode):
                  reg=0.05):
         super().__init__()
 
-        self.snr = snr  # type: float
         self._user_provided_forward_model_file_path = forward_model_path
         self._default_forward_model_file_path = None  # type: str
         self.mne_info = None  # type: mne.Info
@@ -385,6 +384,7 @@ class Beamformer(ProcessorNode):
         self._Rxx = None  # type: np.ndarray
         self.forgetting_factor_per_second = forgetting_factor_per_second
         self._forgetting_factor_per_sample = None  # type: float
+        self.reg = reg
 
     def _initialize(self):
         mne_info = self.traverse_back_and_find('mne_info')
@@ -430,7 +430,7 @@ class Beamformer(ProcessorNode):
         if not self.is_adaptive:
             self._filters = make_lcmv(
                     info=self._mne_info, forward=self.fwd_surf,
-                    data_cov=self._Rxx, reg=0.05, pick_ori='max-power',
+                    data_cov=self._Rxx, reg=self.reg, pick_ori='max-power',
                     weight_norm='unit-noise-gain', reduce_rank=False)
         else:
             self._filters = None
@@ -452,7 +452,7 @@ class Beamformer(ProcessorNode):
             t1 = time.time()
             self._filters = make_lcmv(info=self._mne_info,
                                       forward=self.fwd_surf,
-                                      data_cov=self._Rxx, reg=0.5,
+                                      data_cov=self._Rxx, reg=self.reg,
                                       pick_ori='max-power',
                                       weight_norm='unit-noise-gain',
                                       reduce_rank=False)
@@ -522,10 +522,10 @@ class Beamformer(ProcessorNode):
                     ' Use one of: {}'.format(
                         value, self.SUPPORTED_OUTPUT_TYPES))
 
-        if key == 'snr':
+        if key == 'reg':
             if value <= 0:
-                raise ValueError(
-                    'snr (signal-to-noise ratio) must be a positive number')
+                raise ValueError('reg (covariance regularization coefficient)'
+                                 ' must be a positive number')
 
         if key == 'is_adaptive':
             if not isinstance(value, bool):

@@ -244,10 +244,10 @@ class BeamformerControls(ProcessorNodeControls):
         adaptiveness_check.sigValueChanged.connect(self._on_adaptiveness_changed)
         self.adaptiveness_check = self.addChild(adaptiveness_check)
 
-        snr_value = self._processor_node.snr
+        reg_value = self._processor_node.reg
         snr_spin_box = parameterTypes.SimpleParameter(
             type='float', name=self.SNR_NAME, decimals=2,
-            limits=(0, 100.0), value=snr_value)
+            limits=(0, 100.0), value=reg_value)
         snr_spin_box.sigValueChanged.connect(self._on_snr_changed)
         self.snr_spin_box = self.addChild(snr_spin_box)
 

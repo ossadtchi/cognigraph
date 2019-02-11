@@ -13,7 +13,7 @@ from mne.io.proj import make_projector
 from mne.utils import warn, estimate_rank
 
 
-def stacked_power_iteration(A, n_iter=10, abs_tol=1e-6):
+def stacked_power_iteration(A, n_iter=20, abs_tol=1e-6):
     """Vectorized power iterations for a batch of stacked 3x3 matrices"""
     n_src = int(A.shape[0] / 3)
 
