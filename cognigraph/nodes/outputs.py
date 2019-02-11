@@ -292,7 +292,7 @@ class BrainViewer(WidgetOutput):
         except FileNotFoundError:
             self.logger.info('Calculating smoothing matrix.' +
                              ' This might take a while the first time.')
-            sources_idx, vertexes, faces = get_mesh_data_from_forward_solution(
+            sources_idx, *_ = get_mesh_data_from_forward_solution(
                 self.forward_solution)
             adj_mat = mesh_edges(self.mesh_data._faces)
             smoothing_mat = smoothing_matrix(sources_idx, adj_mat)
