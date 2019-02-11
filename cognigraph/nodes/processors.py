@@ -133,7 +133,8 @@ class InverseModel(ProcessorNode):
                                       'snr', 'method')
     SAVERS_FOR_UPSTREAM_MUTABLE_OBJECTS = {'mne_info': channel_labels_saver}
 
-    def __init__(self, forward_model_path=None, snr=1.0, method='MNE'):
+    def __init__(self, forward_model_path=None, snr=1.0, method='MNE',
+                 depth=None, loose=1, fixed=False):
         super().__init__()
 
         self.snr = snr
@@ -142,8 +143,11 @@ class InverseModel(ProcessorNode):
         self.mne_info = None
         self.fwd = None
 
-        self._inverse_model_matrix = None
+        # self._inverse_model_matrix = None
         self.method = method
+        self.loose = loose
+        self.depth = depth
+        self.fixed = fixed
 
     def _initialize(self):
         mne_info = self.traverse_back_and_find('mne_info')
@@ -157,11 +161,16 @@ class InverseModel(ProcessorNode):
             self.mne_forward_model_file_path, mne_info)
         mne_info['bads'] = list(set(mne_info['bads'] + missing_ch_names))
 
-        inverse_operator = make_inverse_operator(self.fwd, mne_info)
-        self._inverse_model_matrix = matrix_from_inverse_operator(
-            inverse_operator=inverse_operator, mne_info=mne_info,
-            snr=self.snr, method=self.method)
+        self.inverse_operator = make_inverse_operator(self.fwd,
+                                                      mne_info,
+                                                      depth=self.depth,
+                                                      loose=self.loose,
+                                                      fixed=self.fixed)
+        # self._inverse_model_matrix = matrix_from_inverse_operator(
+        #     inverse_operator=self.inverse_operator, mne_info=mne_info,
+        #     snr=self.snr, method=self.method)
 
+        self.lambda2 = 1.0 / self.snr ** 2
         frequency = mne_info['sfreq']
         # channel_count = self._inverse_model_matrix.shape[0]
         channel_count = self.fwd['nsource']
@@ -173,17 +182,25 @@ class InverseModel(ProcessorNode):
         mne_info = self.traverse_back_and_find('mne_info')
         bads = mne_info['bads']
         if bads != self._bad_channels:
-            inverse_operator = make_inverse_operator(self.fwd, mne_info)
-            self._inverse_model_matrix = matrix_from_inverse_operator(
-                inverse_operator=inverse_operator, mne_info=mne_info,
-                snr=self.snr, method=self.method)
+            # self.inverse_operator = make_inverse_operator(self.fwd, mne_info)
+            self.inverse_operator = make_inverse_operator(self.fwd,
+                                                          mne_info,
+                                                          depth=self.depth,
+                                                          loose=self.loose,
+                                                          fixed=self.fixed)
+                # self._inverse_model_matrix = matrix_from_inverse_operator(
+            #     inverse_operator=self.inverse_operator, mne_info=mne_info,
+            #     snr=self.snr, method=self.method)
             self._bad_channels = bads
 
         input_array = self.input_node.output
         raw_array = mne.io.RawArray(input_array, mne_info, verbose='ERROR')
         raw_array.pick_types(eeg=True, meg=False, stim=False, exclude='bads')
-        data = raw_array.get_data()
-        self.output = self._apply_inverse_model_matrix(data)
+        # data = raw_array.get_data()
+        # self.output = self._apply_inverse_model_matrix(data)
+        stc = apply_inverse_raw(raw_array, self.inverse_operator,
+                                lambda2=self.lambda2, method=self.method)
+        self.output = stc.data
 
     def _on_input_history_invalidation(self):
         # The methods implemented in this node do not rely on past inputs
@@ -345,10 +362,11 @@ class Beamformer(ProcessorNode):
 
     SAVERS_FOR_UPSTREAM_MUTABLE_OBJECTS = {'mne_info': channel_labels_saver}
 
-    def __init__(self, snr: float=1.0, output_type: str='power',
-                 is_adaptive: bool=False, fixed_orientation: bool=True,
-                 forward_model_path: str=None,
-                 forgetting_factor_per_second: float=0.99):
+    def __init__(self, output_type='power',
+                 is_adaptive=False, fixed_orientation=True,
+                 forward_model_path=None,
+                 forgetting_factor_per_second=0.99,
+                 reg=0.05):
         super().__init__()
 
         self.snr = snr  # type: float

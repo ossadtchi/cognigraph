@@ -146,9 +146,13 @@ def get_clean_forward(forward_model_path: str, mne_info: mne.Info):
     return fwd, missing_ch_names
 
 
-def make_inverse_operator(fwd, mne_info, sigma2=1):
-    # sigma2 is what will be used to scale the identity covariance matrix.
-    # This will not affect MNE solution though.
+def make_inverse_operator(fwd, mne_info, depth=None,
+                          loose=1, fixed=False):
+    """
+    Make noise covariance matrix and create inverse operator using only
+    good channels
+
+    """
     # The inverse operator will use channels common to
     # forward_model_file_path and mne_info.
 
@@ -161,6 +165,6 @@ def make_inverse_operator(fwd, mne_info, sigma2=1):
     cov = mne.Covariance(cov_data, ch_names, mne_info['bads'],
                          mne_info['projs'], nfree=1)
     inv = mne.minimum_norm.make_inverse_operator(info_goods, fwd, cov,
-                                                 depth=None, loose=0,
-                                                 fixed=True, verbose='ERROR')
+                                                 depth=None, loose=0.8,
+                                                 fixed=False, verbose='ERROR')
     return inv
