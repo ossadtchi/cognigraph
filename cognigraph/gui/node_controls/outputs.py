@@ -6,6 +6,9 @@ from ..widgets import RoiSelectionDialog
 
 import logging
 
+from PyQt5 import QtWidgets
+
+
 class OutputNodeControls(MyGroupParameter):
 
     @property
@@ -96,6 +99,35 @@ class BrainViewerControls(OutputNodeControls):
             value=threshold_value, prec=0, suffix='%')
         threshold_slider.sigValueChanged.connect(self._on_threshold_changed)
         self.threshold_slider = self.addChild(threshold_slider)
+
+        gif_button = parameterTypes.ActionParameter(
+            type='action', name='Record gif')
+        gif_button.sigActivated.connect(self._toggle_gif_button)
+        self.gif_button = self.addChild(gif_button)
+
+    def _toggle_gif_button(self):
+        print('in _toggle_gif_button')
+        if self.gif_button.name() == "Stop recording":
+            self.gif_button.setName("Record gif")
+
+            self._output_node._stop_gif()
+            save_path = QtWidgets.QFileDialog.getSaveFileName(
+                caption="Save the recording", filter="Gif image (*.gif)")[0]
+            self._output_node._save_gif(save_path)
+        else:
+            self._reset_gif_sector()
+            self.gif_button.setName("Stop recording")
+            self._output_node._start_gif()
+
+    def _reset_gif_sector(self):
+        # Get to the main window widget
+        widgetRect = (self.parent().parent().widget.parent().parent().parent()
+                      .centralWidget().widget(0).geometry())
+        widgetRect.moveTopLeft(
+            self.parent().parent().widget.parent().parent().parent()
+            .centralWidget().mapToGlobal(widgetRect.topLeft()))
+        self._output_node.sector = (widgetRect.left(), widgetRect.top(),
+                                    widgetRect.right(), widgetRect.bottom())
 
     def _on_take_abs_toggled(self, param, value):
         # Changes to these setting

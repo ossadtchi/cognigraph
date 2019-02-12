@@ -2,7 +2,7 @@ from typing import List
 from PyQt5 import QtCore, QtWidgets
 from ..pipeline import Pipeline
 from .controls import Controls
-from .screen_recorder import ScreenRecorder
+# from .screen_recorder import ScreenRecorder
 
 import logging
 logger = logging.getLogger(name=__name__)
@@ -19,10 +19,6 @@ class GUIWindow(QtWidgets.QMainWindow):
         self.run_button = QtWidgets.QPushButton("Start")
         self.run_button.clicked.connect(self._toggle_run_button)
 
-        # Record gif button and recorder
-        self._gif_recorder = ScreenRecorder()
-        self.gif_button = QtWidgets.QPushButton("Record gif")
-        self.gif_button.clicked.connect(self._toggle_gif_button)
 
         # Resize screen
         self.resize(QtCore.QSize(
@@ -41,7 +37,7 @@ class GUIWindow(QtWidgets.QMainWindow):
 
         buttons_layout = QtWidgets.QHBoxLayout()
         buttons_layout.addWidget(self.run_button)
-        buttons_layout.addWidget(self.gif_button)
+        # buttons_layout.addWidget(self.gif_button)
 
         controls_layout.addLayout(buttons_layout)
 
@@ -59,9 +55,9 @@ class GUIWindow(QtWidgets.QMainWindow):
             if node_widget:
                 # node_widget.setMinimumWidth(600)
 
-                # insert widget at before-the-end pos (just before controls widget)
-                self.centralWidget().insertWidget(self.centralWidget().count() - 1,
-                                                  node_widget)
+                # insert widget at before-the-end pos (before controls widget)
+                self.centralWidget().insertWidget(
+                    self.centralWidget().count() - 1, node_widget)
                 self.centralWidget().insertWidget(
                     self.centralWidget().count() - 1, node_widget)
             else:
@@ -71,31 +67,12 @@ class GUIWindow(QtWidgets.QMainWindow):
         self._reset_gif_sector()
         return super(GUIWindow, self).moveEvent(event)
 
-    def _reset_gif_sector(self):
-        widgetRect = self.centralWidget().widget(0).geometry()
-        widgetRect.moveTopLeft(
-            self.centralWidget().mapToGlobal(widgetRect.topLeft()))
-        self._gif_recorder.sector = (widgetRect.left(), widgetRect.top(),
-                                     widgetRect.right(), widgetRect.bottom())
 
     def _toggle_run_button(self):
         if self.run_button.text() == "Pause":
             self.run_button.setText("Start")
         else:
             self.run_button.setText("Pause")
-
-    def _toggle_gif_button(self):
-        if self.gif_button.text() == "Stop recording":
-            self.gif_button.setText("Record gif")
-
-            self._gif_recorder.stop()
-            save_path = QtWidgets.QFileDialog.getSaveFileName(
-                caption="Save the recording", filter="Gif image (*.gif)")[0]
-            self._gif_recorder.save(save_path)
-        else:
-            self._reset_gif_sector()
-            self.gif_button.setText("Stop recording")
-            self._gif_recorder.start()
 
     @property
     def _node_widgets(self) -> List[QtWidgets.QWidget]:

@@ -41,12 +41,16 @@ import torch
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
 from matplotlib.figure import Figure
 
-
+# -------- gif recorder -------- #
+from vispy.gloo.util import _screenshot
+from PIL import Image as im
+# ------------------------------ #
 
 
 class Communicate(QObject):
     init_widget_sig = pyqtSignal()
     draw_sig = pyqtSignal('PyQt_PyObject')
+    screenshot_sig = pyqtSignal()
 
 
 class WidgetOutput(OutputNode):
@@ -162,6 +166,17 @@ class BrainViewer(WidgetOutput):
         self.widget = None
         self.output = None
 
+        # -------- gif recorder -------- #
+        self.is_recording = False
+        self.sector = None
+
+        self._start_time = None
+        self._display_time = None  # Time in ms between switching images
+
+        self._images = []
+        self.signal_sender.screenshot_sig.connect(self._append_screenshot)
+        # ------------------------------ #
+
     def _initialize(self):
         mne_forward_model_file_path = self.traverse_back_and_find(
             'mne_forward_model_file_path')
@@ -203,6 +218,9 @@ class BrainViewer(WidgetOutput):
         self._update_colormap_limits(sources)
         normalized_sources = self._normalize_sources(last_sample(sources))
         self.signal_sender.draw_sig.emit(normalized_sources)
+
+        if self.is_recording:
+            self.signal_sender.screenshot_sig.emit()
 
     def _update_colormap_limits(self, sources):
         self._limits_buffer.extend(np.array([
@@ -298,6 +316,35 @@ class BrainViewer(WidgetOutput):
             smoothing_mat = smoothing_matrix(sources_idx, adj_mat)
             sparse.save_npz(smoothing_matrix_file_path, smoothing_mat)
             return smoothing_mat
+
+    def _start_gif(self):
+        self._images = []
+        self._start_time = time.time()
+
+        self.is_recording = True
+
+    def _stop_gif(self):
+        self.is_recording = False
+        # self._timer.stop()
+
+        duration = time.time() - self._start_time
+        self._display_time = (duration * 1000) / len(self._images)
+
+    def _save_gif(self, path):
+        self._images[0].save(
+            path,
+            save_all=True,
+            append_images=self._images[1:],
+            duration=self._display_time,
+            loop=0)
+
+    def _append_screenshot(self):
+        if self.sector is None:
+            # self._images.append(ImageGrab.grab())
+            self._images.append(im.fromarray(_screenshot()))
+        else:
+            # self._images.append(ImageGrab.grab(bbox=self.sector))
+            self._images.append(im.fromarray(_screenshot()))
 
 
 class SignalViewer(WidgetOutput):
