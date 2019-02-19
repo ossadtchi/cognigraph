@@ -43,7 +43,7 @@ class Preprocessing(ProcessorNode):
     UPSTREAM_CHANGES_IN_THESE_REQUIRE_REINITIALIZATION = ('mne_info', )
     SAVERS_FOR_UPSTREAM_MUTABLE_OBJECTS = {'mne_info': channel_labels_saver}
 
-    def __init__(self, collect_for_x_seconds: int=60):
+    def __init__(self, collect_for_x_seconds=60, dsamp_freq=None):
         super().__init__()
         self.collect_for_x_seconds = collect_for_x_seconds  # type: int
 
@@ -425,6 +425,8 @@ class Beamformer(ProcessorNode):
         self._Rxx = mne.Covariance(Rxx, ch_names, mne_info['bads'],
                                    mne_info['projs'], nfree=1)
 
+        self.noise_cov = mne.Covariance(G.dot(G.T), ch_names, mne_info['bads'],
+                                        mne_info['projs'], nfree=1)
         self._mne_info = mne_info
 
         frequency = mne_info['sfreq']
