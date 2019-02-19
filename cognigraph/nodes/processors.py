@@ -54,6 +54,7 @@ class Preprocessing(ProcessorNode):
         self._mean_sums_of_squares = None  # type: np.ndarray
         self._bad_channel_indices = None  # type: List[int]
         self._interpolation_matrix = None  # type: np.ndarray
+        self._dsamp_freq = dsamp_freq
 
         self._reset_statistics()
 
@@ -85,8 +86,14 @@ class Preprocessing(ProcessorNode):
 
                 # TODO: handle emergent bad channels on the go
                 pass
+        if self._dsamp_freq and self._dsamp_freq < self.mne_info['sfreq']:
+            raw = mne.io.RawArray(self.input_node.output, self.mne_info)
+            raw.resample(self._dsamp_freq)
+            self.output = raw.get_data()
+            self.mne_info = raw.mne_info
 
-        self.output = self.input_node.output
+        else:
+            self.output = self.input_node.output
 
     def _reset(self) -> bool:
         self._reset_statistics()
