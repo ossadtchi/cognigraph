@@ -15,6 +15,7 @@ from sklearn.preprocessing import normalize
 from mne.preprocessing import find_outliers
 from mne.minimum_norm import apply_inverse_raw  # , make_inverse_operator
 from mne.minimum_norm import make_inverse_operator as mne_make_inverse_operator
+from mne.minimum_norm import prepare_inverse_operator
 from mne.beamformer import apply_lcmv_raw
 from ..helpers.make_lcmv import make_lcmv
 
@@ -166,11 +167,14 @@ class InverseModel(ProcessorNode):
                                                       depth=self.depth,
                                                       loose=self.loose,
                                                       fixed=self.fixed)
+        self.lambda2 = 1.0 / self.snr ** 2
+        self.inverse_operator = prepare_inverse_operator(
+            self.inverse_operator, nave=100,
+            lambda2=self.lambda2, method=self.method)
         # self._inverse_model_matrix = matrix_from_inverse_operator(
         #     inverse_operator=self.inverse_operator, mne_info=mne_info,
         #     snr=self.snr, method=self.method)
 
-        self.lambda2 = 1.0 / self.snr ** 2
         frequency = mne_info['sfreq']
         # channel_count = self._inverse_model_matrix.shape[0]
         channel_count = self.fwd['nsource']
@@ -199,7 +203,8 @@ class InverseModel(ProcessorNode):
         # data = raw_array.get_data()
         # self.output = self._apply_inverse_model_matrix(data)
         stc = apply_inverse_raw(raw_array, self.inverse_operator,
-                                lambda2=self.lambda2, method=self.method)
+                                lambda2=self.lambda2, method=self.method,
+                                prepared=True)
         self.output = stc.data
 
     def _on_input_history_invalidation(self):
