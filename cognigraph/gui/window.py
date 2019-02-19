@@ -19,7 +19,6 @@ class GUIWindow(QtWidgets.QMainWindow):
         self.run_button = QtWidgets.QPushButton("Start")
         self.run_button.clicked.connect(self._toggle_run_button)
 
-
         # Resize screen
         self.resize(QtCore.QSize(
             QtWidgets.QDesktopWidget().availableGeometry().width() * 0.9,
@@ -64,9 +63,7 @@ class GUIWindow(QtWidgets.QMainWindow):
                 raise ValueError('Node widget is not defined')
 
     def moveEvent(self, event):
-        self._reset_gif_sector()
         return super(GUIWindow, self).moveEvent(event)
-
 
     def _toggle_run_button(self):
         if self.run_button.text() == "Pause":
