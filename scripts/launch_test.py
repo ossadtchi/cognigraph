@@ -2,16 +2,16 @@
 
 import argparse
 import sys
-import time
 import os.path as op
 import logging
-from PyQt5 import QtCore, QtWidgets
 import mne
 import numpy as np
-
+from PyQt5 import QtWidgets
 from cognigraph.pipeline import Pipeline
 from cognigraph.nodes import sources, processors, outputs
 from cognigraph.gui.window import GUIWindow
+from cognigraph.gui.async_pipeline_update import AsyncUpdater
+from cognigraph.gui.dialogs import ForwardSetupDialog
 
 np.warnings.filterwarnings('ignore')  # noqa
 
@@ -35,8 +35,9 @@ args = parser.parse_args()
 
 sys.path.append('../vendor/nfb')  # For nfb submodule
 
-SURF_DIR = op.join(mne.datasets.sample.data_path(), 'subjects')
-SUBJECT = 'sample'
+# SURF_DIR = op.join(mne.datasets.sample.data_path(), 'subjects')
+SURF_DIR = '/usr/local/freesurfer/subjects'
+SUBJECT = 'fsaverage'
 DATA_DIR = '/home/dmalt/Code/python/cogni_submodules/tests/data'
 FWD_MODEL_NAME = 'dmalt_custom_mr-fwd.fif'
 
@@ -58,10 +59,10 @@ def assemble_pipeline(file_path, inverse_method='mne'):
     pipeline.add_processor(linear_filter)
 
     if inverse_method == 'mne':
-        # inverse_model = processors.InverseModel(method='MNE', snr=1.0,
-        #                                         forward_model_path=fwd_path)
-        inverse_model = processors.MneGcs(snr=1.0, seed=1000,
-                                          forward_model_path=fwd_path)
+        inverse_model = processors.InverseModel(method='MNE', snr=1.0,
+                                                forward_model_path=fwd_path)
+        # inverse_model = processors.MneGcs(snr=1.0, seed=1000,
+        #                                   forward_model_path=fwd_path)
         pipeline.add_processor(inverse_model)
         envelope_extractor = processors.EnvelopeExtractor(0.99)
         pipeline.add_processor(envelope_extractor)
@@ -123,58 +124,6 @@ def assemble_pipeline(file_path, inverse_method='mne'):
     return pipeline
 
 
-class Communicate(QtCore.QObject):
-    """Pyqt signals sender"""
-    sync_signal = QtCore.pyqtSignal()
-
-
-class AsyncUpdater(QtCore.QThread):
-    _stop_flag = False
-
-    def __init__(self):
-        super(AsyncUpdater, self).__init__()
-        self.sender = Communicate()
-        self.sender.sync_signal.connect(
-            self.process_events_on_main_thread,
-            type=QtCore.Qt.BlockingQueuedConnection)
-        self.is_paused = True
-
-    def process_events_on_main_thread(self):
-        app.processEvents()
-
-    def run(self):
-        self._stop_flag = False
-        logger.info('Start pipeline')
-
-        is_first_iter = True
-        while True:
-            start = time.time()
-            pipeline.update_all_nodes()
-            end = time.time()
-            if is_first_iter:
-                # without this hack widgets are not updated unless
-                # you click on them
-                time.sleep(0.05)
-                is_first_iter = False
-
-            self.sender.sync_signal.emit()
-            if self._stop_flag is True:
-                QtWidgets.QApplication.processEvents()
-                break
-
-    def stop(self):
-        logger.info('Stop pipeline')
-        self._stop_flag = True
-
-    def toggle(self):
-        if self.is_paused:
-            self.is_paused = False
-            self.start()
-        else:
-            self.is_paused = True
-            self.stop()
-            self.wait(1000)
-
 def on_main_window_close():
     thread.stop()
     thread.wait(100)
@@ -208,13 +157,16 @@ if __name__ == '__main__':
         raise Exception("DATA PATH IS MANDATORY!")
 
     if not args.forward:
-        try:
-            fwd_tuple = QtWidgets.QFileDialog.getOpenFileName(
-                caption="Select forward model",
-                filter= "MNE-python forward (*-fwd.fif)")
-            fwd_path = fwd_tuple[0]
-        except:
-            logger.error("FORWARD SOLUTION IS MANDATORY!")
+        # try:
+        #     fwd_tuple = QtWidgets.QFileDialog.getOpenFileName(
+        #         caption="Select forward model",
+        #         filter= "MNE-python forward (*-fwd.fif)")
+        #     fwd_path = fwd_tuple[0]
+        # except:
+        #     logger.error("FORWARD SOLUTION IS MANDATORY!")
+        dialog = ForwardSetupDialog()
+        dialog.exec()
+        fwd_path = dialog.fwd_path
     else:
         fwd_path = args.forward.name
 
@@ -229,9 +181,9 @@ if __name__ == '__main__':
     window = GUIWindow(pipeline=pipeline)
     window.init_ui()
     window.initialize()  # initializes all pipeline nodes
-    window.setWindowFlags(QtCore.Qt.WindowStaysOnTopHint)
+    # window.setWindowFlags(QtCore.Qt.WindowStaysOnTopHint)
 
-    thread = AsyncUpdater()
+    thread = AsyncUpdater(app, pipeline)
     window.run_button.clicked.connect(thread.toggle)
     # window.destroyed.connect(on_main_window_close)
 
