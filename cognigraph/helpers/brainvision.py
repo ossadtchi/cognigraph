@@ -38,6 +38,7 @@ def read_brain_vision_data(file_path, time_axis, start_s: int=0, stop_s: int=Non
     vhdr_file_path = os.path.splitext(file_path)[0] + '.vhdr'
     raw = mne.io.read_raw_brainvision(vhdr_fname=vhdr_file_path,
                                       verbose='ERROR')  # type: mne.io.Raw
+    raw.set_eeg_reference(ref_channels='average', projection=True)
 
     # Get the required time slice.
     # mne.io.Raw.get_data takes array indices, not time
@@ -56,6 +57,7 @@ def read_brain_vision_data(file_path, time_axis, start_s: int=0, stop_s: int=Non
 
 def read_fif_data(file_path, time_axis, start_s: int=0, stop_s: int=None):
     raw = mne.io.Raw(fname=file_path, verbose='ERROR')  # type: mne.io.Raw
+    raw.set_eeg_reference(ref_channels='average', projection=True)
 
     # Get the required time slice.
     # mne.io.Raw.get_data takes array indices, not time
@@ -76,6 +78,7 @@ def read_edf_data(file_path, time_axis, start_s: int=0, stop_s: int=None):
     raw = mne.io.edf.read_raw_edf(input_fname=file_path, preload=True,
                                   verbose='ERROR', stim_channel=-1,
                                   misc=[128, 129, 130])  # type: mne.io.Raw
+    raw.set_eeg_reference(ref_channels='average', projection=True)
     try:
         del raw._cals  # fixes bug with pick_types in edf data
     except:
