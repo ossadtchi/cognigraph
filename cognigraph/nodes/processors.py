@@ -193,12 +193,17 @@ class InverseModel(ProcessorNode):
         mne_info = self.traverse_back_and_find('mne_info')
         bads = mne_info['bads']
         if bads != self._bad_channels:
+            self.logger.info('Found new bad channels {};'.format(bads) +
+                             'updating inverse operator')
             # self.inverse_operator = make_inverse_operator(self.fwd, mne_info)
             self.inverse_operator = make_inverse_operator(self.fwd,
                                                           mne_info,
                                                           depth=self.depth,
                                                           loose=self.loose,
                                                           fixed=self.fixed)
+            self.inverse_operator = prepare_inverse_operator(
+                self.inverse_operator, nave=100,
+                lambda2=self.lambda2, method=self.method)
                 # self._inverse_model_matrix = matrix_from_inverse_operator(
             #     inverse_operator=self.inverse_operator, mne_info=mne_info,
             #     snr=self.snr, method=self.method)
