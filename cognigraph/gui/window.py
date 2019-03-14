@@ -1,12 +1,9 @@
 from typing import List
-from PyQt5 import QtCore
 from PyQt5.QtGui import QIcon
 # from PyQt5 import Qt
-from PyQt5.QtCore import Qt
+from PyQt5.QtCore import Qt, QSize
 from PyQt5.Qt import QSizePolicy
-from PyQt5.QtWidgets import (QDockWidget, QWidget, QMainWindow,
-                             QDesktopWidget, QPushButton, QHBoxLayout,
-                             QSplitter, QVBoxLayout, QFrame, QFileDialog,
+from PyQt5.QtWidgets import (QDockWidget, QWidget, QMainWindow, QDesktopWidget,
                              QMdiArea, QAction)
 from ..pipeline import Pipeline
 from .controls import Controls
@@ -28,7 +25,7 @@ class GUIWindow(QMainWindow):
         # Start button
 
         # Resize screen
-        self.resize(QtCore.QSize(
+        self.resize(QSize(
             QDesktopWidget().availableGeometry().width() * 0.9,
             QDesktopWidget().availableGeometry().height() * 0.9))
 
