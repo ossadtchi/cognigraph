@@ -42,7 +42,7 @@ DATA_DIR = '/home/dmalt/Code/python/cogni_submodules/tests/data'
 FWD_MODEL_NAME = 'dmalt_custom_mr-fwd.fif'
 
 
-def assemble_pipeline(file_path, inverse_method='mne'):
+def assemble_pipeline(file_path=None, fwd_path=None, inverse_method='mne'):
     pipeline = Pipeline()
     source = sources.FileSource(file_path=file_path)
     # source = sources.FileSource()
@@ -113,9 +113,9 @@ def assemble_pipeline(file_path, inverse_method='mne'):
     pipeline.add_output(seed_viewer, input_node=aec_env)
 
     # pipeline.add_output(outputs.LSLStreamOutput())
-    # signal_viewer = outputs.SignalViewer()
+    signal_viewer = outputs.SignalViewer()
     # signal_viewer_src = outputs.SignalViewer()
-    # pipeline.add_output(signal_viewer, input_node=linear_filter)
+    pipeline.add_output(signal_viewer, input_node=linear_filter)
     # pipeline.add_output(signal_viewer_src, input_node=roi_average)
     # con_viewer = outputs.ConnectivityViewer(
     #     surfaces_dir=op.join(SURF_DIR, SUBJECT))
@@ -137,8 +137,17 @@ def on_main_window_close():
     # del pipeline
     # thread.deleteLater()
 
+
 if __name__ == '__main__':
     app = QtWidgets.QApplication(sys.argv)
+
+    logger.debug('Assembling pipeline')
+    pipeline = assemble_pipeline(None, None, inverse_method='mne')
+    logger.debug('Finished assembling pipeline')
+    # Create window
+    window = GUIWindow(pipeline=pipeline)
+    window.init_ui()
+    window.show()
 
     if not args.data:
         try:
@@ -174,20 +183,16 @@ if __name__ == '__main__':
         raise Exception("FORWARD SOLUTION IS MANDATORY!")
         logger.info('Exiting ...')
 
-    logger.debug('Assembling pipeline')
-    pipeline = assemble_pipeline(file_path, inverse_method='mne')
-    logger.debug('Finished assembling pipeline')
-    # Create window
-    window = GUIWindow(pipeline=pipeline)
-    window.init_ui()
+    pipeline.all_nodes[0].file_path = file_path
+    pipeline.all_nodes[3]._user_provided_forward_model_file_path = fwd_path
+
     window.initialize()  # initializes all pipeline nodes
     # window.setWindowFlags(QtCore.Qt.WindowStaysOnTopHint)
 
     thread = AsyncUpdater(app, pipeline)
-    window.run_button.clicked.connect(thread.toggle)
+    window.run_toggle_action.triggered.connect(thread.toggle)
     # window.destroyed.connect(on_main_window_close)
 
     # Show window and exit on close
-    window.show()
     app.aboutToQuit.connect(on_main_window_close)
     sys.exit(app.exec_())
