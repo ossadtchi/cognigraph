@@ -710,7 +710,6 @@ class ForwardSetupDialog(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.is_ok_to_close = True
-
         # -------- create widgets -------- #
         self.anatomy_gpbox = AnatomyGroupbox()
         self.forward_gpbox = ForwardOptionsRadioButtons()
@@ -812,6 +811,7 @@ class ForwardSetupDialog(QDialog):
             self.dialog_buttons.button(QDialogButtonBox.Ok).setDisabled(True)
 
     def _on_ok(self):
+        """Called when OK button is clicked"""
         self.is_ok_to_close = True
         self.subjects_dir = self.anatomy_gpbox.subjects_dir
         self.subject = self.anatomy_gpbox.subject
@@ -871,8 +871,7 @@ class ForwardSetupDialog(QDialog):
             print(self.fwd_path, self.subject, self.subjects_dir)
             self.accept()
 
-    def copy_forward_to_folders_struct(self, src_path,
-                                       montage='imported',
+    def copy_forward_to_folders_struct(self, src_path, montage='imported',
                                        spacing='imported'):
         dest_dir = op.join(self.default_fwds_path, montage, spacing)
         fname = op.split(src_path)[1]
@@ -887,9 +886,29 @@ class ForwardSetupDialog(QDialog):
 
 
 if __name__ == '__main__':
+
     from PyQt5.QtWidgets import QApplication
     import sys
+
+    class MW(QMainWindow):
+        def __init__(self, parent=None):
+            super().__init__(parent)
+            self.button = QPushButton('Push me')
+            self.button.clicked.connect(self._on_clicked)
+            self.dialog = ForwardSetupDialog(parent=self)
+            self.setCentralWidget(self.button)
+
+        def _on_clicked(self):
+            self.dialog.show()
+
+
     app = QApplication(sys.argv)
-    dialog = ForwardSetupDialog()
-    dialog.show()
+    wind = MW()
+    # wind.setAttribute(Qt.WA_DeleteOnClose)
+
+    # dialog = ForwardSetupDialog()
+    # wind.show()
+    wind.show()
+    # app.exec_()
+
     sys.exit(app.exec_())
