@@ -16,7 +16,7 @@ from PyQt5.QtWidgets import (QDialog, QHBoxLayout, QLabel, QComboBox,
                              QDialogButtonBox, QPushButton, QFileDialog,
                              QRadioButton, QGroupBox, QVBoxLayout, QLineEdit,
                              QWidget, QDoubleSpinBox, QProgressDialog,
-                             QMessageBox)
+                             QMessageBox, QMainWindow)
 
 from PyQt5.Qt import QSizePolicy, QTimer
 from PyQt5.QtCore import Qt, pyqtSignal, QSignalBlocker, QThread, QEventLoop

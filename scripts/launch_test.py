@@ -11,7 +11,7 @@ from cognigraph.pipeline import Pipeline
 from cognigraph.nodes import sources, processors, outputs
 from cognigraph.gui.window import GUIWindow
 from cognigraph.gui.async_pipeline_update import AsyncUpdater
-from cognigraph.gui.dialogs import ForwardSetupDialog
+from cognigraph.gui.forward_dialog import ForwardSetupDialog
 
 np.warnings.filterwarnings('ignore')  # noqa
 
