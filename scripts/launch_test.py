@@ -7,6 +7,7 @@ import logging
 import mne
 import numpy as np
 from PyQt5 import QtWidgets
+from PyQt5.QtCore import QTimer
 from cognigraph.pipeline import Pipeline
 from cognigraph.nodes import sources, processors, outputs
 from cognigraph.gui.window import GUIWindow
@@ -186,7 +187,7 @@ if __name__ == '__main__':
     pipeline.all_nodes[0].file_path = file_path
     pipeline.all_nodes[3]._user_provided_forward_model_file_path = fwd_path
 
-    window.initialize()  # initializes all pipeline nodes
+    QTimer.singleShot(0, window.initialize)  # initializes all pipeline nodes
     # window.setWindowFlags(QtCore.Qt.WindowStaysOnTopHint)
 
     thread = AsyncUpdater(app, pipeline)

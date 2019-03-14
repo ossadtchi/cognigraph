@@ -19,8 +19,9 @@ from PyQt5.QtWidgets import (QDialog, QHBoxLayout, QLabel, QComboBox,
                              QMessageBox, QMainWindow)
 
 from PyQt5.Qt import QSizePolicy, QTimer
-from PyQt5.QtCore import Qt, pyqtSignal, QSignalBlocker, QThread, QEventLoop
+from PyQt5.QtCore import Qt, pyqtSignal, QSignalBlocker
 from cognigraph import COGNIGRAPH_ROOT
+from cognigraph.gui.async_pipeline_update import ThreadToBeWaitedFor
 
 import logging
 
@@ -587,15 +588,15 @@ class BadInputFile(Exception):
     pass
 
 
-class ComputeForwardInThread(QThread):
+class ComputeForwardInThread(ThreadToBeWaitedFor):
     """Compute forward model in parallel thread"""
-    progress = pyqtSignal(int)
-    exception_ocurred = pyqtSignal(Exception)
 
     def __init__(self, montage, subjects_dir, subject,
                  spacing, conductivity, trans_file, dest_dir, n_jobs=8,
-                 verbose=True, parent=None):
-        super().__init__(parent)
+                 verbose='ERROR', parent=None):
+        super().__init__(parent=parent)
+        self.progress_text = 'Computing forward model... Please be patient.'
+        self.error_text = 'Forward model computation failed.'
         self.montage = montage
         self.subjects_dir = subjects_dir
         self.subject = subject
@@ -605,104 +606,69 @@ class ComputeForwardInThread(QThread):
         self.dest_dir = dest_dir
         self.n_jobs = n_jobs
         self.verbose = verbose
-        self.is_successful = True
         self.fwd_savename = None
+        self.is_show_progress = True
 
-    def no_blocking_execution(self):
-        """
-        Execution of parallel thread with main thread waiting for it to finish
-        by locking its interface for input but still keeping it alive
-
-        """
-        q = QEventLoop()
-        # -------- setup progress dialog -------- #
-        progress_dialog = QProgressDialog()
-        progress_dialog.setLabelText(
-            'Computing forward model... Be patient.')
-        progress_dialog.setCancelButtonText(None)
-
-        progress_dialog.setRange(0, 100)
-        progress_dialog.show()
-        self.parent().setDisabled(True)
-        # --------------------------------------- #
-        self.progress.connect(progress_dialog.setValue)
-        self.exception_ocurred.connect(self._on_fwd_comp_exception)
-        self.finished.connect(q.quit)
-        self.start()
-        q.exec(QEventLoop.ExcludeUserInputEvents)
-        progress_dialog.hide()
-        self.parent().setDisabled(False)
-        return self.is_successful
-
-    def _on_fwd_comp_exception(self, exception):
-        msg = QMessageBox(self.parent())
-        msg.setText('Forward computation failed')
-        msg.setDetailedText(str(exception))
-        msg.setIcon(QMessageBox.Warning)
-        msg.show()
-        self.is_successful = False
-
-    def run(self):
+    def _run(self):
         """Compute 3-layer BEM based forward model from montage and anatomy"""
+        montage = self.montage
+        subjects_dir = self.subjects_dir
+        subject = self.subject
+        spacing = self.spacing
+        conductivity = self.conductivity
+        trans_file = self.trans_file
+        dest_dir = self.dest_dir
+        n_jobs = self.n_jobs
+        verbose = self.verbose
+
         try:
-            montage = self.montage
-            subjects_dir = self.subjects_dir
-            subject = self.subject
-            spacing = self.spacing
-            conductivity = self.conductivity
-            trans_file = self.trans_file
-            dest_dir = self.dest_dir
-            n_jobs = self.n_jobs
-            verbose = self.verbose
+            montage = mne.channels.read_montage(kind=montage)
+        except Exception:
+            raise BadInputFile('Bad montage file: {}'.format(montage))
 
-            try:
-                montage = mne.channels.read_montage(kind=montage)
-            except Exception:
-                raise BadInputFile('Bad montage file: {}'.format(montage))
+        fiducials = ['LPA', 'RPA', 'Nz', 'FidT9', 'FidT10', 'FidNz']
+        logger.info('SUBJECTS_DIR is set to {}'.format(subjects_dir))
+        logger.info('Spacing is set to {}'.format(spacing))
+        logger.info('Setting up the source space ...')
+        src = mne.setup_source_space(subject, spacing=spacing,
+                                     subjects_dir=subjects_dir,
+                                     add_dist=False, verbose=verbose)
+        self.progress_updated.emit(25)
 
-            fiducials = ['LPA', 'RPA', 'Nz', 'FidT9', 'FidT10', 'FidNz']
-            logging.info('SUBJECTS_DIR is set to {}'.format(subjects_dir))
-            logging.info('Spacing is set to {}'.format(spacing))
-            logging.info('Setting up the source space ...')
-            src = mne.setup_source_space(subject, spacing=spacing,
-                                         subjects_dir=subjects_dir,
-                                         add_dist=False, verbose=verbose)
-            self.progress.emit(25)
+        logger.info('Creating bem model (be patient) ...')
+        model = mne.make_bem_model(subject=subject, ico=4,
+                                   conductivity=conductivity,
+                                   subjects_dir=subjects_dir,
+                                   verbose=verbose)
+        # raise Exception('Some catastrophic shit happened')
+        self.progress_updated.emit(50)
+        bem = mne.make_bem_solution(model, verbose=verbose)
+        self.progress_updated.emit(75)
+        if not trans_file:
+            trans_file = None
+        n_jobs = n_jobs
+        logger.info('Computing forward solution (be patient) ...')
+        ch_names = montage.ch_names
+        ch_names = [c for c in ch_names if c not in fiducials]
+        info = mne.create_info(ch_names, sfreq=1, ch_types='eeg')
+        raw = mne.io.RawArray(np.ones([len(info['ch_names']), 1]), info,
+                              verbose=verbose)
+        raw.set_montage(montage)
 
-            logging.info('Creating bem model (be patient) ...')
-            model = mne.make_bem_model(subject=subject, ico=4,
-                                       conductivity=conductivity,
-                                       subjects_dir=subjects_dir,
-                                       verbose=verbose)
-            # raise Exception('Some catastrophic shit happened')
-            self.progress.emit(50)
-            bem = mne.make_bem_solution(model, verbose=verbose)
-            self.progress.emit(75)
-            if not trans_file:
-                trans_file = None
-            n_jobs = n_jobs
-            logging.info('Computing forward solution (be patient) ...')
-            ch_names = montage.ch_names
-            ch_names = [c for c in ch_names if c not in fiducials]
-            info = mne.create_info(ch_names, sfreq=1, ch_types='eeg')
-            raw = mne.io.RawArray(np.ones([len(info['ch_names']), 1]), info)
-            raw.set_montage(montage)
+        ch_names = montage.ch_names
+        ch_names = [c for c in ch_names if c not in fiducials]
+        fwd = mne.make_forward_solution(raw.info, trans=trans_file,
+                                        src=src, bem=bem, meg=False,
+                                        eeg=True, mindist=5.0,
+                                        n_jobs=n_jobs, verbose=verbose)
+        self.progress_updated.emit(100)
 
-            ch_names = montage.ch_names
-            ch_names = [c for c in ch_names if c not in fiducials]
-            fwd = mne.make_forward_solution(raw.info, trans=trans_file,
-                                            src=src, bem=bem, meg=False,
-                                            eeg=True, mindist=5.0,
-                                            n_jobs=n_jobs, verbose=verbose)
-            self.progress.emit(100)
-
-            fwd_name = '-'.join(
-                [self.subject, 'eeg', spacing, montage.kind, 'fwd.fif'])
-            self.fwd_savename = op.join(dest_dir, montage.kind,
-                                        spacing, fwd_name)
-            mne.write_forward_solution(self.fwd_savename, fwd, overwrite=True)
-        except Exception as exc:
-            self.exception_ocurred.emit(exc)
+        fwd_name = '-'.join(
+            [self.subject, 'eeg', spacing, montage.kind, 'fwd.fif'])
+        self.fwd_savename = op.join(dest_dir, montage.kind,
+                                    spacing, fwd_name)
+        mne.write_forward_solution(self.fwd_savename,
+                                   fwd, overwrite=True, verbose=verbose)
 
 
 class ForwardSetupDialog(QDialog):
@@ -862,7 +828,7 @@ class ForwardSetupDialog(QDialog):
                                                 self.subject, spacing,
                                                 conductivity, trans_file,
                                                 dest_dir, n_jobs=1,
-                                                verbose=True, parent=self)
+                                                verbose='ERROR', parent=self)
             self.is_ok_to_close = thread_run.no_blocking_execution()
             if self.is_ok_to_close:
                 self.fwd_path = thread_run.fwd_savename
@@ -889,6 +855,9 @@ if __name__ == '__main__':
 
     from PyQt5.QtWidgets import QApplication
     import sys
+
+    format = '%(asctime)s:%(name)-17s:%(levelname)s:%(message)s'
+    logging.basicConfig(level=logging.DEBUG, filename=None, format=format)
 
     class MW(QMainWindow):
         def __init__(self, parent=None):

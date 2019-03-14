@@ -6,6 +6,7 @@ from PyQt5.Qt import QSizePolicy
 from PyQt5.QtWidgets import (QDockWidget, QWidget, QMainWindow, QDesktopWidget,
                              QMdiArea, QAction)
 from ..pipeline import Pipeline
+from .async_pipeline_update import AsyncPipelineInitializer
 from .controls import Controls
 # from .screen_recorder import ScreenRecorder
 
@@ -70,7 +71,9 @@ class GUIWindow(QMainWindow):
 
     def initialize(self):
         logger.debug('Initializing all nodes')
-        self._pipeline.initialize_all_nodes()
+        async_initer = AsyncPipelineInitializer(pipeline=self._pipeline,
+                                                parent=self)
+        async_initer.no_blocking_execution()
         for node_widget in self._node_widgets:
             if node_widget:
                 node_widget.setMinimumWidth(600)
