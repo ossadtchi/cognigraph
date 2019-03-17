@@ -18,20 +18,20 @@ def beamformer(info):
     beamformer.mne_info = info
     N_SEN = len(info['ch_names'])
     beamformer.input = np.random.rand(N_SEN)
-    input_node = FileSource()
-    input_node.output = np.random.rand(info['nchan'], 1)
-    input_node.mne_info = info
-    beamformer.input_node = input_node
+    parent_node = FileSource()
+    parent_node.output = np.random.rand(info['nchan'], 1)
+    parent_node.mne_info = info
+    beamformer.parent_node = parent_node
     return beamformer
 
 
 @pytest.fixture  # noqa
 def beamformer_def(info):
     beamformer_def = Beamformer()
-    input_node = FileSource()
-    input_node.mne_info = info
-    input_node.output = np.random.rand(info['nchan'], 1)
-    beamformer_def.input_node = input_node
+    parent_node = FileSource()
+    parent_node.mne_info = info
+    parent_node.output = np.random.rand(info['nchan'], 1)
+    beamformer_def.parent_node = parent_node
     return beamformer_def
 
 

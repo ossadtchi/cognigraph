@@ -88,7 +88,7 @@ def assemble_pipeline(file_path=None, fwd_path=None, subject=None,
     brain_viewer = outputs.BrainViewer(
         limits_mode=global_mode, buffer_length=6,
         surfaces_dir=None)
-    pipeline.add_output(brain_viewer, input_node=envelope_extractor)
+    pipeline.add_output(brain_viewer, parent_node=envelope_extractor)
 
     # roi_average = processors.AtlasViewer(SUBJECT, subjects_dir)
     # roi_average.parent_node = inverse_model
