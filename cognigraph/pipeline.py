@@ -8,17 +8,21 @@ from .helpers.misc import class_name_of
 
 import logging
 
+
 class Pipeline(object):
     """
-    This class facilitates connecting data inputs to a sequence of signal processors and outputs.
+    This class facilitates connecting data inputs to a sequence of signal
+    processors and outputs.
 
-    All elements in the pipeline are objects of class Node and inputs, processors and outputs should be objects of the
+    All elements in the pipeline are objects of class Node and inputs,
+    processors and outputs should be objects of the
     corresponding subclasses of Node.
 
     Sample usage:
 
     pipeline = Pipeline()
-    pipeline.source = sources.LSLStreamSource(stream_name='cognigraph-mock-stream')
+    pipeline.source = sources.LSLStreamSource(
+        stream_name='cognigraph-mock-stream')
     linear_filter = processors.LinearFilter(lower_cutoff=0.1, upper_cutoff=40)
     pipeline.add_processor(linear_filter)
     pipeline.add_processor(processors.InverseModel(method='MNE'))
@@ -30,7 +34,7 @@ class Pipeline(object):
         self._source = None  # type: SourceNode
         self._processors = list()  # type: List[ProcessorNode]
         self._outputs = list()  # type: List[OutputNode]
-        self._inputs_of_outputs = list()  # type: List[(SourceNode, ProcessorNode)]
+        self._inputs_of_outputs = list()
         self.logger = logging.getLogger(type(self).__name__)
 
     @property

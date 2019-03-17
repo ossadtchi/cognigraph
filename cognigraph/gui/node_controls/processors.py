@@ -67,6 +67,7 @@ class PreprocessingControls(ProcessorNodeControls):
     def _on_duration_changed(self, param, value):
         self._processor_node.collect_for_x_seconds = value
 
+
 class LinearFilterControls(ProcessorNodeControls):
     PROCESSOR_CLASS = processors.LinearFilter
     CONTROLS_LABEL = 'Linear filter'
@@ -80,11 +81,11 @@ class LinearFilterControls(ProcessorNodeControls):
         upper_cutoff_value = self._processor_node.upper_cutoff
 
         lower_cutoff = parameterTypes.SimpleParameter(
-            type='int', name=self.LOWER_CUTOFF_NAME,
+            type='float', name=self.LOWER_CUTOFF_NAME,
             suffix='Hz', limits=(0, upper_cutoff_value - 0.01),
             value=lower_cutoff_value)
         upper_cutoff = parameterTypes.SimpleParameter(
-            type='int', name=self.UPPER_CUTOFF_NAME, suffix='Hz',
+            type='float', name=self.UPPER_CUTOFF_NAME, suffix='Hz',
             limits=(lower_cutoff_value, 100), value=upper_cutoff_value)
 
         self.lower_cutoff = self.addChild(lower_cutoff)
@@ -128,7 +129,7 @@ class InverseModelControls(ProcessorNodeControls):
 
         try:
             file_path = self._processor_node.mne_forward_model_file_path
-        except:
+        except Exception:
             file_path = ''
 
         # Add LineEdit for choosing file

@@ -4,6 +4,7 @@ import nibabel as nib
 
 from ..gui.brain_visual import BrainMesh
 
+
 def get_mesh_data_from_surfaces_dir(surfaces_dir, translucent=False,
                                     cortex_type='inflated'):
     surfaces_dir = op.join(surfaces_dir, 'surf')

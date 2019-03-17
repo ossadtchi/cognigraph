@@ -38,8 +38,8 @@ from vispy import scene
 import torch
 # import logging
 
-from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
-from matplotlib.figure import Figure
+# from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
+# from matplotlib.figure import Figure
 
 # -------- gif recorder -------- #
 from vispy.gloo.util import _screenshot

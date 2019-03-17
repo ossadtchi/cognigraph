@@ -19,9 +19,9 @@ np.warnings.filterwarnings('ignore')  # noqa
 # ----------------------------- setup logging  ----------------------------- #
 logfile = None
 format = '%(asctime)s:%(name)-17s:%(levelname)s:%(message)s'
-logging.basicConfig(level=logging.DEBUG, filename=logfile, format=format)
+logging.basicConfig(level=logging.INFO, filename=logfile, format=format)
 logger = logging.getLogger(__name__)
-mne.set_log_level('INFO')
+mne.set_log_level('ERROR')
 mne.set_log_file(fname=logfile, output_format=format)
 # -------------------------------------------------------------------------- #
 

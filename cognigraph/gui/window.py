@@ -45,7 +45,7 @@ class GUIWindow(QMainWindow):
         controls_dock.setWidget(self._controls_widget)
         self.addDockWidget(Qt.LeftDockWidgetArea, controls_dock)
 
-        self._controls_widget.setMinimumWidth(600)
+        self._controls_widget.setMinimumWidth(800)
         # --------------------------------- #
 
         file_menu = self.menuBar().addMenu('&File')
