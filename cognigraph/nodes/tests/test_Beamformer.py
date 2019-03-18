@@ -1,20 +1,17 @@
 import pytest
-# from nose.tools import assert_equals, raises
-# from scripts.beamformer import MCE
 from cognigraph.nodes.processors import Beamformer
 from cognigraph.nodes.sources import FileSource
+from cognigraph import COGNIGRAPH_ROOT
+from cognigraph.nodes.tests.prepare_inv_tests_data import info  # noqa
 import os.path as op
 import numpy as np
-from mne.io import read_info
 
-test_data_path = op.join(op.dirname(__file__),  'data')
+test_data_path = op.join(COGNIGRAPH_ROOT,  'tests/data')
 
 
-@pytest.fixture
-def beamformer():
+@pytest.fixture  # noqa
+def beamformer(info):
     fwd_model_path = op.join(test_data_path, 'dmalt_custom_lr-fwd.fif')
-    info_src_path = op.join(test_data_path, 'Koleno.fif')
-    info = read_info(info_src_path)
     is_adaptive = True
     beamformer = Beamformer(forward_model_path=fwd_model_path,
                             is_adaptive=is_adaptive)
@@ -28,10 +25,8 @@ def beamformer():
     return beamformer
 
 
-@pytest.fixture
-def beamformer_def():
-    info_src_path = op.join(test_data_path, 'Koleno.fif')
-    info = read_info(info_src_path)
+@pytest.fixture  # noqa
+def beamformer_def(info):
     beamformer_def = Beamformer()
     input_node = FileSource()
     input_node.mne_info = info
@@ -51,7 +46,6 @@ def test_initialize(beamformer):
 
 def test_reset(beamformer):
     out_hist = beamformer._reset()
-    # assert(self.beamformer._should_reinitialize == True)
     assert(out_hist is True)
 
 

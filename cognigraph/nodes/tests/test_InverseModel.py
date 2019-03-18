@@ -1,23 +1,16 @@
-import pytest
-# from nose.tools import assert_equals, raises
-from cognigraph.nodes.processors import InverseModel
-from cognigraph.nodes.sources import FileSource
 import os.path as op
 import numpy as np
-from mne.io import Raw
 
-test_data_path = op.join(op.dirname(__file__),  'data')
+import pytest
+from cognigraph.nodes.processors import InverseModel
+from cognigraph.nodes.sources import FileSource
+from cognigraph import COGNIGRAPH_ROOT
+from cognigraph.nodes.tests.prepare_inv_tests_data import info  # noqa
 
-
-@pytest.fixture
-def info():
-    info_src_path = op.join(test_data_path, 'Koleno.fif')
-    raw = Raw(info_src_path, preload=True)
-    raw.set_eeg_reference('average', projection=True)
-    return raw.info
+test_data_path = op.join(COGNIGRAPH_ROOT, 'tests/data')
 
 
-@pytest.fixture
+@pytest.fixture  # noqa
 def inv_model(info):
     snr = 1
     fwd_model_path = op.join(test_data_path, 'dmalt_custom_lr-fwd.fif')
@@ -34,7 +27,7 @@ def inv_model(info):
     return inv_model
 
 
-@pytest.fixture
+@pytest.fixture  # noqa
 def inv_model_def(info):
     inv_model_def = InverseModel()
     input_node = FileSource()
@@ -55,7 +48,6 @@ def test_initialize(inv_model):
 
 def test_reset(inv_model):
     out_hist = inv_model._reset()
-    # assert(self.inv_model._should_reinitialize == True)
     assert(out_hist is True)
 
 
