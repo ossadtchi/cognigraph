@@ -8,6 +8,7 @@ from mne.io import Raw
 
 test_data_path = op.join(op.dirname(__file__),  'data')
 
+
 @pytest.fixture
 def info():
     info_src_path = op.join(test_data_path, 'Koleno.fif')
