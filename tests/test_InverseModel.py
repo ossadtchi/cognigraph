@@ -4,17 +4,22 @@ from cognigraph.nodes.processors import InverseModel
 from cognigraph.nodes.sources import FileSource
 import os.path as op
 import numpy as np
-from mne.io import read_info
+from mne.io import Raw
 
 test_data_path = op.join(op.dirname(__file__),  'data')
 
+@pytest.fixture
+def info():
+    info_src_path = op.join(test_data_path, 'Koleno.fif')
+    raw = Raw(info_src_path, preload=True)
+    raw.set_eeg_reference('average', projection=True)
+    return raw.info
+
 
 @pytest.fixture
-def inv_model():
+def inv_model(info):
     snr = 1
     fwd_model_path = op.join(test_data_path, 'dmalt_custom_lr-fwd.fif')
-    info_src_path = op.join(test_data_path, 'Koleno.fif')
-    info = read_info(info_src_path)
     method = 'MNE'
     inv_model = InverseModel(
         snr=snr, forward_model_path=fwd_model_path, method=method)
@@ -29,9 +34,7 @@ def inv_model():
 
 
 @pytest.fixture
-def inv_model_def():
-    info_src_path = op.join(test_data_path, 'Koleno.fif')
-    info = read_info(info_src_path)
+def inv_model_def(info):
     inv_model_def = InverseModel()
     input_node = FileSource()
     input_node.mne_info = info
@@ -52,7 +55,7 @@ def test_initialize(inv_model):
 def test_reset(inv_model):
     out_hist = inv_model._reset()
     # assert(self.inv_model._should_reinitialize == True)
-    assert(out_hist == True)
+    assert(out_hist is True)
 
 
 def test_update(inv_model):

@@ -12,13 +12,12 @@ test_data_path = op.join(op.dirname(__file__),  'data')
 
 @pytest.fixture
 def beamformer():
-    snr = 1
     fwd_model_path = op.join(test_data_path, 'dmalt_custom_lr-fwd.fif')
     info_src_path = op.join(test_data_path, 'Koleno.fif')
     info = read_info(info_src_path)
     is_adaptive = True
-    beamformer = Beamformer(
-        snr=snr, forward_model_path=fwd_model_path, is_adaptive=is_adaptive)
+    beamformer = Beamformer(forward_model_path=fwd_model_path,
+                            is_adaptive=is_adaptive)
     beamformer.mne_info = info
     N_SEN = len(info['ch_names'])
     beamformer.input = np.random.rand(N_SEN)
@@ -53,7 +52,7 @@ def test_initialize(beamformer):
 def test_reset(beamformer):
     out_hist = beamformer._reset()
     # assert(self.beamformer._should_reinitialize == True)
-    assert(out_hist == True)
+    assert(out_hist is True)
 
 
 def test_update(beamformer):
@@ -63,4 +62,4 @@ def test_update(beamformer):
 
 def test_check_value(beamformer):
     with pytest.raises(ValueError):
-        beamformer.snr = -1
+        beamformer.reg = -1
