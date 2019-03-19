@@ -16,3 +16,4 @@ MISC_CHANNEL_TYPE = 'misc'
 
 DTYPE = np.dtype('float32')
 COGNIGRAPH_ROOT = op.split(op.dirname(__file__))[0]
+COGNIGRAPH_DATA = op.join(COGNIGRAPH_ROOT, 'data')

@@ -37,13 +37,14 @@ args = parser.parse_args()
 sys.path.append('../vendor/nfb')  # For nfb submodule
 
 # SURF_DIR = op.join(mne.datasets.sample.data_path(), 'subjects')
-SURF_DIR = '/usr/local/freesurfer/subjects'
-SUBJECT = 'fsaverage'
+# SURF_DIR = '/usr/local/freesurfer/subjects'
+# SUBJECT = 'sample'
 DATA_DIR = '/home/dmalt/Code/python/cogni_submodules/tests/data'
 FWD_MODEL_NAME = 'dmalt_custom_mr-fwd.fif'
 
 
-def assemble_pipeline(file_path=None, fwd_path=None, inverse_method='mne'):
+def assemble_pipeline(file_path=None, fwd_path=None, subject=None,
+                      subjects_dir=None, inverse_method='mne'):
     pipeline = Pipeline()
     source = sources.FileSource(file_path=file_path)
     # source = sources.FileSource()
@@ -86,41 +87,41 @@ def assemble_pipeline(file_path=None, fwd_path=None, inverse_method='mne'):
 
     brain_viewer = outputs.BrainViewer(
         limits_mode=global_mode, buffer_length=6,
-        surfaces_dir=op.join(SURF_DIR, SUBJECT))
-    pipeline.add_output(brain_viewer, input_node=envelope_extractor)
+        surfaces_dir=None)
+    pipeline.add_output(brain_viewer, parent_node=envelope_extractor)
 
-    roi_average = processors.AtlasViewer(SUBJECT, SURF_DIR)
-    roi_average.input_node = inverse_model
-    pipeline.add_processor(roi_average)
+    # roi_average = processors.AtlasViewer(SUBJECT, subjects_dir)
+    # roi_average.parent_node = inverse_model
+    # pipeline.add_processor(roi_average)
 
-    aec = processors.AmplitudeEnvelopeCorrelations(
-        method=None,
-        seed=1000
-        # method='temporal_orthogonalization',
-        # method='geometric_correction',
-        # seed=0
-    )
-    pipeline.add_processor(aec)
-    aec.input_node = inverse_model
-    # coh = processors.Coherence(
-    #     method='coh', seed=0)
-    aec_env = processors.EnvelopeExtractor(0.995)
-    pipeline.add_processor(aec_env)
+    # aec = processors.AmplitudeEnvelopeCorrelations(
+    #     method=None,
+    #     seed=1000
+    #     # method='temporal_orthogonalization',
+    #     # method='geometric_correction',
+    #     # seed=0
+    # )
+    # pipeline.add_processor(aec)
+    # aec.parent_node = inverse_model
+    # # coh = processors.Coherence(
+    # #     method='coh', seed=0)
+    # aec_env = processors.EnvelopeExtractor(0.995)
+    # pipeline.add_processor(aec_env)
 
-    seed_viewer = outputs.BrainViewer(
-        limits_mode=global_mode, buffer_length=6,
-        surfaces_dir=op.join(SURF_DIR, SUBJECT))
+    # seed_viewer = outputs.BrainViewer(
+    #     limits_mode=global_mode, buffer_length=6,
+    #     surfaces_dir=op.join(subjects_dir, SUBJECT))
 
-    pipeline.add_output(seed_viewer, input_node=aec_env)
+    # pipeline.add_output(seed_viewer, parent_node=aec_env)
 
     # pipeline.add_output(outputs.LSLStreamOutput())
-    signal_viewer = outputs.SignalViewer()
+    # signal_viewer = outputs.SignalViewer()
     # signal_viewer_src = outputs.SignalViewer()
-    pipeline.add_output(signal_viewer, input_node=linear_filter)
-    # pipeline.add_output(signal_viewer_src, input_node=roi_average)
+    # pipeline.add_output(signal_viewer, parent_node=linear_filter)
+    # pipeline.add_output(signal_viewer_src, parent_node=roi_average)
     # con_viewer = outputs.ConnectivityViewer(
-    #     surfaces_dir=op.join(SURF_DIR, SUBJECT))
-    # pipeline.add_output(con_viewer, input_node=aec)
+    #     surfaces_dir=op.join(subjects_dir, SUBJECT))
+    # pipeline.add_output(con_viewer, parent_node=aec)
     # --------------------------------------------------------------------- #
     return pipeline
 
@@ -143,7 +144,7 @@ if __name__ == '__main__':
     app = QtWidgets.QApplication(sys.argv)
 
     logger.debug('Assembling pipeline')
-    pipeline = assemble_pipeline(None, None, inverse_method='mne')
+    pipeline = assemble_pipeline(None, None, inverse_method='beamformer')
     logger.debug('Finished assembling pipeline')
     # Create window
     window = GUIWindow(pipeline=pipeline)
@@ -158,7 +159,7 @@ if __name__ == '__main__':
                        "MNE-python (*.fif);;"
                        "European Data Format (*.edf)")
             file_path = file_tuple[0]
-        except:
+        except Exception:
             logger.error("DATA FILE IS MANDATORY!")
     else:
         file_path = args.data.name
@@ -177,6 +178,8 @@ if __name__ == '__main__':
         dialog = ForwardSetupDialog()
         dialog.exec()
         fwd_path = dialog.fwd_path
+        subject = dialog.subject
+        subjects_dir = dialog.subjects_dir
     else:
         fwd_path = args.forward.name
 
@@ -186,6 +189,7 @@ if __name__ == '__main__':
 
     pipeline.all_nodes[0].file_path = file_path
     pipeline.all_nodes[3]._user_provided_forward_model_file_path = fwd_path
+    pipeline.all_nodes[5].surfaces_dir = op.join(subjects_dir, subject)
 
     QTimer.singleShot(0, window.initialize)  # initializes all pipeline nodes
     # window.setWindowFlags(QtCore.Qt.WindowStaysOnTopHint)

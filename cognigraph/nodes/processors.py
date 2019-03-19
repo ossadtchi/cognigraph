@@ -373,7 +373,7 @@ class Beamformer(ProcessorNode):
 
     SUPPORTED_OUTPUT_TYPES = ('power', 'activation')
     UPSTREAM_CHANGES_IN_THESE_REQUIRE_REINITIALIZATION = ('mne_info',)
-    CHANGES_IN_THESE_REQUIRE_RESET = ('snr', 'output_type', 'is_adaptive',
+    CHANGES_IN_THESE_REQUIRE_RESET = ('reg', 'output_type', 'is_adaptive',
                                       'fixed_orientation',
                                       'mne_forward_model_file_path')
 
@@ -472,6 +472,7 @@ class Beamformer(ProcessorNode):
             self._filters = make_lcmv(info=self._mne_info,
                                       forward=self.fwd_surf,
                                       data_cov=self._Rxx, reg=self.reg,
+                                      noise_cov=self.noise_cov,
                                       pick_ori='max-power',
                                       weight_norm='unit-noise-gain',
                                       reduce_rank=False)

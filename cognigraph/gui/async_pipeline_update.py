@@ -87,17 +87,21 @@ class ThreadToBeWaitedFor(QThread):
 
         self.exception_ocurred.connect(self._on_run_exception)
 
+        self.logger = logging.getLogger(type(self).__name__)
+
     def run(self):
         try:
             self._run()
         except Exception as exc:
             self.is_successful = False
+            self.logger.exception(str(exc))
             self.exception_ocurred.emit(exc)
 
     def _run(self):
         raise NotImplementedError()
 
     def no_blocking_execution(self):
+        """Returns True if computation went through without exceptions"""
         q = QEventLoop()
         # -------- setup progress dialog -------- #
         progress_dialog = QProgressDialog(self.parent())
@@ -139,7 +143,7 @@ class AsyncPipelineInitializer(ThreadToBeWaitedFor):
         self.is_show_progress = False
         self.progress_text = ('Initializing the data processing pipeline...'
                               ' Please be patient')
-        self.error_text = 'Initialization failed'
+        self.error_text = 'Initialization failed. See log for details.'
         self.pipeline = pipeline
 
     def _run(self):
