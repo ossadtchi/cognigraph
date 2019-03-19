@@ -46,6 +46,7 @@ class Node(object):
 
     def __init__(self):
         self._parent_node = None  # type: Node
+        self._child_nodes = []
         self.output = None  # type: np.ndarray
 
         # Nodes that have set this node as their parent_node.
@@ -165,7 +166,6 @@ class Node(object):
         """
         raise NotImplementedError('_reset should be implemented')
 
-
     @property
     def CHANGES_IN_THESE_REQUIRE_RESET(self) -> Tuple[str]:
         """
@@ -174,7 +174,7 @@ class Node(object):
 
         """
         msg = ('Each subclass of Node must have a '
-        'CHANGES_IN_THESE_REQUIRE_RESET constant defined')
+               'CHANGES_IN_THESE_REQUIRE_RESET constant defined')
         raise NotImplementedError(msg)
 
     @property
@@ -184,9 +184,8 @@ class Node(object):
 
         """
         msg = ('Each subclass of Node must have a '
-        'CHANGES_IN_THESE_REQUIRE_REINITIALIZATION constant defined')
+               'CHANGES_IN_THESE_REQUIRE_REINITIALIZATION constant defined')
         raise NotImplementedError(msg)
-
 
     @property
     def parent_node(self):
@@ -424,7 +423,8 @@ class ProcessorNode(Node):
         if self.disabled is True:
             self.output = self.parent_node.output
             return
-        if self.parent_node.output is None or self.parent_node.output.size == 0:
+        if (self.parent_node.output is None or
+                self.parent_node.output.size == 0):
             self.output = None
             return
         else:
@@ -439,7 +439,8 @@ class OutputNode(Node):
 
     """
     def update(self):
-        if self.parent_node.output is None or self.parent_node.output.size == 0:
+        if (self.parent_node.output is None or
+                self.parent_node.output.size == 0):
             return
         else:
             super().update()
