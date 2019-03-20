@@ -1,7 +1,6 @@
 import time
 from typing import List
 
-from . import TIME_AXIS
 from .nodes.node import Node, SourceNode, ProcessorNode, OutputNode
 from .helpers.decorators import accepts
 from .helpers.misc import class_name_of

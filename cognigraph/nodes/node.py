@@ -184,7 +184,8 @@ class Node(object):
 
         """
         msg = ('Each subclass of Node must have a '
-               'CHANGES_IN_THESE_REQUIRE_REINITIALIZATION constant defined')
+               'UPSTREAM_CHANGES_IN_THESE_REQUIRE_REINITIALIZATION'
+               ' constant defined')
         raise NotImplementedError(msg)
 
     @property

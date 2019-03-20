@@ -28,7 +28,8 @@ class FixedStreamInlet(lsl.StreamInlet):
                                                 lsl.pylsl.c_double(timeout),
                                                 lsl.pylsl.byref(errcode))
         lsl.pylsl.handle_error(errcode)
-        return FixedStreamInfo(handle=result) # StreamInfo(handle=result)
+        return FixedStreamInfo(handle=result)  # StreamInfo(handle=result)
+
 
 class LSLStreamSource(SourceNode):
     """ Class for reading data from an LSL stream defined by its name """
