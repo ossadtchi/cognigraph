@@ -42,9 +42,9 @@ class Pipeline(object):
 
     @source.setter
     @accepts(object, SourceNode)
-    def source(self, parent_node):
-        self._source = parent_node
-        self._reconnect_the_first_processor(parent_node)
+    def source(self, parent):
+        self._source = parent
+        self._reconnect_the_first_processor(parent)
         self._reconnect_outputs_to_last_node()  # In case some outputs were added before anything else
 
     @property
@@ -64,7 +64,7 @@ class Pipeline(object):
     def add_processor(self, processor_node):
         if processor_node not in self._processors:
             last_node = self._last_node_before_outputs()
-            processor_node.parent_node = processor_node.parent_node or last_node
+            processor_node.parent = processor_node.parent or last_node
             self._processors.append(processor_node)
             self._reconnect_outputs_to_last_node()
         else:
@@ -73,18 +73,18 @@ class Pipeline(object):
             raise ValueError(msg)
 
     @accepts(object, OutputNode, (SourceNode, ProcessorNode))
-    def add_output(self, output_node, parent_node=None):
+    def add_output(self, output_node, parent=None):
         """
-        If parent_node is None, output_node will be kept connected to
+        If parent is None, output_node will be kept connected to
         whatever node that is currently last
 
         """
         # if output_node not in self._outputs:
         self._outputs.append(output_node)
-        # If parent_node is None we will need to reconnect output_node. So we
+        # If parent is None we will need to reconnect output_node. So we
         # keep track of those Nones.
-        self._inputs_of_outputs.append(parent_node)
-        output_node.parent_node = parent_node or self._last_node_before_outputs()
+        self._inputs_of_outputs.append(parent)
+        output_node.parent = parent or self._last_node_before_outputs()
         # else:
         #     msg = "Trying to add a {} that has already been added".format(class_name_of(output_node))
         #     raise ValueError(msg)
@@ -123,14 +123,14 @@ class Pipeline(object):
         """Reconnects all outputs that did not have an input node specified when added"""
         last_node = self._last_node_before_outputs()
         for output, input in zip(self._outputs, self._inputs_of_outputs):
-            output.parent_node = input or last_node
+            output.parent = input or last_node
 
     def _reconnect_first_processor(self):
         try:
-            self._processors[0].parent_node = self.source
+            self._processors[0].parent = self.source
         except IndexError:  # No processors have been added yet
             pass
 
     def _reconnect_the_first_processor(self, source_node):
         if len(self._processors) > 0:
-            self._processors[0].parent_node = source_node
+            self._processors[0].parent = source_node

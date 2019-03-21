@@ -20,20 +20,20 @@ def inv_model(info):
     inv_model.mne_info = info
     N_SEN = len(info['ch_names'])
     inv_model.input = np.random.rand(N_SEN)
-    parent_node = FileSource()
-    parent_node.output = np.random.rand(info['nchan'], 1)
-    parent_node.mne_info = info
-    inv_model.parent_node = parent_node
+    parent = FileSource()
+    parent.output = np.random.rand(info['nchan'], 1)
+    parent.mne_info = info
+    inv_model.parent = parent
     return inv_model
 
 
 @pytest.fixture  # noqa
 def inv_model_def(info):
     inv_model_def = InverseModel()
-    parent_node = FileSource()
-    parent_node.mne_info = info
-    parent_node.output = np.random.rand(info['nchan'], 1)
-    inv_model_def.parent_node = parent_node
+    parent = FileSource()
+    parent.mne_info = info
+    parent.output = np.random.rand(info['nchan'], 1)
+    inv_model_def.parent = parent
     return inv_model_def
 
 

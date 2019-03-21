@@ -69,8 +69,8 @@ class Preprocessing(ProcessorNode):
         enough_collected = self._samples_collected >=\
                 self._samples_to_be_collected
         if not enough_collected:
-            if self.parent_node.output is not None and\
-                    self.parent_node.output.shape[TIME_AXIS] > 0:
+            if self.parent.output is not None and\
+                    self.parent.output.shape[TIME_AXIS] > 0:
                 self._update_statistics()
 
         elif not self._enough_collected:  # We just got enough samples
@@ -87,13 +87,13 @@ class Preprocessing(ProcessorNode):
                 # TODO: handle emergent bad channels on the go
                 pass
         if self._dsamp_freq and self._dsamp_freq < self.mne_info['sfreq']:
-            raw = mne.io.RawArray(self.parent_node.output, self.mne_info)
+            raw = mne.io.RawArray(self.parent.output, self.mne_info)
             raw.resample(self._dsamp_freq)
             self.output = raw.get_data()
             self.mne_info = raw.mne_info
 
         else:
-            self.output = self.parent_node.output
+            self.output = self.parent.output
 
     def _reset(self) -> bool:
         self._reset_statistics()
@@ -108,7 +108,7 @@ class Preprocessing(ProcessorNode):
         self._bad_channel_indices = []
 
     def _update_statistics(self):
-        input_array = self.parent_node.output.astype(np.dtype('float64'))
+        input_array = self.parent.output.astype(np.dtype('float64'))
         # Using float64 is necessary because otherwise rounding error
         # in recursive formula accumulate
         n = self._samples_collected
@@ -209,7 +209,7 @@ class InverseModel(ProcessorNode):
             #     snr=self.snr, method=self.method)
             self._bad_channels = bads
 
-        input_array = self.parent_node.output
+        input_array = self.parent.output
         raw_array = mne.io.RawArray(input_array, mne_info, verbose='ERROR')
         raw_array.pick_types(eeg=True, meg=False, stim=False, exclude='bads')
         # data = raw_array.get_data()
@@ -285,7 +285,7 @@ class LinearFilter(ProcessorNode):
             self._linear_filter = None
 
     def _update(self):
-        input_data = self.parent_node.output
+        input_data = self.parent.output
         if self._linear_filter is not None:
             self.output = self._linear_filter.apply(input_data)
         else:
@@ -339,7 +339,7 @@ class EnvelopeExtractor(ProcessorNode):
             self._envelope_extractor.apply)
 
     def _update(self):
-        input_data = self.parent_node.output
+        input_data = self.parent.output
         self.output = self._envelope_extractor.apply(np.abs(input_data))
 
     def _check_value(self, key, value):
@@ -456,7 +456,7 @@ class Beamformer(ProcessorNode):
 
     def _update(self):
         t1 = time.time()
-        input_array = self.parent_node.output
+        input_array = self.parent.output
         raw_array = mne.io.RawArray(
             input_array, self._mne_info, verbose='ERROR')
 
@@ -698,7 +698,7 @@ class MCE(ProcessorNode):
         self.mne_info = mne.create_info(channel_labels, mne_info['sfreq'])
 
     def _update(self):
-        input_array = self.parent_node.output
+        input_array = self.parent.output
         # last_slice = last_sample(input_array)
         last_slice = np.mean(input_array, axis=1)
         n_src = self.mne_inv['nsource']
@@ -807,13 +807,13 @@ class ICARejection(ProcessorNode):
 
     def _update(self):
         # Have we collected enough samples without the new input?
-        self.output = self.parent_node.output
+        self.output = self.parent.output
 
         enough_collected = self._samples_collected >=\
             self._samples_to_be_collected
         if not enough_collected:
-            if self.parent_node.output is not None and\
-                    self.parent_node.output.shape[TIME_AXIS] > 0:
+            if self.parent.output is not None and\
+                    self.parent.output.shape[TIME_AXIS] > 0:
                 self._update_statistics()
 
         elif not self._enough_collected:  # We just got enough samples
@@ -829,10 +829,10 @@ class ICARejection(ProcessorNode):
         else:
             self.output[self._good_ch_inds, :] = np.dot(
                     self._ica_rejector,
-                    self.parent_node.output[self._good_ch_inds, :])
+                    self.parent.output[self._good_ch_inds, :])
 
     def _update_statistics(self):
-        input_array = self.parent_node.output.astype(np.dtype('float64'))
+        input_array = self.parent.output.astype(np.dtype('float64'))
         n = self._samples_collected
         m = input_array.shape[TIME_AXIS]  # number of new samples
         self._samples_collected += m
@@ -975,7 +975,7 @@ class AtlasViewer(ProcessorNode):
             ...
 
     def _update(self):
-        data = self.parent_node.output
+        data = self.parent.output
 
         n_times = data.shape[1]
         n_active_labels = len(self.active_labels)
@@ -1028,7 +1028,7 @@ class AmplitudeEnvelopeCorrelations(ProcessorNode):
             self._envelope_extractor.apply)
 
     def _update(self):
-        input_data = self.parent_node.output
+        input_data = self.parent.output
         n_times = input_data.shape[1]
         ddof = 1
 
@@ -1112,7 +1112,7 @@ class Coherence(ProcessorNode):
         pass
 
     def _update(self):
-        input_data = self.parent_node.output
+        input_data = self.parent.output
         hilbert = sc.signal.hilbert(input_data, axis=1)
         if self.seed is None:
             Cp = hilbert.dot(hilbert.conj().T)

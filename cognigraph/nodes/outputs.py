@@ -132,7 +132,7 @@ class LSLStreamOutput(OutputNode):
             channel_types=channel_types)
 
     def _update(self):
-        chunk = self.parent_node.output
+        chunk = self.parent.output
         lsl_chunk = convert_numpy_array_to_lsl_chunk(chunk)
         self._outlet.push_chunk(lsl_chunk)
 
@@ -211,7 +211,7 @@ class BrainViewer(WidgetOutput):
         self._threshold_pct = value
 
     def _update(self):
-        sources = self.parent_node.output
+        sources = self.parent.output
         self.output = sources
         if self.take_abs:
             sources = np.abs(sources)
@@ -373,7 +373,7 @@ class SignalViewer(WidgetOutput):
 
 
     def _update(self):
-        chunk = self.parent_node.output
+        chunk = self.parent.output
         self.signal_sender.draw_sig.emit(chunk)
 
     def on_draw(self, chunk):
@@ -396,13 +396,8 @@ class SignalViewer(WidgetOutput):
         # Nothing to be set
         pass
 
+
 class FileOutput(OutputNode):
-
-    def _on_input_history_invalidation(self):
-        pass
-
-    def _check_value(self, key, value):
-        pass  # TODO: check that value as a string usable as a stream name
 
     CHANGES_IN_THESE_REQUIRE_RESET = ('stream_name', )
 
@@ -410,6 +405,12 @@ class FileOutput(OutputNode):
     SAVERS_FOR_UPSTREAM_MUTABLE_OBJECTS = {'mne_info':
                                            lambda info: (info['sfreq'], ) +
                                            channel_labels_saver(info)}
+
+    def _on_input_history_invalidation(self):
+        pass
+
+    def _check_value(self, key, value):
+        pass  # TODO: check that value as a string usable as a stream name
 
     def _reset(self):
         self._should_reinitialize = True
@@ -433,7 +434,7 @@ class FileOutput(OutputNode):
             self.out_file.root, 'data', atom, (col_size, 0))
 
     def _update(self):
-        chunk = self.parent_node.output
+        chunk = self.parent.output
         self.output_array.append(chunk)
 
 
@@ -455,7 +456,7 @@ class TorchOutput(OutputNode):
         pass
 
     def _update(self):
-        self.output = torch.from_numpy(self.parent_node.output)
+        self.output = torch.from_numpy(self.parent.output)
 
 
 class ConnectivityViewer(WidgetOutput):
@@ -480,7 +481,7 @@ class ConnectivityViewer(WidgetOutput):
         self.signal_sender.init_widget_sig.emit()
 
     def _update(self):
-        input_data = np.abs(self.parent_node.output)  # connectivity matrix
+        input_data = np.abs(self.parent.output)  # connectivity matrix
         # 1. Get n_lines stronges connections indices (i, j)
         # get only off-diagonal elements
         l_triang = np.tril(input_data, k=-1)

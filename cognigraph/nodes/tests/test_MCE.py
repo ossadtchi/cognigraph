@@ -19,20 +19,20 @@ def mce(info):
     mce.mne_info = info
     N_SEN = len(info['ch_names'])
     mce.input = np.random.rand(N_SEN)
-    parent_node = FileSource()
-    parent_node.output = np.random.rand(info['nchan'], 1)
-    parent_node.mne_info = info
-    mce.parent_node = parent_node
+    parent = FileSource()
+    parent.output = np.random.rand(info['nchan'], 1)
+    parent.mne_info = info
+    mce.parent = parent
     return mce
 
 
 @pytest.fixture  # noqa
 def mce_def(info):
     mce_def = MCE()
-    parent_node = FileSource()
-    parent_node.mne_info = info
-    parent_node.output = np.random.rand(info['nchan'], 1)
-    mce_def.parent_node = parent_node
+    parent = FileSource()
+    parent.mne_info = info
+    parent.output = np.random.rand(info['nchan'], 1)
+    mce_def.parent = parent
     return mce_def
 
 

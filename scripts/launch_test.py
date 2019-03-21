@@ -88,10 +88,10 @@ def assemble_pipeline(file_path=None, fwd_path=None, subject=None,
     brain_viewer = outputs.BrainViewer(
         limits_mode=global_mode, buffer_length=6,
         surfaces_dir=None)
-    pipeline.add_output(brain_viewer, parent_node=envelope_extractor)
+    pipeline.add_output(brain_viewer, parent=envelope_extractor)
 
     # roi_average = processors.AtlasViewer(SUBJECT, subjects_dir)
-    # roi_average.parent_node = inverse_model
+    # roi_average.parent = inverse_model
     # pipeline.add_processor(roi_average)
 
     # aec = processors.AmplitudeEnvelopeCorrelations(
@@ -102,7 +102,7 @@ def assemble_pipeline(file_path=None, fwd_path=None, subject=None,
     #     # seed=0
     # )
     # pipeline.add_processor(aec)
-    # aec.parent_node = inverse_model
+    # aec.parent = inverse_model
     # # coh = processors.Coherence(
     # #     method='coh', seed=0)
     # aec_env = processors.EnvelopeExtractor(0.995)
@@ -112,16 +112,16 @@ def assemble_pipeline(file_path=None, fwd_path=None, subject=None,
     #     limits_mode=global_mode, buffer_length=6,
     #     surfaces_dir=op.join(subjects_dir, SUBJECT))
 
-    # pipeline.add_output(seed_viewer, parent_node=aec_env)
+    # pipeline.add_output(seed_viewer, parent=aec_env)
 
     # pipeline.add_output(outputs.LSLStreamOutput())
     # signal_viewer = outputs.SignalViewer()
     # signal_viewer_src = outputs.SignalViewer()
-    # pipeline.add_output(signal_viewer, parent_node=linear_filter)
-    # pipeline.add_output(signal_viewer_src, parent_node=roi_average)
+    # pipeline.add_output(signal_viewer, parent=linear_filter)
+    # pipeline.add_output(signal_viewer_src, parent=roi_average)
     # con_viewer = outputs.ConnectivityViewer(
     #     surfaces_dir=op.join(subjects_dir, SUBJECT))
-    # pipeline.add_output(con_viewer, parent_node=aec)
+    # pipeline.add_output(con_viewer, parent=aec)
     # --------------------------------------------------------------------- #
     return pipeline
 
