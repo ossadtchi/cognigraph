@@ -12,7 +12,7 @@ from cognigraph.pipeline import Pipeline
 from cognigraph.nodes import sources, processors, outputs
 from cognigraph.gui.window import GUIWindow
 from cognigraph.gui.async_pipeline_update import AsyncUpdater
-from cognigraph.gui.forward_dialog import ForwardSetupDialog
+from cognigraph.gui.forward_dialog import FwdSetupDialog
 
 np.warnings.filterwarnings('ignore')  # noqa
 
@@ -88,7 +88,7 @@ def assemble_pipeline(file_path=None, fwd_path=None, subject=None,
     brain_viewer = outputs.BrainViewer(
         limits_mode=global_mode, buffer_length=6,
         surfaces_dir=None)
-    pipeline.add_output(brain_viewer, parent_node=envelope_extractor)
+    pipeline.add_output(brain_viewer, input_node=envelope_extractor)
 
     # roi_average = processors.AtlasViewer(SUBJECT, subjects_dir)
     # roi_average.parent_node = inverse_model
@@ -175,7 +175,7 @@ if __name__ == '__main__':
         #     fwd_path = fwd_tuple[0]
         # except:
         #     logger.error("FORWARD SOLUTION IS MANDATORY!")
-        dialog = ForwardSetupDialog()
+        dialog = FwdSetupDialog()
         dialog.exec()
         fwd_path = dialog.fwd_path
         subject = dialog.subject
