@@ -44,7 +44,7 @@ class Preprocessing(ProcessorNode):
     SAVERS_FOR_UPSTREAM_MUTABLE_OBJECTS = {'mne_info': channel_labels_saver}
 
     def __init__(self, collect_for_x_seconds=60, dsamp_freq=None):
-        super().__init__()
+        ProcessorNode.__init__(self)
         self.collect_for_x_seconds = collect_for_x_seconds  # type: int
 
         self._samples_collected = None  # type: int
@@ -143,7 +143,7 @@ class InverseModel(ProcessorNode):
 
     def __init__(self, forward_model_path=None, snr=1.0, method='MNE',
                  depth=None, loose=1, fixed=False):
-        super().__init__()
+        ProcessorNode.__init__(self)
 
         self.snr = snr
         self._user_provided_forward_model_file_path = forward_model_path
@@ -264,7 +264,7 @@ class LinearFilter(ProcessorNode):
                                            lambda info: (info['nchan'], )}
 
     def __init__(self, lower_cutoff, upper_cutoff):
-        super().__init__()
+        ProcessorNode.__init__(self)
         self.lower_cutoff = lower_cutoff
         self.upper_cutoff = upper_cutoff
         self._linear_filter = None  # type: filters.ButterFilter
@@ -326,7 +326,7 @@ class LinearFilter(ProcessorNode):
 
 class EnvelopeExtractor(ProcessorNode):
     def __init__(self, factor=0.9):
-        super().__init__()
+        ProcessorNode.__init__(self)
         self.method = 'Exponential smoothing'
         self.factor = factor
         self._envelope_extractor = None  # type: ExponentialMatrixSmoother
@@ -384,7 +384,7 @@ class Beamformer(ProcessorNode):
                  forward_model_path=None,
                  forgetting_factor_per_second=0.99,
                  reg=0.05):
-        super().__init__()
+        ProcessorNode.__init__(self)
 
         self._user_provided_forward_model_file_path = forward_model_path
         self._default_forward_model_file_path = None  # type: str
@@ -640,7 +640,7 @@ class MCE(ProcessorNode):
     CHANGES_IN_THESE_REQUIRE_RESET = ('mne_forward_model_file_path', 'snr')
 
     def __init__(self, snr=1.0, forward_model_path=None, n_comp=40):
-        super().__init__()
+        ProcessorNode.__init__(self)
         self.snr = snr
         self.mne_forward_model_file_path = forward_model_path
         self.n_comp = n_comp
@@ -757,7 +757,7 @@ class MCE(ProcessorNode):
 class ICARejection(ProcessorNode):
 
     def __init__(self, collect_for_x_seconds: int=60):
-        super().__init__()
+        ProcessorNode.__init__(self)
         self.collect_for_x_seconds = collect_for_x_seconds  # type: int
 
         self._samples_collected = None  # type: int
@@ -851,7 +851,7 @@ class AtlasViewer(ProcessorNode):
     UPSTREAM_CHANGES_IN_THESE_REQUIRE_REINITIALIZATION = ()
 
     def __init__(self, subject, subjects_dir, parc='aparc'):
-        super().__init__()
+        ProcessorNode.__init__(self)
         self.parc = parc
         self.subjects_dir = subjects_dir
         self.subject = subject
@@ -1009,7 +1009,7 @@ class AmplitudeEnvelopeCorrelations(ProcessorNode):
     UPSTREAM_CHANGES_IN_THESE_REQUIRE_REINITIALIZATION = ('mne_info', )
 
     def __init__(self, method=None, factor=0.9, seed=None):
-        super().__init__()
+        ProcessorNode.__init__(self)
         self.method = method
         self._envelope_extractor = None
         self.factor = factor
@@ -1104,7 +1104,7 @@ class Coherence(ProcessorNode):
     UPSTREAM_CHANGES_IN_THESE_REQUIRE_REINITIALIZATION = ()
 
     def __init__(self, method='imcoh', seed=None):
-        super().__init__()
+        ProcessorNode.__init__(self)
         self.method = method
         self.seed = seed
 

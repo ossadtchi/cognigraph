@@ -98,8 +98,7 @@ class Pipeline(object):
     def initialize_all_nodes(self):
         self.logger.info('Initialize')
         t1 = time.time()
-        for node in self.all_nodes:
-            node.initialize()
+        self.source.chain_initialize()
         t2 = time.time()
         self.logger.info(
                 'Finish initialization in {:.1f} ms'.format((t2 - t1) * 1000))
@@ -107,10 +106,7 @@ class Pipeline(object):
     def update_all_nodes(self):
         self.logger.debug('Start update ' + '>' * 6)
         t1 = time.time()
-        for node in self.all_nodes:
-            node.update()
-            if node is self.source and node.output is not None and node.output.size > 0:
-                pass  # print(node.output.shape[TIME_AXIS])
+        self.source.update()
         t2 = time.time()
         self.logger.debug('Finish in {:.1f} ms'.format((t2 - t1) * 1000))
 
@@ -120,7 +116,11 @@ class Pipeline(object):
                 node.update()
 
     def _reconnect_outputs_to_last_node(self):
-        """Reconnects all outputs that did not have an input node specified when added"""
+        """
+        Reconnects all outputs that did not have an input node specified
+        when added
+
+        """
         last_node = self._last_node_before_outputs()
         for output, input in zip(self._outputs, self._inputs_of_outputs):
             output.parent = input or last_node
