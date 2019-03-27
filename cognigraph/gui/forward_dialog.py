@@ -686,7 +686,7 @@ class ComputeFwdInThread(ThreadToBeWaitedFor):
         if op.isfile(self.fwd_savename):
             ans = QMessageBox.question(
                 self.parent(), 'Destination file exists',
-                'Forward model file "{}" already exists.'
+                'Forward model file "%s" already exists.'
                 ' Recomtute?' % self.fwd_savename,
                 QMessageBox.Yes | QMessageBox.No)
             if ans == QMessageBox.Yes:
@@ -719,7 +719,7 @@ class ComputeFwdInThread(ThreadToBeWaitedFor):
         try:
             montage = mne.channels.read_montage(kind=montage)
         except Exception:
-            raise BadInputFile('Bad montage file: {}' % montage)
+            raise BadInputFile('Bad montage file: %s' % montage)
 
         os.makedirs(op.dirname(self.fwd_savename), exist_ok=True)
 
@@ -898,9 +898,9 @@ class FwdSetupDialog(QDialog):
         self.is_ok_to_close = True
         self.subjects_dir = self._anat_gpbox.subjects_dir
         self._logger.debug(
-            'Subjects dir is set to "{}".' % self.subjects_dir)
+            'Subjects dir is set to "%s".' % self.subjects_dir)
         self.subject = self._anat_gpbox.subject
-        self._logger.debug('Subject is set to "{}"' % self.subject)
+        self._logger.debug('Subject is set to "%s"' % self.subject)
         if self._anat_gpbox.import_anat_radio.isChecked():
             self._copy_anat_to_folders_struct(self.subjects_dir, self.subject)
         self._cur_anat_fwds_path = op.join(
