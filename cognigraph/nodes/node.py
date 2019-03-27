@@ -55,6 +55,7 @@ class Node(object):
 
         self._parent = None  # type: Node
         self._children = []
+        self._root = self
         self.output = None  # type: np.ndarray
 
         self._saved_from_upstream = None  # type: dict
@@ -172,6 +173,9 @@ class Node(object):
         # Tell the new input node about the connection
         if new_parent is not None:
             new_parent._children.append(self)
+            self._root = new_parent._root
+        else:
+            self._root = self
 
     def _on_input_history_invalidation(self):
         """
