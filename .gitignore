@@ -112,3 +112,5 @@ docs/_templates
 *.gif
 
 tests/data
+data/anatomy
+data/forwards
