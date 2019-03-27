@@ -1,0 +1,24 @@
+language: python
+python:
+    - "3.6"
+cache: pip
+install:
+    - pip install pylsl
+    - pip install mne
+    - pip install pyqt5
+    - pip install scipy
+    - pip install matplotlib
+    - pip install h5py
+    - pip install sympy
+    - pip install numpy
+    - pip install typing
+    - pip install pyqtgraph
+    - pip install nibabel
+    - pip install tables
+    - pip install sklearn
+    - pip install pandas
+    - pip install vispy
+    - pip install -e .
+
+script:
+    - pytest tests/
