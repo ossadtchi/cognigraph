@@ -36,9 +36,6 @@ args = parser.parse_args()
 
 sys.path.append('../vendor/nfb')  # For nfb submodule
 
-# SURF_DIR = op.join(mne.datasets.sample.data_path(), 'subjects')
-# SURF_DIR = '/usr/local/freesurfer/subjects'
-# SUBJECT = 'sample'
 DATA_DIR = '/home/dmalt/Code/python/cogni_submodules/tests/data'
 FWD_MODEL_NAME = 'dmalt_custom_mr-fwd.fif'
 
