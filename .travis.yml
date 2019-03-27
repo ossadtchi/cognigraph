@@ -21,4 +21,4 @@ install:
     - pip install -e .
 
 script:
-    - pytest tests/
+    - pytest cognigraph/
