@@ -1,4 +1,4 @@
-"""Main cognigraph window launching script"""
+"""Launch main cognigraph gui window"""
 
 import argparse
 import sys
