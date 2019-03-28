@@ -5,8 +5,12 @@ cache: pip
 
 addons:
     apt:
+        sources:
+            - ubuntu-toolchain-r-test
         packages:
+            - libstdc++-4.9-dev
             - libstdc++6
+
 install:
     - pip install pylsl
     - pip install mne
