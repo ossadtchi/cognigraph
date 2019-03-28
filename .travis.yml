@@ -28,7 +28,7 @@ install:
     - pip install pyqtgraph
     - pip install nibabel
     - pip install tables
-    - conda install --yes sklearn
+    - conda install --yes scikit-learn
     - conda install --yes pandas
     - pip install vispy
     - pip install -e .
