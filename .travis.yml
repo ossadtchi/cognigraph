@@ -22,3 +22,8 @@ install:
 
 script:
     - pytest cognigraph/
+
+addons:
+    apt:
+        packages:
+            - libstdc++6
