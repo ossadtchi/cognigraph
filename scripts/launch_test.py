@@ -164,13 +164,6 @@ if __name__ == '__main__':
         raise Exception("DATA PATH IS MANDATORY!")
 
     if not args.forward:
-        # try:
-        #     fwd_tuple = QtWidgets.QFileDialog.getOpenFileName(
-        #         caption="Select forward model",
-        #         filter= "MNE-python forward (*-fwd.fif)")
-        #     fwd_path = fwd_tuple[0]
-        # except:
-        #     logger.error("FORWARD SOLUTION IS MANDATORY!")
         dialog = FwdSetupDialog()
         dialog.exec()
         fwd_path = dialog.fwd_path
