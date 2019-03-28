@@ -44,7 +44,6 @@ def assemble_pipeline(file_path=None, fwd_path=None, subject=None,
                       subjects_dir=None, inverse_method='mne'):
     pipeline = Pipeline()
     source = sources.FileSource(file_path=file_path)
-    # source = sources.FileSource()
     source.loop_the_file = True
     source.MAX_SAMPLES_IN_CHUNK = 10000
     pipeline.source = source
