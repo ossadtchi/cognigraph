@@ -3,29 +3,33 @@ python:
     - "3.6"
 cache: pip
 
-addons:
-    apt:
-        sources:
-            - ubuntu-toolchain-r-test
-        packages:
-            - libstdc++-4.9-dev
-            - libstdc++6
+before_install:
+
+    # Here we just install Miniconda, which you shouldn't have to change.
+
+    - wget http://repo.continuum.io/miniconda/Miniconda-latest-Linux-x86_64.sh -O miniconda.sh
+    - chmod +x miniconda.sh
+    - ./miniconda.sh -b
+    - export PATH=/home/travis/miniconda/bin:$PATH
+    - conda update --yes conda
 
 install:
-    - pip install pylsl
-    - pip install mne
+    - conda create --yes -n test python=$TRAVIS_PYTHON_VERSION
+    - source activate test
+    - conda install -c tstenner pylsl
     - pip install pyqt5
-    - pip install scipy
-    - pip install matplotlib
-    - pip install h5py
-    - pip install sympy
-    - pip install numpy
+    - conda install scipy
+    - conda install matplotlib
+    - conda install h5py
+    - conda install sympy
+    - conda install numpy
+    - pip install mne==0.16
     - pip install typing
     - pip install pyqtgraph
     - pip install nibabel
     - pip install tables
-    - pip install sklearn
-    - pip install pandas
+    - conda install sklearn
+    - conda install pandas
     - pip install vispy
     - pip install -e .
 
