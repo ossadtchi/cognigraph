@@ -1,4 +1,4 @@
-"""Main launching script"""
+"""Main cognigraph launching script"""
 
 import argparse
 import sys
