@@ -5,7 +5,6 @@ import scipy as sc
 from typing import Tuple
 import math
 
-from vendor.nfb.pynfb.protocols.ssd.topomap_selector_ica import ICADialog
 
 import numpy as np
 import mne
@@ -806,6 +805,7 @@ class ICARejection(ProcessorNode):
         self._enough_collected = False
 
     def _update(self):
+        from vendor.nfb.pynfb.protocols.ssd.topomap_selector_ica import ICADialog
         # Have we collected enough samples without the new input?
         self.output = self.parent.output
 
