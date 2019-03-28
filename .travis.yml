@@ -16,20 +16,20 @@ before_install:
 install:
     - conda create --yes -n test python=$TRAVIS_PYTHON_VERSION
     - source activate test
-    - conda install -c tstenner pylsl
+    - conda install --yes -c tstenner pylsl
     - pip install pyqt5
-    - conda install scipy
-    - conda install matplotlib
-    - conda install h5py
-    - conda install sympy
-    - conda install numpy
+    - conda install --yes scipy
+    - conda install --yes matplotlib
+    - conda install --yes h5py
+    - conda install --yes sympy
+    - conda install --yes numpy
     - pip install mne==0.16
     - pip install typing
     - pip install pyqtgraph
     - pip install nibabel
     - pip install tables
-    - conda install sklearn
-    - conda install pandas
+    - conda install --yes sklearn
+    - conda install --yes pandas
     - pip install vispy
     - pip install -e .
 
