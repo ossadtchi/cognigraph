@@ -2,6 +2,11 @@ language: python
 python:
     - "3.6"
 cache: pip
+
+addons:
+    apt:
+        packages:
+            - libstdc++6
 install:
     - pip install pylsl
     - pip install mne
@@ -22,8 +27,3 @@ install:
 
 script:
     - pytest cognigraph/
-
-addons:
-    apt:
-        packages:
-            - libstdc++6
