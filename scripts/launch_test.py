@@ -179,7 +179,6 @@ if __name__ == '__main__':
     pipeline.all_nodes[5].surfaces_dir = op.join(subjects_dir, subject)
 
     QTimer.singleShot(0, window.initialize)  # initializes all pipeline nodes
-    # window.setWindowFlags(QtCore.Qt.WindowStaysOnTopHint)
 
     thread = AsyncUpdater(app, pipeline)
     window.run_toggle_action.triggered.connect(thread.toggle)
