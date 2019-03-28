@@ -182,7 +182,6 @@ if __name__ == '__main__':
 
     thread = AsyncUpdater(app, pipeline)
     window.run_toggle_action.triggered.connect(thread.toggle)
-    # window.destroyed.connect(on_main_window_close)
 
     # Show window and exit on close
     app.aboutToQuit.connect(on_main_window_close)
