@@ -132,8 +132,6 @@ def on_main_window_close():
         window.deleteLater()
     except RuntimeError:
         logger.info('Window has already been deleted')
-    # del pipeline
-    # thread.deleteLater()
 
 
 if __name__ == '__main__':
