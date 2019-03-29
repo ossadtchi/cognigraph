@@ -64,7 +64,7 @@ pipeline.add_output(three_dee_brain)
 # pipeline.initialize_all_nodes()
 
 signal_viewer = outputs.SignalViewer()
-pipeline.add_output(signal_viewer, input_node=linear_filter)
+pipeline.add_output(signal_viewer, parent=linear_filter)
 
 window = GUIWindow(pipeline=pipeline)
 window.init_ui()

@@ -32,7 +32,7 @@ with source.not_triggering_reset():
 
 
 #
-linear_filter.input_node = source
+linear_filter.parent = source
 def compare_viz_with_offline():
     start_idx = source._samples_already_read
     source.update()
@@ -48,7 +48,7 @@ def compare_viz_with_offline():
     brain.set_time(start_s + stop_idx / frequency)
 
 
-linear_filter.input_node = preprocessing
+linear_filter.parent = preprocessing
 # Compare inverse with offline
 source._samples_already_read = 0
 timer.timeout.disconnect()

@@ -60,11 +60,11 @@ if __name__ == '__main__':
 
 # Draw to check location
 # vertex_count = beamformer.mne_info['nchan']
-# input_node = three_dee_brain.input_node
+# parent = three_dee_brain.parent
 # shape = (vertex_count, 1)
 # shape = (shape[1-TIME_AXIS], shape[TIME_AXIS])
-# input_node.output = np.zeros(shape=(shape, 1))
-# input_node.output[most_posterior_idx, :] = 1
+# parent.output = np.zeros(shape=(shape, 1))
+# parent.output[most_posterior_idx, :] = 1
 
 # three_dee_brain.limits_mode = 'Local'
 # three_dee_brain.update()
@@ -97,7 +97,7 @@ if __name__ == '__main__':
 
 
 # beamformer.update()
-# three_dee_brain.input_node = beamformer
+# three_dee_brain.parent = beamformer
 # three_dee_brain.update()
 
 # # Apply average-reference projection

@@ -8,26 +8,6 @@ from mne.io.pick import channel_type
 from ..helpers.misc import class_name_of
 import logging
 
-# logging.basicConfig(filename='cognigraph.log', level=logging.INFO,
-# logging.basicConfig(level=logging.INFO,
-#                     format='%(asctime)s:%(name)-17s:%(levelname)s:%(message)s')
-
-
-class Message(object):
-    """
-    Class to hold messages that need to be delivered to
-    the descendant nodes before they update
-
-    """
-    def __init__(self, there_has_been_a_change=False,
-                 output_history_is_no_longer_valid=False):
-        # This is used as a message to the next node telling it
-        self.there_has_been_a_change = there_has_been_a_change
-        # that either this or one of the nodes before it had a change
-        # The change was such that new outputs cannot
-        self.output_history_is_no_longer_valid = there_has_been_a_change
-        # be considered as continuation of the previous ones
-
 
 class Node(object):
     """
@@ -36,6 +16,14 @@ class Node(object):
     This is an abstract class.
 
     """
+    # Some upstream properties are mutable and thus saving them would not work
+    # since update in upstrem will update a local copy as well.  Keeping a
+    # local copy would trigger unnecessary reinitializations when something
+    # minor has changed (i.e. for mne_info we want to reinitialize when channel
+    # names or their number has changed but no reinitialization is required if
+    # only the sampling rate has changed). Thus, any concrete subclass has to
+    # provide a way to save only what is necessary. Keys are property names,
+    # values are functions that return an appropriate tuple.
 
     @property
     def CHANGES_IN_THESE_REQUIRE_RESET(self) -> Tuple[str]:
@@ -52,85 +40,31 @@ class Node(object):
     def UPSTREAM_CHANGES_IN_THESE_REQUIRE_REINITIALIZATION(self) -> Tuple[str]:
         """ A constant tuple of attributes after an *upstream* change in which
         an initialization should be scheduled.
+        Determines what gets into self._saved_from_upstream dictionary.
 
         """
         msg = ('Each subclass of Node must have a '
-               'CHANGES_IN_THESE_REQUIRE_REINITIALIZATION constant defined')
+               'UPSTREAM_CHANGES_IN_THESE_REQUIRE_REINITIALIZATION'
+               ' constant defined')
         raise NotImplementedError(msg)
-
-    # Some upstream properties are mutable and thus saving them would not work.
-    # Saving a copy would trigger unnecessary reinitializations when something
-    # minor has changed.  Thus, any concrete subclass has to provide a way to
-    # save only what is necessary.  Keys are property names, values are
-    # functions that return an appropriate tuple.
 
     SAVERS_FOR_UPSTREAM_MUTABLE_OBJECTS = dict()
 
     def __init__(self):
-        self._input_node = None  # type: Node
+        self.initialized = False
+
+        self._parent = None  # type: Node
+        self._children = []
+        self._root = self
         self.output = None  # type: np.ndarray
 
-        # Nodes that have set this node as their input_node.
-        self._receivers = {}  # type: Dict[Node, object]
-
-        self._initialized = False
-
-        # Set by the input node
-        self._there_has_been_an_upstream_change = False
-
-        # Flags for different kinds of possibly needed resets
-        self._should_reinitialize = False
-        self._should_reset = False
-        self._input_history_is_no_longer_valid = False
-
-        # Used to determine whether upstream changes warrant
         self._saved_from_upstream = None  # type: dict
         self.logger = logging.getLogger(type(self).__name__)
-        # reinitialization
 
-    @property
-    def input_node(self):
-        return self._input_node
-
-    @input_node.setter
-    def input_node(self, value):
-        if self._input_node is value:  # covers the case when both are None
-            return
-
-        # Reinitialize if has been initialized
-        self._should_reinitialize = self._initialized
-
-        # Tell the previous input node about disconnection
-        if self._input_node is not None:
-            self._input_node.deregister_a_receiver(self)
-
-        self._input_node = value
-
-        # Tell the new input node about the connection
-        if value is not None:
-            value.register_a_receiver(self)
-
-    def register_a_receiver(self, receiver_node):
-        self._receivers[receiver_node] = None
-        # New input node means everything has changed
-        receiver_node.receive_a_message(Message(
-            there_has_been_a_change=True,
-            output_history_is_no_longer_valid=True
-        ))
-
-    def receive_a_message(self, message: Message):
-        self._there_has_been_an_upstream_change =\
-            message.there_has_been_a_change
-        self._input_history_is_no_longer_valid =\
-            message.output_history_is_no_longer_valid
-
-    def deregister_a_receiver(self, receiver_node):
-        self._receivers.pop(receiver_node, None)
+    def __repr__(self):
+        return str(self.__class__).split('.')[-1][:-2]
 
     def initialize(self):
-        if self._initialized is True and self._should_reinitialize is False:
-            raise ValueError('Trying to initialize even though '
-                             'there is no indication for it.')
 
         self._saved_from_upstream = {
             item: self.traverse_back_and_find(item)
@@ -148,16 +82,14 @@ class Node(object):
             t2 = time.time()
             self.logger.info(
                 'Finish initialization in {:.1f} ms'.format((t2 - t1) * 1000))
-            self._initialized = True
+            self.initialized = True
 
             # Set all the resetting flags to false
-            self._no_pending_changes = True
-            self._there_has_been_an_upstream_change = False
 
-            # Tell the receivers about what has happened
-            message = Message(there_has_been_a_change=True,
-                              output_history_is_no_longer_valid=True)
-            self._deliver_a_message_to_receivers(message)
+    def chain_initialize(self):
+        self.initialize()
+        for child in self._children:
+            child.chain_initialize()
 
     def _initialize(self):
         """
@@ -167,73 +99,39 @@ class Node(object):
         """
         raise NotImplementedError('_initialize should be implemented')
 
-    @property
-    def _no_pending_changes(self):
-        """Checks if there is any kind of reset scheduled"""
-        return (self._should_reinitialize is False
-                and self._input_history_is_no_longer_valid is False
-                and self._should_reset is False)
-
-    @_no_pending_changes.setter
-    def _no_pending_changes(self, value):
-        if value is True:
-            self._should_reinitialize = False
-            self._input_history_is_no_longer_valid = False
-            self._should_reset = False
-        else:
-            raise ValueError('Can only be set to True')
-
-    def _deliver_a_message_to_receivers(self, message: Message):
-        for receiver_node in self._receivers:
-            receiver_node.receive_a_message(message)
-
     def update(self) -> None:
         t1 = time.time()
         self.output = None  # Reset output in case update does not succeed
+        self._update()
 
-        if self._there_has_been_an_upstream_change is True:
-            self._should_reinitialize =\
-                self._the_change_requires_reinitialization()
-            self._there_has_been_an_upstream_change = False
-
-        if self._initialized is True and self._no_pending_changes is True:
-            self._update()
-            # This does not work when there are multiple descendants
-            # TODO: come up with a way
-            # Discard input
-            # if self.input_node is not None:
-            #     self.input_node.output = None
-
-        elif self._initialized is False or self._should_reinitialize is True:
-            self.initialize()
-        else:
-            if self._should_reset is True:
-                self.reset()
-            if self._input_history_is_no_longer_valid is True:
-                self.on_input_history_invalidation()
         t2 = time.time()
         self.logger.debug('Updated in {:.1f} ms'.format((t2 - t1) * 1000))
+
+        for child in self._children:
+            child.update()
 
     def _update(self):
         raise NotImplementedError('_update should be implemented')
 
-    def reset(self):
-        if self._should_reset is False:
-            raise ValueError(
-                'Trying to reset even though there is no indication for it.')
+    def reset(self, is_input_hist_invalid, is_local_attr_changed=False):
+        """Take care of reinitialization and parameters reset"""
+        if self._is_critical_upstream_change():
+            self.initialize()
+            is_output_hist_invalid = True
+        elif is_local_attr_changed:  # local attribute change
+            with self.not_triggering_reset():
+                self.logger.info(
+                    'Resetting the {} node '.format(class_name_of(self)) +
+                    'because of attribute changes')
+                is_output_hist_invalid = self._reset()
+        else:
+            is_output_hist_invalid = False
 
-        with self.not_triggering_reset():
-            self.logger.info(
-                'Resetting the {} node '.format(class_name_of(self)) +
-                'because of attribute changes')
-            output_history_is_no_longer_valid = self._reset()
-            self._should_reset = False
+        if is_output_hist_invalid:
+            self._on_input_history_invalidation()
 
-            # Notify the receivers
-            message = Message(
-                there_has_been_a_change=True,
-                output_history_is_no_longer_valid=output_history_is_no_longer_valid)  # noqa
-            self._deliver_a_message_to_receivers(message)
+        for child in self._children:
+            child.reset(is_output_hist_invalid)
 
     def _reset(self) -> bool:
         """
@@ -246,22 +144,38 @@ class Node(object):
         """
         raise NotImplementedError('_reset should be implemented')
 
-    def on_input_history_invalidation(self):
-        if self._input_history_is_no_longer_valid is False:
-            raise ValueError('Trying to flush history even though '
-                             'there is no indication for it.')
+    def add_child(self, child, initialize=False):
+        """Add child node to nodes tree"""
+        child.parent = self
+        if initialize:
+            child.initialize()
+        # append to _children list is handled by the parent property setter
 
-        with self.not_triggering_reset():
-            self.logger.info(
-                'Resetting the {} node '.format(class_name_of(self)) +
-                'because history is no longer valid')
-            self._on_input_history_invalidation()
-            self._input_history_is_no_longer_valid = False
+    def remove_child(self, child):
+        """Remove child node from nodes tree"""
+        child.parent = None  # the rest is handled by parent prop. setter
 
-            # Tell the receivers about what has happened
-            message = Message(there_has_been_a_change=True,
-                              output_history_is_no_longer_valid=True)
-            self._deliver_a_message_to_receivers(message)
+    @property
+    def parent(self):
+        return self._parent
+
+    @parent.setter
+    def parent(self, new_parent):
+        if self._parent is new_parent:  # covers the case when both are None
+            return
+
+        # Tell the previous parent about disconnection
+        if self._parent is not None:
+            self._parent._children.remove(self)
+
+        self._parent = new_parent
+
+        # Tell the new input node about the connection
+        if new_parent is not None:
+            new_parent._children.append(self)
+            self._root = new_parent._root
+        else:
+            self._root = self
 
     def _on_input_history_invalidation(self):
         """
@@ -269,8 +183,11 @@ class Node(object):
         reset whatever relies on them.
 
         """
-        raise NotImplementedError(
-            '_on_input_history_invalidation should be implemented')
+        with self.not_triggering_reset():
+            self.logger.info(
+                'Resetting the {} node '.format(class_name_of(self)) +
+                'because history is no longer valid')
+            self._on_input_history_invalidation()
 
     def traverse_back_and_find(self, item: str):
         """
@@ -279,23 +196,37 @@ class Node(object):
 
         """
         try:
-            return getattr(self.input_node, item)
+            return getattr(self.parent, item)
         except AttributeError:
             try:
-                return self.input_node.traverse_back_and_find(item)
+                return self.parent.traverse_back_and_find(item)
             except AttributeError:
                 msg = ('None of the predecessors of a '
                        '{} node contains attribute {}'.format(
                            class_name_of(self), item))
                 raise AttributeError(msg)
 
-    # Schedule resetting if the change in the attribute being set warrants it
+    # Trigger resetting chain if the change in the attribute needs it
     def __setattr__(self, key, value):
         self._check_value(key, value)
-        if key in self.CHANGES_IN_THESE_REQUIRE_RESET:
-            super().__setattr__('_should_reset', True)
-            super().__setattr__('there_has_been_a_change', True)
-        super().__setattr__(key, value)
+        object.__setattr__(self, key, value)
+        if self.initialized:
+            if key in self.CHANGES_IN_THESE_REQUIRE_RESET:
+                object.__setattr__(self, '_should_reset', True)
+                object.__setattr__(self, 'there_has_been_a_change', True)
+                self.reset(is_input_hist_invalid=False,
+                           is_local_attr_changed=True)
+
+    @property
+    def initialized(self):
+        try:
+            return self._initialized
+        except AttributeError:
+            return False
+
+    @initialized.setter
+    def initialized(self, value):
+        object.__setattr__(self, '_initialized', value)
 
     @contextmanager
     def not_triggering_reset(self):
@@ -315,13 +246,12 @@ class Node(object):
     def _check_value(self, key, value):
         raise NotImplementedError('_check_value should be implemented')
 
-    def _the_change_requires_reinitialization(self):
+    def _is_critical_upstream_change(self):
         """
         Checks if anything important changed upstream wrt
         value captured at initialization
 
         """
-
         for item, saved_value in self._saved_from_upstream.items():
 
             current_value = self.traverse_back_and_find(item)
@@ -357,16 +287,16 @@ class SourceNode(Node):
     UPSTREAM_CHANGES_IN_THESE_REQUIRE_REINITIALIZATION = ()
 
     def __init__(self):
-        super().__init__()
+        Node.__init__(self)
         self.mne_info = None  # type: mne.Info
 
     def initialize(self):
         self.mne_info = None
-        super().initialize()
+        Node.initialize(self)
         try:
             self._check_mne_info()
         except ValueError as e:
-            self._initialized = False
+            self.initialized = False
             raise e
 
     def _check_mne_info(self):
@@ -400,11 +330,12 @@ class SourceNode(Node):
         # There is nothing to reset. Just go ahead and initialize
         self._should_reinitialize = True
         self.initialize()
-        output_history_is_no_longer_valid = True
-        return output_history_is_no_longer_valid
+        is_output_hist_invalid = True
+        return is_output_hist_invalid
 
     def _on_input_history_invalidation(self):
-        pass
+        raise NotImplementedError
+        # super()._on_input_history_invalidation()
 
 
 class ProcessorNode(Node):
@@ -415,19 +346,21 @@ class ProcessorNode(Node):
 
     """
     def __init__(self):
+        Node.__init__(self)
         with self.not_triggering_reset():
             self.disabled = False
-        super().__init__()
 
     def update(self):
         if self.disabled is True:
-            self.output = self.input_node.output
+            self.output = self.parent.output
             return
-        if self.input_node.output is None or self.input_node.output.size == 0:
+        if (self.parent.output is None or
+                self.parent.output.size == 0):
             self.output = None
             return
         else:
-            super().update()
+            Node.update(self)
+
 
 
 class OutputNode(Node):
@@ -438,7 +371,8 @@ class OutputNode(Node):
 
     """
     def update(self):
-        if self.input_node.output is None or self.input_node.output.size == 0:
+        if (self.parent.output is None or
+                self.parent.output.size == 0):
             return
         else:
-            super().update()
+            Node.update(self)

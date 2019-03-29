@@ -87,10 +87,10 @@ three_dee_brain = outputs.BrainViewer(
         limits_mode=global_mode, buffer_length=6, surfaces_dir=SURF_DIR)
 pipeline.add_output(three_dee_brain)
 # lsl_stream = outputs.LSLStreamOutput()
-# pipeline.add_output(lsl_stream, input_node=linear_filter)
+# pipeline.add_output(lsl_stream, parent=linear_filter)
 
 signal_viewer = outputs.SignalViewer()
-pipeline.add_output(signal_viewer, input_node=linear_filter)
+pipeline.add_output(signal_viewer, parent=linear_filter)
 
 
 # Создаем окно

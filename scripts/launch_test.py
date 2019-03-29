@@ -1,4 +1,4 @@
-"""Main launching script"""
+"""Launch main cognigraph gui window"""
 
 import argparse
 import sys
@@ -36,9 +36,6 @@ args = parser.parse_args()
 
 sys.path.append('../vendor/nfb')  # For nfb submodule
 
-# SURF_DIR = op.join(mne.datasets.sample.data_path(), 'subjects')
-# SURF_DIR = '/usr/local/freesurfer/subjects'
-# SUBJECT = 'sample'
 DATA_DIR = '/home/dmalt/Code/python/cogni_submodules/tests/data'
 FWD_MODEL_NAME = 'dmalt_custom_mr-fwd.fif'
 
@@ -47,7 +44,6 @@ def assemble_pipeline(file_path=None, fwd_path=None, subject=None,
                       subjects_dir=None, inverse_method='mne'):
     pipeline = Pipeline()
     source = sources.FileSource(file_path=file_path)
-    # source = sources.FileSource()
     source.loop_the_file = True
     source.MAX_SAMPLES_IN_CHUNK = 10000
     pipeline.source = source
@@ -88,10 +84,10 @@ def assemble_pipeline(file_path=None, fwd_path=None, subject=None,
     brain_viewer = outputs.BrainViewer(
         limits_mode=global_mode, buffer_length=6,
         surfaces_dir=None)
-    pipeline.add_output(brain_viewer, input_node=envelope_extractor)
+    pipeline.add_output(brain_viewer, parent=envelope_extractor)
 
     # roi_average = processors.AtlasViewer(SUBJECT, subjects_dir)
-    # roi_average.parent_node = inverse_model
+    # roi_average.parent = inverse_model
     # pipeline.add_processor(roi_average)
 
     # aec = processors.AmplitudeEnvelopeCorrelations(
@@ -102,7 +98,7 @@ def assemble_pipeline(file_path=None, fwd_path=None, subject=None,
     #     # seed=0
     # )
     # pipeline.add_processor(aec)
-    # aec.parent_node = inverse_model
+    # aec.parent = inverse_model
     # # coh = processors.Coherence(
     # #     method='coh', seed=0)
     # aec_env = processors.EnvelopeExtractor(0.995)
@@ -112,16 +108,16 @@ def assemble_pipeline(file_path=None, fwd_path=None, subject=None,
     #     limits_mode=global_mode, buffer_length=6,
     #     surfaces_dir=op.join(subjects_dir, SUBJECT))
 
-    # pipeline.add_output(seed_viewer, parent_node=aec_env)
+    # pipeline.add_output(seed_viewer, parent=aec_env)
 
     # pipeline.add_output(outputs.LSLStreamOutput())
     # signal_viewer = outputs.SignalViewer()
     # signal_viewer_src = outputs.SignalViewer()
-    # pipeline.add_output(signal_viewer, parent_node=linear_filter)
-    # pipeline.add_output(signal_viewer_src, parent_node=roi_average)
+    # pipeline.add_output(signal_viewer, parent=linear_filter)
+    # pipeline.add_output(signal_viewer_src, parent=roi_average)
     # con_viewer = outputs.ConnectivityViewer(
     #     surfaces_dir=op.join(subjects_dir, SUBJECT))
-    # pipeline.add_output(con_viewer, parent_node=aec)
+    # pipeline.add_output(con_viewer, parent=aec)
     # --------------------------------------------------------------------- #
     return pipeline
 
@@ -136,8 +132,6 @@ def on_main_window_close():
         window.deleteLater()
     except RuntimeError:
         logger.info('Window has already been deleted')
-    # del pipeline
-    # thread.deleteLater()
 
 
 if __name__ == '__main__':
@@ -168,13 +162,6 @@ if __name__ == '__main__':
         raise Exception("DATA PATH IS MANDATORY!")
 
     if not args.forward:
-        # try:
-        #     fwd_tuple = QtWidgets.QFileDialog.getOpenFileName(
-        #         caption="Select forward model",
-        #         filter= "MNE-python forward (*-fwd.fif)")
-        #     fwd_path = fwd_tuple[0]
-        # except:
-        #     logger.error("FORWARD SOLUTION IS MANDATORY!")
         dialog = FwdSetupDialog()
         dialog.exec()
         fwd_path = dialog.fwd_path
@@ -192,11 +179,9 @@ if __name__ == '__main__':
     pipeline.all_nodes[5].surfaces_dir = op.join(subjects_dir, subject)
 
     QTimer.singleShot(0, window.initialize)  # initializes all pipeline nodes
-    # window.setWindowFlags(QtCore.Qt.WindowStaysOnTopHint)
 
     thread = AsyncUpdater(app, pipeline)
     window.run_toggle_action.triggered.connect(thread.toggle)
-    # window.destroyed.connect(on_main_window_close)
 
     # Show window and exit on close
     app.aboutToQuit.connect(on_main_window_close)

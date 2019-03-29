@@ -103,7 +103,7 @@ class LSLStreamOutput(OutputNode):
             channel_types=channel_types)
 
     def _update(self):
-        chunk = self.input_node.output
+        chunk = self.parent.output
         lsl_chunk = convert_numpy_array_to_lsl_chunk(chunk)
         self._outlet.push_chunk(lsl_chunk)
 
@@ -179,7 +179,7 @@ class BrainViewer(OutputNode):
         self.counter += 1
         if self.counter == 50:
             self._should_reinitialize = True
-        sources = self.input_node.output
+        sources = self.parent.output
         if self.take_abs:
             sources = np.abs(sources)
         self._update_colormap_limits(sources)
@@ -472,7 +472,7 @@ class SignalViewer(WidgetOutput):
         self.counter += 1
         if not self.counter % 121:
             self._should_reinitialize = True
-        chunk = self.input_node.output
+        chunk = self.parent.output
         if TIME_AXIS == PYNFB_TIME_AXIS:
             self.widget.update(chunk)
         else:
@@ -527,7 +527,7 @@ class FileOutput(OutputNode):
             self.out_file.root, 'data', atom, (col_size, 0))
 
     def _update(self):
-        chunk = self.input_node.output
+        chunk = self.parent.output
         self.output_array.append(chunk)
 
 
@@ -549,4 +549,4 @@ class TorchOutput(OutputNode):
         pass
 
     def _update(self):
-        self.output = torch.from_numpy(self.input_node.output)
+        self.output = torch.from_numpy(self.parent.output)
