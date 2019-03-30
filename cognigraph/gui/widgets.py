@@ -1,17 +1,15 @@
-from PyQt5.QtWidgets import (QTableWidget, QTableWidgetItem,
-                             QDialog, QMainWindow, QSizePolicy,
+from PyQt5.QtWidgets import (QTableWidget, QTableWidgetItem, QDialog,
                              QHBoxLayout, QVBoxLayout, QDialogButtonBox)
 from PyQt5.QtCore import Qt, QSize
 
-from cognigraph.helpers.brain_visualization import (
+from cognigraph.utils.brain_visualization import (
     get_mesh_data_from_surfaces_dir)
 from vispy import scene
 import numpy as np
 
-from cognigraph.helpers.vispy_utils import Colormap
-
 import logging
 logger = logging.getLogger(__name__)
+
 
 class RoiSelectionTable(QTableWidget):
 
@@ -43,10 +41,8 @@ class RoiSelectionTable(QTableWidget):
 
         self.cellChanged.connect(self._on_checked)
 
-
-
     def minimumSizeHint(self):
-        w = self.verticalHeader().width() + 22 # +22 is for scrollbar
+        w = self.verticalHeader().width() + 22  # +22 is for scrollbar
         for i in range(self.columnCount()):
             w += self.columnWidth(i)
         h = self.horizontalHeader().height()
@@ -106,15 +102,15 @@ class RoiSelectionDialog(QDialog):
         self.mesh._alphas_buffer.set_data(self.mesh._alphas)
         labels = self.table.labels
         labels_info = self.table.labels_info
-        data_vec = np.zeros((len(self.mesh ),), dtype=np.float32)
-        mask = np.zeros((len(self.mesh ),), dtype=bool)
+        data_vec = np.zeros((len(self.mesh),), dtype=np.float32)
+        mask = np.zeros((len(self.mesh),), dtype=bool)
         # colors = np.ones((len(data_vec), 3))
         # colors = np.ones((1,3))
         colors = np.empty((0, 3))
         for label, label_info in zip(labels, labels_info):
             data_vec[label.vertices] = label_info['id']
             mask[label.vertices] = True
-            colors = np.r_[colors, label_info['color'][:3].reshape([1,3])]
+            colors = np.r_[colors, label_info['color'][:3].reshape([1, 3])]
 
         kw = {}
         kw['cmap'] = colors
@@ -137,7 +133,6 @@ class RoiSelectionDialog(QDialog):
 
         # self.mesh.add_overlay(data_vec[mask], vertices=np.where(mask)[0])
 
-
     def _on_ok(self):
         logger.debug('OK')
         QDialog.accept(self)
@@ -145,7 +140,6 @@ class RoiSelectionDialog(QDialog):
     def _on_cancel(self):
         logger.debug('Cancel')
         QDialog.reject(self)
-
 
 
 if __name__ == '__main__':

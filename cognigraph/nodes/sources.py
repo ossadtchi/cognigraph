@@ -5,15 +5,13 @@ import pylsl as lsl
 import numpy as np
 import mne
 
-from cognigraph.helpers.matrix_functions import get_a_time_slice
+from cognigraph.utils.matrix_functions import get_a_time_slice
 from .. import TIME_AXIS, DTYPE
 from .node import SourceNode
-from ..helpers.lsl import (convert_lsl_chunk_to_numpy_array,
-                           convert_lsl_format_to_numpy,
-                           read_channel_labels_from_info)
-from ..helpers.brainvision import (read_brain_vision_data,
-                                   read_fif_data,
-                                   read_edf_data)
+from ..utils.lsl import (convert_lsl_chunk_to_numpy_array,
+                         read_channel_labels_from_info)
+from ..utils.brainvision import (read_brain_vision_data, read_fif_data,
+                                 read_edf_data)
 
 
 class FixedStreamInfo(lsl.StreamInfo):

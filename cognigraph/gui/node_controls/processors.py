@@ -2,8 +2,8 @@ import os.path as op
 from PyQt5 import QtGui
 from ...nodes.node import ProcessorNode
 from ...nodes import processors
-from ...helpers.pyqtgraph import MyGroupParameter, parameterTypes
-from ...helpers.misc import class_name_of
+from ...utils.pyqtgraph import MyGroupParameter, parameterTypes
+from ...utils.misc import class_name_of
 from ..widgets import RoiSelectionDialog
 import logging
 

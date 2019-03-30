@@ -2,8 +2,8 @@ import time
 from typing import List
 
 from .nodes.node import Node, SourceNode, ProcessorNode, OutputNode
-from .helpers.decorators import accepts
-from .helpers.misc import class_name_of
+from .utils.decorators import accepts
+from .utils.misc import class_name_of
 
 import logging
 

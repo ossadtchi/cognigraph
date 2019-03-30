@@ -1,7 +1,7 @@
 from pyqtgraph.parametertree import parameterTypes
 
 from ...nodes import outputs
-from ...helpers.pyqtgraph import MyGroupParameter, SliderParameter
+from ...utils.pyqtgraph import MyGroupParameter, SliderParameter
 from ..widgets import RoiSelectionDialog
 
 import logging

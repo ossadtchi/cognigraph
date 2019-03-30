@@ -13,8 +13,8 @@ from .node_controls import (
     processors as processors_controls,
     outputs as outputs_controls
 )
-from ..helpers.pyqtgraph import MyGroupParameter
-from ..helpers.misc import class_name_of
+from ..utils.pyqtgraph import MyGroupParameter
+from ..utils.misc import class_name_of
 
 import logging
 
