@@ -1,0 +1,10 @@
+{
+    "API_ENDPOINT": "https://cloud-api.yandex.net/v1/disk/public/resources/download?public_key=%s",
+    "test_files": {
+        "Koleno_raw.fif":  {
+            "href": "https://yadi.sk/d/kctCqYe6AQjL8g",
+            "path": "tests/data/Koleno_raw.fif",
+            "md5": "5d403fd45d0c484436f23531ab3b6a70"
+        }
+    }
+}
