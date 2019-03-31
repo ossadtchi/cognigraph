@@ -4,6 +4,7 @@ from mne.io import Raw
 
 from cognigraph import COGNIGRAPH_ROOT
 from cognigraph.utils.io import DataDownloader
+import logging
 
 test_data_path = op.join(COGNIGRAPH_ROOT, 'tests/data')
 
@@ -11,6 +12,7 @@ test_data_path = op.join(COGNIGRAPH_ROOT, 'tests/data')
 @pytest.fixture
 def info(scope='session'):
     """Get info with applied average projection"""
+    logging.basicConfig(filename=None, level=logging.INFO)
     dloader = DataDownloader()
     info_src_path = dloader.get_file('Koleno_raw.fif')
     raw = Raw(info_src_path, preload=True)
