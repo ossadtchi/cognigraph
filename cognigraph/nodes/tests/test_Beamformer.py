@@ -1,17 +1,14 @@
 import pytest
 from cognigraph.nodes.processors import Beamformer
 from cognigraph.nodes.sources import FileSource
-from cognigraph import COGNIGRAPH_ROOT
-from cognigraph.nodes.tests.prepare_inv_tests_data import info  # noqa
-import os.path as op
+from cognigraph.nodes.tests.prepare_inv_tests_data import (info,  # noqa
+                                                           fwd_model_path)
 import numpy as np
 
-test_data_path = op.join(COGNIGRAPH_ROOT,  'tests/data')
 
 
 @pytest.fixture  # noqa
-def beamformer(info):
-    fwd_model_path = op.join(test_data_path, 'dmalt_custom_lr-fwd.fif')
+def beamformer(info, fwd_model_path):
     is_adaptive = True
     beamformer = Beamformer(forward_model_path=fwd_model_path,
                             is_adaptive=is_adaptive)

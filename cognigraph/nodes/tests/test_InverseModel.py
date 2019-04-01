@@ -1,19 +1,15 @@
-import os.path as op
 import numpy as np
 
 import pytest
 from cognigraph.nodes.processors import InverseModel
 from cognigraph.nodes.sources import FileSource
-from cognigraph import COGNIGRAPH_ROOT
-from cognigraph.nodes.tests.prepare_inv_tests_data import info  # noqa
-
-test_data_path = op.join(COGNIGRAPH_ROOT, 'tests/data')
+from cognigraph.nodes.tests.prepare_inv_tests_data import (info,  # noqa
+                                                           fwd_model_path)
 
 
 @pytest.fixture  # noqa
-def inv_model(info):
+def inv_model(info, fwd_model_path):
     snr = 1
-    fwd_model_path = op.join(test_data_path, 'dmalt_custom_lr-fwd.fif')
     method = 'MNE'
     inv_model = InverseModel(
         snr=snr, forward_model_path=fwd_model_path, method=method)

@@ -18,3 +18,9 @@ def info(scope='session'):
     raw = Raw(info_src_path, preload=True)
     raw.set_eeg_reference('average', projection=True)
     return raw.info
+
+
+@pytest.fixture(scope='session')
+def fwd_model_path():
+    dloader = DataDownloader()
+    return dloader.get_file('dmalt_custom_lr.fif')

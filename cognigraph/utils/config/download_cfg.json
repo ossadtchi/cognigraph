@@ -5,6 +5,11 @@
             "href": "https://yadi.sk/d/kctCqYe6AQjL8g",
             "path": "tests/data/Koleno_raw.fif",
             "md5": "5d403fd45d0c484436f23531ab3b6a70"
+        },
+        "dmalt_custom_lr.fif": {
+            "href": "https://yadi.sk/d/xvPAIZLJl7x7Ow",
+            "path": "tests/data/dmalt_custom_lr-fwd.fif",
+            "md5": "1e0a45f20c7c99c60879c767505e4cbb"
         }
     }
 }
