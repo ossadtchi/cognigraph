@@ -1,3 +1,4 @@
+[![Build Status](https://travis-ci.com/Cognigraph/cognigraph.svg?branch=master)](https://travis-ci.com/Cognigraph/cognigraph)
 # cognigraph
 Inverse-modelling-related capabilities of cognigraph
 
