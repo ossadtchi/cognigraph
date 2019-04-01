@@ -1,4 +1,5 @@
-# accepts and returns are adapted from https://www.python.org/dev/peps/pep-0318/
+# accepts and returns are adapted from
+# https://www.python.org/dev/peps/pep-0318/
 
 
 def accepts(*types):

@@ -6,9 +6,8 @@ from cognigraph.nodes.tests.prepare_inv_tests_data import (info,  # noqa
 import numpy as np
 
 
-
-@pytest.fixture  # noqa
-def beamformer(info, fwd_model_path):
+@pytest.fixture
+def beamformer(info, fwd_model_path):  # noqa
     is_adaptive = True
     beamformer = Beamformer(forward_model_path=fwd_model_path,
                             is_adaptive=is_adaptive)
@@ -22,8 +21,8 @@ def beamformer(info, fwd_model_path):
     return beamformer
 
 
-@pytest.fixture  # noqa
-def beamformer_def(info):
+@pytest.fixture
+def beamformer_def(info):  # noqa
     beamformer_def = Beamformer()
     parent = FileSource()
     parent.mne_info = info

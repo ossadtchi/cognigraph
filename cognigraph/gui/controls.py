@@ -1,6 +1,6 @@
 from collections import namedtuple, OrderedDict
 
-from pyqtgraph.parametertree import parameterTypes, ParameterTree, Parameter
+from pyqtgraph.parametertree import parameterTypes
 
 from ..pipeline import Pipeline
 from ..nodes import (
@@ -16,7 +16,6 @@ from .node_controls import (
 from ..utils.pyqtgraph import MyGroupParameter
 from ..utils.misc import class_name_of
 
-import logging
 
 NodeControlClasses = namedtuple('NodeControlClasses',
                                 ['node_class', 'controls_class'])
@@ -57,24 +56,33 @@ class MultipleNodeControls(MyGroupParameter):
 
 class ProcessorsControls(MultipleNodeControls):
     SUPPORTED_NODES = [
-        NodeControlClasses(processor_nodes.LinearFilter,
-                           processors_controls.LinearFilterControls),
-        NodeControlClasses(processor_nodes.InverseModel,
-                           processors_controls.InverseModelControls),
-        NodeControlClasses(processor_nodes.EnvelopeExtractor,
-                           processors_controls.EnvelopeExtractorControls),
-        NodeControlClasses(processor_nodes.Preprocessing,
-                           processors_controls.PreprocessingControls),
-        NodeControlClasses(processor_nodes.Beamformer,
-                           processors_controls.BeamformerControls),
-        NodeControlClasses(processor_nodes.MCE,
-                           processors_controls.MCEControls),
-        NodeControlClasses(processor_nodes.ICARejection,
-                           processors_controls.ICARejectionControls),
-        NodeControlClasses(processor_nodes.AtlasViewer,
-                           processors_controls.AtlasViewerControls),
-        NodeControlClasses(processor_nodes.AmplitudeEnvelopeCorrelations,
-                           processors_controls.AmplitudeEnvelopeCorrelationsControls),
+        NodeControlClasses(
+            processor_nodes.LinearFilter,
+            processors_controls.LinearFilterControls),
+        NodeControlClasses(
+            processor_nodes.InverseModel,
+            processors_controls.InverseModelControls),
+        NodeControlClasses(
+            processor_nodes.EnvelopeExtractor,
+            processors_controls.EnvelopeExtractorControls),
+        NodeControlClasses(
+            processor_nodes.Preprocessing,
+            processors_controls.PreprocessingControls),
+        NodeControlClasses(
+            processor_nodes.Beamformer,
+            processors_controls.BeamformerControls),
+        NodeControlClasses(
+            processor_nodes.MCE,
+            processors_controls.MCEControls),
+        NodeControlClasses(
+            processor_nodes.ICARejection,
+            processors_controls.ICARejectionControls),
+        NodeControlClasses(
+            processor_nodes.AtlasViewer,
+            processors_controls.AtlasViewerControls),
+        NodeControlClasses(
+            processor_nodes.AmplitudeEnvelopeCorrelations,
+            processors_controls.AmplitudeEnvelopeCorrelationsControls),
         NodeControlClasses(processor_nodes.Coherence,
                            processors_controls.CoherenceControls)
     ]
@@ -82,18 +90,24 @@ class ProcessorsControls(MultipleNodeControls):
 
 class OutputsControls(MultipleNodeControls):
     SUPPORTED_NODES = [
-        NodeControlClasses(output_nodes.LSLStreamOutput,
-                           outputs_controls.LSLStreamOutputControls),
-        NodeControlClasses(output_nodes.BrainViewer,
-                           outputs_controls.BrainViewerControls),
-        NodeControlClasses(output_nodes.SignalViewer,
-                           outputs_controls.SignalViewerControls),
-        NodeControlClasses(output_nodes.FileOutput,
-                           outputs_controls.FileOutputControls),
-        NodeControlClasses(output_nodes.TorchOutput,
-                           outputs_controls.TorchOutputControls),
-        NodeControlClasses(output_nodes.ConnectivityViewer,
-                           outputs_controls.ConnectivityViewerControls)
+        NodeControlClasses(
+            output_nodes.LSLStreamOutput,
+            outputs_controls.LSLStreamOutputControls),
+        NodeControlClasses(
+            output_nodes.BrainViewer,
+            outputs_controls.BrainViewerControls),
+        NodeControlClasses(
+            output_nodes.SignalViewer,
+            outputs_controls.SignalViewerControls),
+        NodeControlClasses(
+            output_nodes.FileOutput,
+            outputs_controls.FileOutputControls),
+        NodeControlClasses(
+            output_nodes.TorchOutput,
+            outputs_controls.TorchOutputControls),
+        NodeControlClasses(
+            output_nodes.ConnectivityViewer,
+            outputs_controls.ConnectivityViewerControls)
     ]
 
 
@@ -183,5 +197,3 @@ class Controls(object):
 
     def initialize(self):
         pass
-
-

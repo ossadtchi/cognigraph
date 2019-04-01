@@ -7,8 +7,8 @@ from cognigraph.nodes.tests.prepare_inv_tests_data import (info,  # noqa
                                                            fwd_model_path)
 
 
-@pytest.fixture  # noqa
-def inv_model(info, fwd_model_path):
+@pytest.fixture
+def inv_model(info, fwd_model_path):  # noqa
     snr = 1
     method = 'MNE'
     inv_model = InverseModel(
@@ -23,8 +23,8 @@ def inv_model(info, fwd_model_path):
     return inv_model
 
 
-@pytest.fixture  # noqa
-def inv_model_def(info):
+@pytest.fixture
+def inv_model_def(info):  # noqa
     inv_model_def = InverseModel()
     parent = FileSource()
     parent.mne_info = info

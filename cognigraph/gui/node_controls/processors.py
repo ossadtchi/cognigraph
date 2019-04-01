@@ -1,9 +1,7 @@
 import os.path as op
 from PyQt5 import QtGui
-from ...nodes.node import ProcessorNode
 from ...nodes import processors
 from ...utils.pyqtgraph import MyGroupParameter, parameterTypes
-from ...utils.misc import class_name_of
 from ..widgets import RoiSelectionDialog
 import logging
 
@@ -99,7 +97,8 @@ class LinearFilterControls(ProcessorNodeControls):
         if value == 0.0:
             self._processor_node.lower_cutoff = None
         else:
-            self._processor_node.lower_cutoff = value  # TODO: implement on the filter side
+            self._processor_node.lower_cutoff = value
+            # TODO: implement on the filter side
         # Update the upper cutoff so that it is not lower that the lower one
         if self.upper_cutoff.value() != 0.0:
             self.upper_cutoff.setLimits((value, 100))
@@ -110,10 +109,11 @@ class LinearFilterControls(ProcessorNodeControls):
             self._processor_node.upper_cutoff = None
             value = 100
         else:
-            self._processor_node.upper_cutoff = value  # TODO: implement on the filter side
+            self._processor_node.upper_cutoff = value
+            # TODO: implement on the filter side
 
         if self.lower_cutoff.value() != 0:
-            # Update the lower cutoff so that it is not higher that the upper one
+            # Update lower cutoff so that it is not higher that the upper one
             self.lower_cutoff.setLimits((0, value))
 
 
@@ -182,7 +182,8 @@ class EnvelopeExtractorControls(ProcessorNodeControls):
 
     def _create_parameters(self):
 
-        method_values = ['Exponential smoothing']  # TODO: change once we support more methods
+        method_values = ['Exponential smoothing']
+        # TODO: change once we support more methods
         method_value = self._processor_node.method
         methods_combo = parameterTypes.ListParameter(
             name=self.METHODS_COMBO_NAME, values=method_values,
@@ -220,7 +221,7 @@ class BeamformerControls(ProcessorNodeControls):
 
         try:
             file_path = self._processor_node.mne_forward_model_file_path
-        except:
+        except Exception:
             file_path = ''
         # Add LineEdit for choosing file
         file_path_str = parameterTypes.SimpleParameter(
@@ -236,13 +237,14 @@ class BeamformerControls(ProcessorNodeControls):
         self.file_path_button = self.addChild(file_path_button)
 
     def _create_parameters(self):
-        # snr: float = 3.0, output_type: str = 'power', is_adaptive: bool = False,
-        # forgetting_factor_per_second = 0.99
+        # snr: float = 3.0, output_type: str = 'power',
+        # is_adaptive: bool = False, forgetting_factor_per_second = 0.99
         is_adaptive = self._processor_node.is_adaptive
         adaptiveness_check = parameterTypes.SimpleParameter(
             type='bool', name=self.ADAPTIVENESS_NAME,
             value=is_adaptive, readonly=False)
-        adaptiveness_check.sigValueChanged.connect(self._on_adaptiveness_changed)
+        adaptiveness_check.sigValueChanged.connect(
+            self._on_adaptiveness_changed)
         self.adaptiveness_check = self.addChild(adaptiveness_check)
 
         reg_value = self._processor_node.reg
@@ -300,6 +302,7 @@ class MCEControls(ProcessorNodeControls):
     PROCESSOR_CLASS = processors.MCE
 
     FILE_PATH_STR_NAME = 'Path to forward solution: '
+
     def _create_parameters(self):
         # method_values = self.PROCESSOR_CLASS.SUPPORTED_METHODS
         # method_value = self._processor_node.method
@@ -316,7 +319,7 @@ class MCEControls(ProcessorNodeControls):
 
         try:
             file_path = self._processor_node.mne_forward_model_file_path
-        except:
+        except Exception:
             file_path = ''
         # Add LineEdit for choosing file
         file_path_str = parameterTypes.SimpleParameter(
@@ -357,8 +360,9 @@ class ICARejectionControls(ProcessorNodeControls):
 
         # method_values = self.PROCESSOR_CLASS.SUPPORTED_METHODS
         # method_value = self._processor_node.method
-        # methods_combo = parameterTypes.ListParameter(name=self.METHODS_COMBO_NAME,
-        #                                              values=method_values, value=method_value)
+        # methods_combo = parameterTypes.ListParameter(
+        # name=self.METHODS_COMBO_NAME, values=method_values,
+        # value=method_value)
         # methods_combo.sigValueChanged.connect(self._on_method_changed)
         # self.methods_combo = self.addChild(methods_combo)
         pass
@@ -379,7 +383,8 @@ class AtlasViewerControls(ProcessorNodeControls):
         #         name=label['name'] + ' --> ' + str(label['label_id']),
         #         value=label['state'])
         #     val.sigValueChanged.connect(
-        #         lambda s, ss, ii=i, v=val: self._on_label_state_changed(ii, v))
+        #         lambda s, ss, ii=i,
+        #         v=val: self._on_label_state_changed(ii, v))
         #     self.addChild(val)
         roi_selection_button = parameterTypes.ActionParameter(
             type='action', name='Select ROI')

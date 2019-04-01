@@ -2,10 +2,9 @@ import mne
 from mne.io.meas_info import _kind_dict
 import numpy as np
 import logging
+from .. import MISC_CHANNEL_TYPE
 
 logger = logging.getLogger(__name__)
-
-from .. import MISC_CHANNEL_TYPE
 
 
 def fill_eeg_channel_locations(info: mne.Info):
@@ -36,7 +35,7 @@ def fill_eeg_channel_locations(info: mne.Info):
                     channel['ch_name'])
             except ValueError:
                 ch_name = channel['ch_name']
-                self.logger.warning(
+                logger.warning(
                     'Could not find channel {name} in the standard montage.'
                     ' Will set it as {misc}'.format(
                         name=ch_name, misc=MISC_CHANNEL_TYPE))
@@ -60,9 +59,19 @@ def channel_labels_saver(mne_info: mne.Info):
 
 def get_average_reference_projection(channel_count: int):
     """
-    Calculates average-reference projection matrix assuming all channel_count channels are used
-    :param channel_count: number of channels
-    :return: np.ndarray of shape (channel_count, channel_count)
+    Calculates average-reference projection matrix assuming
+    all channel_count channels are used
+
+    Parameters
+    ----------
+    channel_count: int
+        number of channels
+
+    Returns
+    ------
+    np.ndarray
+        Projection matrix of shape (channel_count, channel_count)
+
     """
     n = channel_count
     return np.eye(n) - np.ones((n, n)) / n

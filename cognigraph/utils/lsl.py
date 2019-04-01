@@ -19,11 +19,13 @@ def convert_numpy_format_to_lsl(numpy_channel_format: np.dtype):
     return string2fmt[str(numpy_channel_format)]
 
 
-def create_lsl_outlet(name, frequency, channel_format, channel_labels, channel_types, type=''):
+def create_lsl_outlet(name, frequency, channel_format,
+                      channel_labels, channel_types, type=''):
     # Create StreamInfo
     channel_count = len(channel_labels)
     source_id = str(uuid.uuid4())
-    info = lsl.StreamInfo(name=name, type=type, channel_count=channel_count, nominal_srate=frequency,
+    info = lsl.StreamInfo(name=name, type=type, channel_count=channel_count,
+                          nominal_srate=frequency,
                           channel_format=channel_format, source_id=source_id)
 
     # Add channel labels
@@ -48,10 +50,13 @@ def _transpose_if_need_be(ndarray: np.ndarray):
 
 def convert_lsl_chunk_to_numpy_array(lsl_chunk, dtype=None):
     """
-    An LSL chunk is a list of lists. Converting it to a numpy array and vice versa is obviously a trivial matter not
-    worthy of a designated function. What *does* need taking care of, is whether we should transpose the numpy array or
-    not. In LSL time is the first dimension. We might or might not adhere to this convention, which is reflected in the
-    TIME_AXIS constant from the base package.
+    An LSL chunk is a list of lists.  Converting it to a numpy array and vice
+    versa is obviously a trivial matter not worthy of a designated function.
+    What *does* need taking care of, is whether we should transpose the numpy
+    array or not. In LSL time is the first dimension. We might or might not
+    adhere to this convention, which is reflected in the TIME_AXIS constant
+    from the base package.
+
     """
     ndarray = np.array(lsl_chunk).astype(dtype=dtype)
     return _transpose_if_need_be(ndarray)
@@ -62,28 +67,31 @@ def convert_numpy_array_to_lsl_chunk(ndarray):
     return ndarray.tolist()
 
 
-convert_numpy_array_to_lsl_chunk.__doc__ = convert_lsl_chunk_to_numpy_array.__doc__
+convert_numpy_array_to_lsl_chunk.__doc__ = (
+    convert_lsl_chunk_to_numpy_array.__doc__)
 
 
 def read_channel_labels_from_info(info: lsl.StreamInfo):
     info_xml = info.as_xml()
     rt = ET.fromstring(info_xml)
-    channels_tree = rt.find('desc').findall("channel") or rt.find('desc').find("channels").findall(
-                                            "channel")
-    labels = [(ch.find('label') if ch.find('label') is not None else ch.find('name')).text
-                                                                        for ch in channels_tree]
+    channels_tree = (rt.find('desc').findall("channel") or
+                     rt.find('desc').find("channels").findall("channel"))
+    labels = [(ch.find('label') if ch.find('label') is not None
+               else ch.find('name')).text for ch in channels_tree]
     # channels_tag = info.desc().child('channels')
     # if channels_tag.empty():
     #     return None
     # else:
-    #     # TODO: this is hard to read. Write a generator for children with a given name in helpers
+    #     # TODO: this is hard to read.
+    #     # Write a generator for children with a given name in helpers
     #     labels = list()
     #     types = list()
     #     single_channel_tag = channels_tag.child(name="channel")
     #     for channel_id in range(info.channel_count()):
     #         labels.append(single_channel_tag.child_value(name='label'))
     #         types.append(single_channel_tag.child_value(name='type'))
-    #         single_channel_tag = single_channel_tag.next_sibling(name='channel')
+    #       single_channel_tag = single_channel_tag.next_sibling(
+    #           name='channel')
     #     return labels, types
     types = []
     for l in labels:

@@ -4,11 +4,14 @@ This file contains a bundle of functions that can be used to have a more
 flexible control of diffrent problem involving colors (like turn an array /
 string / faces into RBGA colors, defining the basic colormap object...)
 """
+import numpy as np
 import logging
 
-import numpy as np
-
+from scipy.spatial.distance import cdist
+from scipy.signal import fftconvolve
 from vispy.color.colormap import Colormap as VispyColormap
+from vispy.geometry import MeshData
+from vispy.geometry.isosurface import isosurface
 
 from matplotlib import cm
 import matplotlib.colors as mplcol
@@ -18,27 +21,17 @@ from warnings import warn
 # from .mesh import vispy_array
 from functools import wraps
 
-import logging
-
-import numpy as np
-from scipy.signal import fftconvolve
 
 from vispy.visuals.transforms import STTransform, NullTransform
-__all__ = ('Colormap', 'color2vb', 'array2colormap', 'cmap_to_glsl',
+__all__ = ['Colormap', 'color2vb', 'array2colormap', 'cmap_to_glsl',
            'dynamic_color', 'color2faces', 'type_coloring', 'mpl_cmap',
-           'color2tuple', 'mpl_cmap_index')
+           'color2tuple', 'mpl_cmap_index']
 
 """Surfaces (mesh) and volume utility functions."""
-from scipy.spatial.distance import cdist
-
-from vispy.geometry import MeshData
-from vispy.geometry.isosurface import isosurface
-
-# from .sigproc import smooth_3d
 
 
-__all__ = ('vispy_array', 'convert_meshdata', 'volume_to_mesh',
-           'smoothing_matrix', 'mesh_edges', 'laplacian_smoothing')
+__all__ += ['vispy_array', 'convert_meshdata', 'volume_to_mesh',
+            'smoothing_matrix', 'mesh_edges', 'laplacian_smoothing']
 
 logger = logging.getLogger('cognigraph')
 
@@ -236,7 +229,7 @@ def color2vb(color=None, default=(1., 1., 1.), length=1, alpha=1.0,
                 alpha = color[-1]
                 color = color[0:-1]
             coltuple = color
-        elif isinstance(color, str) and (color[0] is not '#'):  # Matplotlib
+        elif isinstance(color, str) and (color[0] != '#'):  # Matplotlib
             # Check if the name is in the Matplotlib database :
             if color in mplcol.cnames.keys():
                 coltuple = mplcol.hex2color(mplcol.cnames[color])
@@ -244,10 +237,10 @@ def color2vb(color=None, default=(1., 1., 1.), length=1, alpha=1.0,
                 warn("The color name " + color + " is not in the matplotlib "
                      "database. Default color will be used instead.")
                 coltuple = default
-        elif isinstance(color, str) and (color[0] is '#'):  # Hexadecimal
+        elif isinstance(color, str) and (color[0] == '#'):  # Hexadecimal
             try:
                 coltuple = mplcol.hex2color(color)
-            except:
+            except Exception:
                 warn("The hexadecimal color " + color + " is not valid. "
                      "Default color will be used instead.")
                 coltuple = default
@@ -511,9 +504,9 @@ def colorclip(x, th, kind='under'):
     x : array_like
         The clipping array.
     """
-    if kind is 'under':
+    if kind == 'under':
         idx = x < th
-    elif kind is 'over':
+    elif kind == 'over':
         idx = x > th
     x[idx] = th
     return x
@@ -663,7 +656,7 @@ def mpl_cmap_index(cmap, cmaps=None):
 """Wrappers."""
 
 
-__all__ = ['wrap_properties']
+__all__ += ['wrap_properties']
 
 
 def wrap_properties(fn):
@@ -678,10 +671,8 @@ def wrap_properties(fn):
 """This script contains some usefull signal processing functions."""
 
 
-__all__ = ('normalize', 'derivative', 'tkeo', 'zerocrossing', 'power_of_ten',
-           'averaging', 'normalization', 'smoothing', 'smooth_3d')
-
-logger = logging.getLogger('cognigraph')
+__all__ += ['normalize', 'derivative', 'tkeo', 'zerocrossing', 'power_of_ten',
+            'averaging', 'normalization', 'smoothing', 'smooth_3d']
 
 
 def normalize(x, tomin=0., tomax=1.):
@@ -1037,8 +1028,6 @@ def smooth_3d(vol, smooth_factor=3, correct=True):
         tr = .5 * np.array([smooth_factor] * 3)
         tf = STTransform(scale=sc, translate=tr)
     return sm, tf
-
-
 
 
 logger = logging.getLogger('cognigraph')

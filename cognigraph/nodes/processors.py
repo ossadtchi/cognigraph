@@ -1,7 +1,6 @@
 import time
 import scipy as sc
 
-from typing import Tuple
 import math
 
 from vendor.nfb.pynfb.protocols.ssd.topomap_selector_ica import ICADialog
@@ -48,7 +47,7 @@ class Preprocessing(ProcessorNode):
         self._enough_collected = None  # type: bool
         self._means = None  # type: np.ndarray
         self._mean_sums_of_squares = None  # type: np.ndarray
-        self._bad_channel_indices = None  # type: List[int]
+        self._bad_channel_indices = None  # type: list[int]
         self._interpolation_matrix = None  # type: np.ndarray
         self._dsamp_freq = dsamp_freq
 
@@ -200,7 +199,7 @@ class InverseModel(ProcessorNode):
             self.inverse_operator = prepare_inverse_operator(
                 self.inverse_operator, nave=100,
                 lambda2=self.lambda2, method=self.method)
-                # self._inverse_model_matrix = matrix_from_inverse_operator(
+            # self._inverse_model_matrix = matrix_from_inverse_operator(
             #     inverse_operator=self.inverse_operator, mne_info=mne_info,
             #     snr=self.snr, method=self.method)
             self._bad_channels = bads
@@ -610,11 +609,11 @@ def pynfb_filter_based_processor_class(pynfb_filter_class):
             pass
 
         @property
-        def CHANGES_IN_THESE_REQUIRE_RESET(self) -> Tuple[str]:
+        def CHANGES_IN_THESE_REQUIRE_RESET(self):
             pass
 
         @property
-        def UPSTREAM_CHANGES_IN_THESE_REQUIRE_REINITIALIZATION(self) -> Tuple[str]:
+        def UPSTREAM_CHANGES_IN_THESE_REQUIRE_REINITIALIZATION(self):
             pass
 
         def _reset(self):
@@ -752,7 +751,7 @@ class MCE(ProcessorNode):
 
 class ICARejection(ProcessorNode):
 
-    def __init__(self, collect_for_x_seconds: int=60):
+    def __init__(self, collect_for_x_seconds: int = 60):
         ProcessorNode.__init__(self)
         self.collect_for_x_seconds = collect_for_x_seconds  # type: int
 
@@ -858,7 +857,6 @@ class AtlasViewer(ProcessorNode):
         #     os.path.join(surfaces_dir, 'label', hemi + self.annot_file)
         #     for hemi in ('lh.', 'rh.')]
 
-
     def _reset(self):
         self.active_labels = [l for l in self.labels if l.is_active]
         self.mne_info = {'ch_names': [a.name for a in self.active_labels],
@@ -914,7 +912,6 @@ class AtlasViewer(ProcessorNode):
 
             self.labels = labels
 
-
             # Merge numeric labels and label names from both hemispheres
             # annot_lh = nib.freesurfer.io.read_annot(filepath=annot_files[0])
             # annot_rh = nib.freesurfer.io.read_annot(filepath=annot_files[1])
@@ -965,10 +962,8 @@ class AtlasViewer(ProcessorNode):
                 self.labels_info.append(label_dict)
 
         except FileNotFoundError:
-            self.logger.error(
-                'Annotation files not found: {}'.format(annot_files))
+            self.logger.error('Annotation files not found')
             # Open file picker dialog here
-            ...
 
     def _update(self):
         data = self.parent.output

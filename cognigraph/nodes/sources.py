@@ -157,7 +157,6 @@ class FileSource(SourceNode):
                         'Extension must be one of the following: {}'.format(
                             self.SUPPORTED_EXTENSIONS.values()))
 
-
             self.dtype = DTYPE
             self.data = self.data.astype(self.dtype)
 
@@ -169,24 +168,30 @@ class FileSource(SourceNode):
 
         if self._time_of_the_last_update is not None:
 
-            seconds_since_last_update = current_time - self._time_of_the_last_update
+            seconds_since_last_update = (current_time -
+                                         self._time_of_the_last_update)
             self._time_of_the_last_update = current_time
             frequency = self.mne_info['sfreq']
 
             # How many sample we would like to read
-            max_samples_in_chunk = np.int64(seconds_since_last_update * frequency)
-            # Lower it to the amount we can process in a reasonable amount of time
+            max_samples_in_chunk = np.int64(seconds_since_last_update *
+                                            frequency)
+            # Lower it to amount we can process in a reasonable amount of time
             max_samples_in_chunk = min(max_samples_in_chunk,
                                        self.MAX_SAMPLES_IN_CHUNK)
 
-            # We will have read max_samples_in_chunk samples unless we hit the end
+            # have to read max_samples_in_chunk samples unless we hit the end
             samples_in_data = self.data.shape[TIME_AXIS]
             stop_idx = self._samples_already_read + max_samples_in_chunk
-            self.output = get_a_time_slice(self.data, start_idx=self._samples_already_read, stop_idx=stop_idx)
+            self.output = get_a_time_slice(
+                self.data, start_idx=self._samples_already_read,
+                stop_idx=stop_idx)
             actual_samples_in_chunk = self.output.shape[TIME_AXIS]
-            self._samples_already_read = self._samples_already_read + actual_samples_in_chunk
+            self._samples_already_read = (self._samples_already_read +
+                                          actual_samples_in_chunk)
 
-            # If we do hit the end we need to either start again or stop completely depending on loop_the_file
+            # If we do hit the end we need to either start again or
+            # stop completely depending on loop_the_file
             if self._samples_already_read == samples_in_data:
                 if self.loop_the_file is True:
                     self._samples_already_read = 0

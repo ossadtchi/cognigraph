@@ -1,14 +1,7 @@
-import platform
 import time
 from PyQt5.QtCore import QTimer
 from vispy.gloo.util import _screenshot
 from PIL import Image as im
-
-# Import screenshoting software
-# if platform.system() == 'Linux':
-#     import pyscreenshot as ImageGrab  # ImageGrab replacement for Pillow
-# else:
-#     from PIL import ImageGrab
 
 
 class ScreenRecorder:
