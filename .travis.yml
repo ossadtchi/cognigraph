@@ -23,9 +23,13 @@ install:
     - pip install tables
     - pip install vispy
     - conda install --yes pytest pytest-cov flake8
+    - pip install codecov
     - pip install -e .
 
 script:
     - pytest cognigraph/ --cov
     - flake8 --count cognigraph
+
+after_success:
+    - codecov
 
