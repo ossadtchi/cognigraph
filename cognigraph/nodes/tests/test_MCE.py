@@ -7,8 +7,8 @@ from cognigraph.nodes.tests.prepare_inv_tests_data import (info,  # noqa
                                                            fwd_model_path)
 
 
-@pytest.fixture  # noqa
-def mce(info, fwd_model_path):
+@pytest.fixture
+def mce(info, fwd_model_path):  # noqa
     snr = 1
     n_comp = 10
     mce = MCE(snr, fwd_model_path, n_comp)
@@ -22,8 +22,8 @@ def mce(info, fwd_model_path):
     return mce
 
 
-@pytest.fixture  # noqa
-def mce_def(info):
+@pytest.fixture
+def mce_def(info):  # noqa
     mce_def = MCE()
     parent = FileSource()
     parent.mne_info = info

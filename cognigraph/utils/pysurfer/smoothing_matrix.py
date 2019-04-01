@@ -2,8 +2,8 @@ import numpy as np
 from scipy import sparse
 
 
-# This function is copied from pysurfer-master/utils.py.
-# The only changes made are commenting lines with the @verbose decorator and those using logger
+# This function is copied from pysurfer-master/utils.py.  The only changes made
+# are commenting lines with the @verbose decorator and those using logger
 def smoothing_matrix(vertices, adj_mat, smoothing_steps=20, verbose=None):
     """Create a smoothing matrix which can be used to interpolate data defined
        for a subset of vertices onto mesh with an adjancency matrix given by

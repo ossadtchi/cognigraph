@@ -288,7 +288,7 @@ class SourceNode(Node):
 
     def __init__(self):
         Node.__init__(self)
-        self.mne_info = None  # type: mne.Info
+        self.mne_info = None
 
     def initialize(self):
         self.mne_info = None
@@ -360,7 +360,6 @@ class ProcessorNode(Node):
             return
         else:
             Node.update(self)
-
 
 
 class OutputNode(Node):

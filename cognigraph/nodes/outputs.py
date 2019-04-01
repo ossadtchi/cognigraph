@@ -242,7 +242,6 @@ class BrainViewer(WidgetOutput):
         else:
             return (last_sources - minimum) / (maximum - minimum)
 
-
     def on_draw(self, normalized_values):
         QApplication.processEvents()
         if self.smoothing_matrix is not None:
@@ -365,7 +364,6 @@ class SignalViewer(WidgetOutput):
             return RawSignalViewer(fs=mne_info['sfreq'],
                                    names=[''],
                                    seconds_to_plot=10)
-
 
     def _update(self):
         chunk = self.parent.output
@@ -490,7 +488,7 @@ class ConnectivityViewer(WidgetOutput):
         # 3. Get nodes = xyz of these vertices
         nodes = self.mesh._vertices[nodes_inds_surf]
         # 4. Edges are input data restricted to best n_lines nodes
-        edges = input_data[nodes_inds[:,None], nodes_inds]  # None needed
+        edges = input_data[nodes_inds[:, None], nodes_inds]  # None needed
         # 5. Select = mask matrix with True in (i,j)-th positions
         select = np.zeros_like(input_data, dtype=bool)
         select[ii, jj] = True

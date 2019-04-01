@@ -243,7 +243,8 @@ def test_add_child_on_the_fly(pipeline):
 #     1. __setattr__() sets _should_reset and there_has_been_a_change to True
 #     2. on the next update _no_pending_changes is checked. This flag
 #        is modified by _should_reset and evaluates to False; therefore
-#        elif branch with _update() is skipped and we fall into the last branch.
+#        elif branch with _update() is skipped and we fall into the last
+#        branch.
 #        output attribute which is set to None at the begining of update()
 #        stays intact.
 #     3. In the last (else) branch _should_reset flag is checked, triggering
@@ -295,7 +296,8 @@ def test_add_child_on_the_fly(pipeline):
 #     """
 
 #     assert(pipeline.source.n_initializations == 1)
-#     # Next pipeline update triggers reset (which calls initialize) for source.
+#     # Next pipeline update triggers reset (which calls initialize)
+#     # for source.
 #     # Actual nodes update doesn't happen.
 #     out_output_prev = out.output
 #     pipeline.update_all_nodes()
@@ -313,8 +315,8 @@ def test_add_child_on_the_fly(pipeline):
 #     assert_array_equal(proc.output, None)
 #     assert_array_equal(out.output, out_output_prev)
 
-#     # Finally, the output node is reinitialized while source and processor are
-#     # updated
+#     # Finally, the output node is reinitialized while source and
+#     # processor are updated
 #     pipeline.update_all_nodes()
 #     assert(pipeline._outputs[0].n_initializations == 2)
 #     assert_array_equal(out.output, None)
@@ -322,4 +324,3 @@ def test_add_child_on_the_fly(pipeline):
 #     pipeline.update_all_nodes()
 #     assert_array_equal(out.output, src.output + pr_inc * 3 + out_inc * 2)
 #     assert(np.all(out.output))
-

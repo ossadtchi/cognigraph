@@ -45,11 +45,11 @@ class Pipeline(object):
     def source(self, parent):
         self._source = parent
         self._reconnect_the_first_processor(parent)
-        self._reconnect_outputs_to_last_node()  # In case some outputs were added before anything else
+        self._reconnect_outputs_to_last_node()
 
     @property
     def all_nodes(self) -> List[Node]:
-        list_with_source = [self.source] if self.source is not None else list()  # type: List[Node]
+        list_with_source = [self.source] if self.source is not None else list()
         return list_with_source + self._processors + self._outputs
 
     @property
@@ -58,7 +58,6 @@ class Pipeline(object):
             return self.source.mne_info['sfreq']
         except AttributeError:
             raise ValueError("No source has been set in the pipeline")
-
 
     @accepts(object, ProcessorNode)
     def add_processor(self, processor_node):
@@ -85,9 +84,6 @@ class Pipeline(object):
         # keep track of those Nones.
         self._inputs_of_outputs.append(parent)
         output_node.parent = parent or self._last_node_before_outputs()
-        # else:
-        #     msg = "Trying to add a {} that has already been added".format(class_name_of(output_node))
-        #     raise ValueError(msg)
 
     def _last_node_before_outputs(self):
         try:

@@ -154,7 +154,7 @@ class DataDownloader():
         except json.JSONDecodeError:
             self._logger.error('Bad config file %s', self._config_path)
             return None
-        except KeyError as exc:
+        except KeyError:
             self._logger.error('Requested entry %s is broken.'
                                ' Check %s' % (fname, self._config_path))
             return None

@@ -7,7 +7,10 @@ from .. import TIME_AXIS, PYNFB_TIME_AXIS
 
 
 def pynfb_ndarray_function_wrapper(pynfb_function):
-    """Wraps a pynfb function to take account which axis it uses as the time axis"""
+    """
+    Wraps a pynfb function to take account which axis it uses as the time axis
+
+    """
     def wrapped(ndarray: np.ndarray):
         if TIME_AXIS == PYNFB_TIME_AXIS:
             return pynfb_function(ndarray)
@@ -28,4 +31,5 @@ class ExponentialMatrixSmoother(BaseFilter):
         return y
 
     def reset(self):
-        self.zi = np.zeros((max(len(self.a), len(self.b)) - 1, self.column_count))
+        self.zi = np.zeros([max(len(self.a), len(self.b)) - 1,
+                            self.column_count])

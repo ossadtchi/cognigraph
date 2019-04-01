@@ -2,7 +2,6 @@
 from warnings import warn
 import logging
 import numpy as np
-from itertools import product
 from scipy.spatial.distance import cdist
 
 from vispy import scene
@@ -12,7 +11,7 @@ import vispy.visuals.transforms as vist
 # from ._projection import _project_sources_data
 # from .roi_obj import RoiObj
 from ..utils.vispy_utils import (color2vb, normalize, vispy_array,
-                                   wrap_properties, array2colormap)
+                                 wrap_properties, array2colormap)
 
 
 logger = logging.getLogger('visbrain')
@@ -270,133 +269,9 @@ class SourceObj():
 
     ###########################################################################
     ###########################################################################
-    #                             PROJECTIONS
-    ###########################################################################
-    ###########################################################################
-
-    def project_sources(self, b_obj, project='modulation', radius=10.,
-                        contribute=False, cmap='viridis', clim=None, vmin=None,
-                        under='black', vmax=None, over='red',
-                        mask_color=None, to_overlay=0):
-        """Project source's activity or repartition onto the brain object.
-
-        Parameters
-        ----------
-        b_obj : {BrainObj, RoiObj}
-            The object on which to project sources.
-        project : {'modulation', 'repartition'}
-            Project either the source's data ('modulation') or get the number
-            of contributing sources per vertex ('repartition').
-        radius : float
-            The radius under which activity is projected on vertices.
-        contribute: bool | False
-            Specify if sources contribute on both hemisphere.
-        cmap : string | 'viridis'
-            The colormap to use.
-        clim : tuple | None
-            The colorbar limits. If None, (data.min(), data.max()) will be used
-            instead.
-        vmin : float | None
-            Minimum threshold.
-        vmax : float | None
-            Maximum threshold.
-        under : string/tuple/array_like | 'gray'
-            The color to use for values under vmin.
-        over : string/tuple/array_like | 'red'
-            The color to use for values over vmax.
-        mask_color : string/tuple/array_like | 'gray'
-            The color to use for the projection of masked sources. If None,
-            the color of the masked sources is going to be used.
-        to_overlay : int | 0
-            The overlay number used for the projection.
-        """
-        kw = self._update_cbar_args(cmap, clim, vmin, vmax, under, over)
-        self._default_cblabel = "Source's %s" % project
-        _project_sources_data(self, b_obj, project, radius, contribute,
-                              mask_color=mask_color, to_overlay=to_overlay,
-                              **kw)
-
-    ###########################################################################
-    ###########################################################################
     #                                  PHYSIO
     ###########################################################################
     ###########################################################################
-
-    def analyse_sources(self, roi_obj='talairach', replace_bad=True,
-                        bad_patterns=[-1, 'undefined', 'None'], distance=None,
-                        replace_with='Not found', keep_only=None):
-        """Analyse sources using Region of interest (ROI).
-
-        This method can be used to identify in which structure is located a
-        source.
-
-        Parameters
-        ----------
-        roi_obj : string/list | 'talairach'
-            The ROI object to use. Use either 'talairach', 'brodmann' or 'aal'
-            to use a predefined ROI template. Otherwise, use a RoiObj object or
-            a list of RoiObj.
-        replace_bad : bool | True
-            Replace bad values (True) or not (False).
-        bad_patterns : list | [-1, 'undefined', 'None']
-            Bad patterns to replace if replace_bad is True.
-        replace_with : string | 'Not found'
-            Replace bad patterns with this string.
-        keep_only : list | None
-            List of string patterns to keep only sources that match.
-
-        Returns
-        -------
-        df : pandas.DataFrames
-            A Pandas DataFrame or a list of DataFrames if roi_obj is a list.
-        """
-        # List of predefined ROI objects :
-        proi = ['brodmann', 'aal', 'talairach']
-        # Define the ROI object if needed :
-        if isinstance(roi_obj, (str, list, tuple)):
-            if isinstance(roi_obj, str):
-                roi_obj = [roi_obj]
-            if all([isinstance(k, str) for k in roi_obj]):
-                roi_obj = [RoiObj(k) for k in roi_obj if k in proi]
-        elif isinstance(roi_obj, RoiObj):
-            roi_obj = [roi_obj]
-        assert all([isinstance(k, RoiObj) for k in roi_obj])
-        # Convert predefined ROI into RoiObj objects :
-        logger.info("Analyse source's locations using the %s "
-                    "atlas" % ', '.join([k.name for k in roi_obj]))
-        if isinstance(roi_obj, (list, tuple)):
-            test_r = all([k in proi or isinstance(k, RoiObj) for k in roi_obj])
-            if not test_r:
-                raise TypeError("roi_obj should either be 'brodmann', 'aal', "
-                                "'talairach' or a list or RoiObj objects.")
-        # Get all of the DataFrames :
-        df = [k.localize_sources(self._xyz, self._text, replace_bad,
-                                 bad_patterns, replace_with,
-                                 distance) for k in roi_obj]
-        # Merge multiple DataFrames :
-        if len(df) > 1:
-            logger.info('Merging DataFrames')
-            import pandas as pd
-            df_full = df.copy()
-            df = df_full[0]
-            for i, k in enumerate(df_full[1::]):
-                df = pd.merge(df, k, on=['Text', 'X', 'Y', 'Z', 'hemisphere'],
-                              suffixes=('_' + roi_obj[0].name,
-                                        '_' + roi_obj[i + 1].name))
-        else:
-            df = df[0]
-        # Keep only sources that match with patterns :
-        if isinstance(keep_only, (list, tuple)):
-            idx_to_keep = []
-            for k, i in product(df.keys(), keep_only):
-                idx_to_keep.append(np.array(df[k], dtype=object) == i)
-            idx_to_keep = np.vstack(idx_to_keep).sum(0).astype(bool)
-            df = df.loc[idx_to_keep]
-            self.visible = idx_to_keep
-            logger.info("%i sources found in %s" % (len(df),
-                                                    ', '.join(keep_only)))
-
-        return df
 
     def color_sources(self, analysis=None, color_by=None, data=None,
                       roi_to_color=None, color_others='black',
@@ -799,5 +674,3 @@ class SourceObj():
         self._sources_text.transform.translate = value
         self._text_translate = value
         self._sources_text.update()
-
-

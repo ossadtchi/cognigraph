@@ -2,7 +2,6 @@ from pyqtgraph.parametertree import parameterTypes
 
 from ...nodes import outputs
 from ...utils.pyqtgraph import MyGroupParameter, SliderParameter
-from ..widgets import RoiSelectionDialog
 
 import logging
 
@@ -215,17 +214,6 @@ class LSLStreamOutputControls(OutputNodeControls):
 
         # Changes to the node
         self._output_node.stream_name = value
-
-
-    # slot template
-    '''
-    def _on__changed(self, param, value):
-        # Changes to these setting
-        pass
-
-        # Changes to the node
-        pass
-    '''
 
 
 class SignalViewerControls(OutputNodeControls):

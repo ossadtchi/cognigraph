@@ -5,7 +5,8 @@ from collections import Counter
 from vispy import scene
 from vispy.scene import visuals
 
-from ..utils.vispy_utils import array2colormap, normalize, color2vb, wrap_properties
+from ..utils.vispy_utils import (array2colormap, normalize, color2vb,
+                                 wrap_properties)
 
 
 class ConnectObj():
@@ -174,7 +175,7 @@ class ConnectObj():
             for val, col in self._custom_colors.items():
                 color[values == val, :] = color2vb(col)
         else:
-            color = array2colormap(values) #, **self.to_kwargs())
+            color = array2colormap(values)
         color[:, -1] = self._alpha
 
         # Dynamic color :
