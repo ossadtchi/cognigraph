@@ -1,5 +1,4 @@
 import time
-import os
 import scipy as sc
 
 from typing import Tuple
@@ -17,23 +16,20 @@ from mne.minimum_norm import apply_inverse_raw  # , make_inverse_operator
 from mne.minimum_norm import make_inverse_operator as mne_make_inverse_operator
 from mne.minimum_norm import prepare_inverse_operator
 from mne.beamformer import apply_lcmv_raw
-from ..helpers.make_lcmv import make_lcmv
+from ..utils.make_lcmv import make_lcmv
 
-import nibabel as nib
 from .node import ProcessorNode
-from ..helpers.matrix_functions import (make_time_dimension_second,
-                                        put_time_dimension_back_from_second,
-                                        last_sample)
-from ..helpers.inverse_model import (get_default_forward_file,
-                                     get_clean_forward,
-                                     make_inverse_operator,
-                                     matrix_from_inverse_operator,
-                                     get_mesh_data_from_forward_solution)
+from ..utils.matrix_functions import (make_time_dimension_second,
+                                      put_time_dimension_back_from_second)
+from ..utils.inverse_model import (get_default_forward_file,
+                                   get_clean_forward,
+                                   make_inverse_operator,
+                                   get_mesh_data_from_forward_solution)
 
-from ..helpers.pynfb import (pynfb_ndarray_function_wrapper,
-                             ExponentialMatrixSmoother)
-from ..helpers.channels import channel_labels_saver
-from ..helpers.aux_tools import nostdout
+from ..utils.pynfb import (pynfb_ndarray_function_wrapper,
+                           ExponentialMatrixSmoother)
+from ..utils.channels import channel_labels_saver
+from ..utils.aux_tools import nostdout
 from .. import TIME_AXIS
 from vendor.nfb.pynfb.signal_processing import filters
 

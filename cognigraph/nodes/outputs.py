@@ -3,29 +3,24 @@ import time
 from types import SimpleNamespace
 
 import tables
-from PyQt5.QtCore import pyqtSignal, QObject,  QThread
-from PyQt5.QtWidgets import QSizePolicy, QApplication
+from PyQt5.QtCore import pyqtSignal, QObject
+from PyQt5.QtWidgets import QApplication
 
 import mne
-import nibabel as nib
 import numpy as np
-import pyqtgraph.opengl as gl
-from matplotlib import cm
-from matplotlib.colors import Colormap as matplotlib_Colormap
-from mne.datasets import sample
 from scipy import sparse
 
-from ..helpers.pysurfer.smoothing_matrix import smoothing_matrix, mesh_edges
+from ..utils.pysurfer.smoothing_matrix import smoothing_matrix, mesh_edges
 from .node import OutputNode
 from .. import CHANNEL_AXIS, TIME_AXIS, PYNFB_TIME_AXIS
-from ..helpers.lsl import (convert_numpy_format_to_lsl,
-                           convert_numpy_array_to_lsl_chunk,
-                           create_lsl_outlet)
-from ..helpers.matrix_functions import last_sample, make_time_dimension_second
-from ..helpers.ring_buffer import RingBuffer
-from ..helpers.channels import read_channel_types, channel_labels_saver
-from ..helpers.inverse_model import get_mesh_data_from_forward_solution
-from ..helpers.brain_visualization import get_mesh_data_from_surfaces_dir
+from ..utils.lsl import (convert_numpy_format_to_lsl,
+                         convert_numpy_array_to_lsl_chunk,
+                         create_lsl_outlet)
+from ..utils.matrix_functions import last_sample, make_time_dimension_second
+from ..utils.ring_buffer import RingBuffer
+from ..utils.channels import read_channel_types, channel_labels_saver
+from ..utils.inverse_model import get_mesh_data_from_forward_solution
+from ..utils.brain_visualization import get_mesh_data_from_surfaces_dir
 from vendor.nfb.pynfb.widgets.signal_viewers import RawSignalViewer
 
 # visbrain visualization imports

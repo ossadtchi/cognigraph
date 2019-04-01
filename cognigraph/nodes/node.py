@@ -5,7 +5,7 @@ from contextlib import contextmanager
 import numpy as np
 from mne.io.pick import channel_type
 
-from ..helpers.misc import class_name_of
+from ..utils.misc import class_name_of
 import logging
 
 

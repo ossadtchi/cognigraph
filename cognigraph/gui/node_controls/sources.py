@@ -2,7 +2,7 @@ from pyqtgraph.parametertree import parameterTypes
 from PyQt5 import QtCore, QtGui
 import pylsl
 
-from ...helpers.pyqtgraph import MyGroupParameter
+from ...utils.pyqtgraph import MyGroupParameter
 from ...nodes.sources import LSLStreamSource, FileSource
 
 

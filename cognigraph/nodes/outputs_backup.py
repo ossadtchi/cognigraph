@@ -15,15 +15,15 @@ from matplotlib.colors import Colormap as matplotlib_Colormap
 from mne.datasets import sample
 from scipy import sparse
 
-from ..helpers.pysurfer.smoothing_matrix import smoothing_matrix, mesh_edges
+from ..utils.pysurfer.smoothing_matrix import smoothing_matrix, mesh_edges
 from .node import OutputNode
 from .. import CHANNEL_AXIS, TIME_AXIS, PYNFB_TIME_AXIS
-from ..helpers.lsl import (convert_numpy_format_to_lsl,
-                           convert_numpy_array_to_lsl_chunk,
-                           create_lsl_outlet)
-from ..helpers.matrix_functions import last_sample, make_time_dimension_second
-from ..helpers.ring_buffer import RingBuffer
-from ..helpers.channels import read_channel_types, channel_labels_saver
+from ..utils.lsl import (convert_numpy_format_to_lsl,
+                         convert_numpy_array_to_lsl_chunk,
+                         create_lsl_outlet)
+from ..utils.matrix_functions import last_sample, make_time_dimension_second
+from ..utils.ring_buffer import RingBuffer
+from ..utils.channels import read_channel_types, channel_labels_saver
 from vendor.nfb.pynfb.widgets.signal_viewers import RawSignalViewer
 
 # visbrain visualization imports

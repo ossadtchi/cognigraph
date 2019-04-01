@@ -3,10 +3,8 @@ import os
 import numpy as np
 import mne
 from mne.datasets import sample
-from mne.minimum_norm import read_inverse_operator
 
-from .. import MISC_CHANNEL_TYPE
-from ..helpers.misc import all_upper
+from ..utils.misc import all_upper
 
 data_path = sample.data_path(verbose='ERROR')
 sample_dir = os.path.join(data_path, 'MEG', 'sample')

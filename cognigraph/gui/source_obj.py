@@ -11,7 +11,7 @@ import vispy.visuals.transforms as vist
 
 # from ._projection import _project_sources_data
 # from .roi_obj import RoiObj
-from ..helpers.vispy_utils import (color2vb, normalize, vispy_array,
+from ..utils.vispy_utils import (color2vb, normalize, vispy_array,
                                    wrap_properties, array2colormap)
 
 

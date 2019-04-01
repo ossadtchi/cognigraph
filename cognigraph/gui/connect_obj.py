@@ -5,7 +5,7 @@ from collections import Counter
 from vispy import scene
 from vispy.scene import visuals
 
-from ..helpers.vispy_utils import array2colormap, normalize, color2vb, wrap_properties
+from ..utils.vispy_utils import array2colormap, normalize, color2vb, wrap_properties
 
 
 class ConnectObj():
