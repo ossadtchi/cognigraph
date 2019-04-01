@@ -133,6 +133,7 @@ class DataDownloader():
                     f.write(chunk)
                 if cur_md5_hash.hexdigest() == md5_hash:
                     f.close()
+                    os.makedirs(op.dirname(dest_path), exist_ok=True)
                     shutil.copy(temp_fname, dest_path)
                     os.remove(temp_fname)
                 else:
