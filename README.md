@@ -1,4 +1,6 @@
 [![Build Status](https://travis-ci.com/Cognigraph/cognigraph.svg?branch=master)](https://travis-ci.com/Cognigraph/cognigraph)
+[![Codecov](https://codecov.io/gh/Cognigraph/cognigraph/branch/master/graph/badge.svg)](https://codecov.io/gh/Cognigraph/cognigraph)
+
 # Cognigraph
 Обработка и визуализация ЭЭГ-сигналов в реальном времени.
 
@@ -28,7 +30,8 @@ pip install --editable .
 ```
 
 
-3. **Необходимые файлы.** Программа использует файлы из датасета _sample_, 
+3. **Необходимые файлы.**
+Программа использует файлы из датасета _sample_, 
 распространяемого с пакетом _mne-python_. Чтобы не качать все файлы (датасет
 лежит на osf.io, загрузка с которого  происходит крайне медленно), можно скачать
 урезанную версию 
