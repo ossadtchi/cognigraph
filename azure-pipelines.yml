@@ -36,12 +36,10 @@ jobs:
   - script: 
         python -c "import sys; print(sys.version)"
     displayName: Print python version
-  - script:
-        python -c "from urllib.request import urlopen; import ssl; c = ssl._create_unverified_context(); print(urlopen('https://cloud-api.yandex.net/v1/disk/public/resources/download?public_key=https://yadi.sk/d/kctCqYe6AQjL8g', context=c))"
-    displayName: Try openurl
+
   - script: |
       call activate test
-      conda install --yes --name test numpy scipy matplotlib h5py sympy scikit-learn pandas pytest certifi
+      conda install --yes --name test numpy scipy matplotlib h5py sympy scikit-learn pandas pytest
       conda install --yes --name test -c tstenner pylsl
       python -m pip install --upgrade pip setuptools wheel
       pip install pyqt5 mne==0.16 typing pyqtgraph nibabel tables
@@ -50,12 +48,10 @@ jobs:
       call activate test
       pip install PyOpenGL PyOpenGL_accelerate
     displayName: Insall PyOpenGL
-  - script:
-      python setup.py develop
+  - script: |
+      call activate test
+      pip install --editable .
     displayName: Install cognigraph
-  - script:
-      python cognigraph/utils/io.py
-    displayName: Run io.py
   - script: |
       call activate test
       pytest cognigraph --junitxml=junit/test-results.xml
