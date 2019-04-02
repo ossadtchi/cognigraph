@@ -44,7 +44,7 @@ class _SafeConnection():
             self._logger.error('Connection timed out.')
         elif exc_type is Exception:
             self._logger.exception(exc_value)
-        return True  # don't propagate exceptions
+        return False  # don't propagate exceptions
 
 
 class DataDownloader():
