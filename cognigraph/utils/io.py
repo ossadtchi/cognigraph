@@ -38,7 +38,8 @@ class _SafeConnection():
         if exc_type is not None and self.is_stdout_broken:
             print('\n')
         if exc_type in (HTTPError, URLError):
-            self._logger.error('Connection problem: %s', exc_value)
+            self._logger.error('Connection problem: %s, %s', exc_value,
+                               exc_traceback)
         elif exc_type is timeout:
             self._logger.error('Connection timed out.')
         elif exc_type is Exception:
