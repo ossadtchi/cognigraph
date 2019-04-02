@@ -42,15 +42,15 @@ jobs:
       conda install --yes --name test numpy scipy matplotlib h5py sympy scikit-learn pandas pytest
       conda install --yes --name test -c tstenner pylsl
       python -m pip install --upgrade pip setuptools wheel
-    displayName: 'Install dependencies'
-  - script:
+    displayName: 'Install conda dependencies'
+  - script: |
       call activate test
       pip install pyqt5 mne==0.16 typing pyqtgraph nibabel tables
     displayName: Install pip dependencies
   - script: |
       call activate test
       pip install PyOpenGL PyOpenGL_accelerate
-    displayName: Insall PyOpenGL
+    displayName: Install PyOpenGL
   - script: |
       call activate test
       pip install --editable .
