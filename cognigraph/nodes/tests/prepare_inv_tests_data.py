@@ -15,6 +15,7 @@ def info(scope='session'):
     logging.basicConfig(filename=None, level=logging.INFO)
     dloader = DataDownloader()
     info_src_path = dloader.get_file('Koleno_raw.fif')
+    print('new')
     raw = Raw(info_src_path, preload=True)
     raw.set_eeg_reference('average', projection=True)
     return raw.info
