@@ -19,8 +19,9 @@ from hashlib import md5
 from urllib.error import HTTPError, URLError
 from urllib.request import urlopen
 from cognigraph import COGNIGRAPH_ROOT
+import ssl
 
-
+_context = ssl._create_unverified_context()
 _cur_dir = op.join(COGNIGRAPH_ROOT, op.dirname(__file__))
 
 
@@ -113,7 +114,7 @@ class DataDownloader():
     def _download(self, url, dest_path, md5_hash, blocksize=DEFAULT_BLOCKSIZE):
         i_block = 1
         with _SafeConnection(self._logger) as s:
-            with urlopen(url, timeout=5) as r,\
+            with urlopen(url, timeout=5, context=_context) as r,\
                     NamedTemporaryFile(delete=False) as f:
                 totalsize = int(r.getheader('content-length'))
                 temp_fname = f.name
@@ -143,7 +144,8 @@ class DataDownloader():
     def _get_download_url(self, url_pub):
         url = None
         with _SafeConnection(self._logger):
-            with urlopen(self._API_ENDPOINT % url_pub, timeout=10) as r:
+            with urlopen(self._API_ENDPOINT % url_pub,
+                         timeout=10, context=_context) as r:
                 raw_url = r.read().decode()
                 url = raw_url.split(',')[0][9:-1]  # get href from url response
         return url
