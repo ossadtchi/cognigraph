@@ -33,6 +33,12 @@ pip install --editable .
 conda activate cogni
 ```
 
+Запуск программы из терминала осуществляется командой
+
+```bash
+cognigraph
+```
+
 
 
 3. **Необходимые файлы.**
