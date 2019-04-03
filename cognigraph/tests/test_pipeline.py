@@ -25,6 +25,7 @@ def exec_counter_node(cls):
             self.n_initializations = 0
             self.n_resets = 0
             self.n_messages = 0
+            self.__class__ = cls
 
         def _initialize(self):
             cls._initialize(self)
