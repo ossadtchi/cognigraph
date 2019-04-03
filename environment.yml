@@ -13,8 +13,6 @@ dependencies:
     - scikit-learn
     - h5py
     - sympy
-    - liblsl
-    - pylsl
     - pyqtgraph
     - numba
     - pytest
@@ -22,6 +20,7 @@ dependencies:
     - flake8
     - cython
     - pip:
+        - pylsl
         - nibabel
         - mne==0.16
         - typing

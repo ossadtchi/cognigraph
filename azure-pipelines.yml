@@ -24,24 +24,20 @@ jobs:
         Write-Host "##vso[task.prependpath]$env:CONDA\Scripts"
     displayName: Add conda to PATH
 
-  - script: |
-      conda update --yes conda
-      conda env create -f environment.yml
-    displayName: Create conda env
   - powershell: |
         $env:PYTHON = $env:CONDA
         $env:PATH = $env:PYTHON + "\envs\cogni;" + $env:PYTHON + "\envs\cogni\Scripts;" + $env:PYTHON + ";" + $env:PYTHON + "\Scripts;" + $env:PATH
         Write-Host ("##vso[task.setvariable variable=PATH]" + $env:PATH)
     displayName: Add conda python to PATH
+
+  - script: |
+      conda update --yes conda
+      conda env create -f environment.yml
+    displayName: Create conda env
+
   - script: 
         python -c "import sys; print(sys.version)"
     displayName: Print python version
-
-  - script: |
-      call activate cogni
-      python -m pip install --upgrade pip setuptools wheel
-      conda env install -f cogni
-    displayName: 'Install conda dependencies'
 
   - script: |
       call activate cogni
