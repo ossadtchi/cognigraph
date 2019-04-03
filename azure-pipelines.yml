@@ -24,39 +24,28 @@ jobs:
         Write-Host "##vso[task.prependpath]$env:CONDA\Scripts"
     displayName: Add conda to PATH
 
-  - script: |
-      conda update --yes conda
-      conda create --yes --quiet --name test python=3.6
-    displayName: Create conda env
   - powershell: |
         $env:PYTHON = $env:CONDA
-        $env:PATH = $env:PYTHON + "\envs\test;" + $env:PYTHON + "\envs\test\Scripts;" + $env:PYTHON + ";" + $env:PYTHON + "\Scripts;" + $env:PATH
+        $env:PATH = $env:PYTHON + "\envs\cogni;" + $env:PYTHON + "\envs\cogni\Scripts;" + $env:PYTHON + ";" + $env:PYTHON + "\Scripts;" + $env:PATH
         Write-Host ("##vso[task.setvariable variable=PATH]" + $env:PATH)
     displayName: Add conda python to PATH
+
+  - script: |
+      conda update --yes conda
+      conda env create -f environment.yml
+    displayName: Create conda env
+
   - script: 
         python -c "import sys; print(sys.version)"
     displayName: Print python version
 
   - script: |
-      call activate test
-      conda install --yes --name test numpy scipy matplotlib h5py sympy scikit-learn pandas pytest
-      conda install --yes --name test -c tstenner pylsl
-      python -m pip install --upgrade pip setuptools wheel
-    displayName: 'Install conda dependencies'
-  - script: |
-      call activate test
-      pip install pyqt5 mne==0.16 typing pyqtgraph nibabel tables
-    displayName: Install pip dependencies
-  - script: |
-      call activate test
-      pip install PyOpenGL PyOpenGL_accelerate
-    displayName: Install PyOpenGL
-  - script: |
-      call activate test
+      call activate cogni
       pip install --editable .
     displayName: Install cognigraph
+
   - script: |
-      call activate test
+      call activate cogni
       pytest cognigraph --junitxml=junit/test-results.xml
     displayName: 'Run tests'
 

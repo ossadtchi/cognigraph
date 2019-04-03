@@ -30,7 +30,6 @@ from ..gui.source_obj import SourceObj
 from vispy import scene
 # from vispy.app import Canvas
 
-import torch
 # import logging
 
 # from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
@@ -449,6 +448,7 @@ class TorchOutput(OutputNode):
         pass
 
     def _update(self):
+        import torch
         self.output = torch.from_numpy(self.parent.output)
 
 
