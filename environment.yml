@@ -1,4 +1,4 @@
-name: test_cogni
+name: cogni
 channels:
     - defaults
     - tstenner
@@ -20,10 +20,14 @@ dependencies:
     - flake8
     - cython
     - pip:
-        - mne==0.16
         - nibabel
+        - mne==0.16
+        - typing
         - expyriment
         - PyOpenGL
         - PyOpenGL_accelerate
         - pytest-sugar
+        - tables
+        - vispy
+        - codecov
 

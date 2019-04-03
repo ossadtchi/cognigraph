@@ -12,18 +12,8 @@ before_install:
     - conda update --yes conda
 
 install:
-    - conda create --yes -n test python=$TRAVIS_PYTHON_VERSION numpy scipy matplotlib sympy h5py scikit-learn pandas
-    - source activate test
-    - conda install --yes -c tstenner pylsl
-    - pip install pyqt5
-    - pip install mne==0.16
-    - pip install typing
-    - pip install pyqtgraph
-    - pip install nibabel
-    - pip install tables
-    - pip install vispy
-    - conda install --yes pytest pytest-cov flake8
-    - pip install codecov
+    - conda env create -f environment.yml
+    - source activate cogni
     - pip install -e .
 
 script:
