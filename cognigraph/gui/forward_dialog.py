@@ -682,6 +682,8 @@ class ComputeFwdInThread(ThreadToBeWaitedFor):
         fwd_name = '-'.join([subject, 'eeg', spacing, montage_kind, 'fwd.fif'])
         self.fwd_savename = op.join(dest_dir, montage_kind, spacing, fwd_name)
 
+        self._logger = logging.getLogger(type(self).__name__)
+
     def no_blocking_execution(self):
         if op.isfile(self.fwd_savename):
             ans = QMessageBox.question(
