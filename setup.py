@@ -18,5 +18,8 @@ DISTNAME = 'cognigraph'
 setup(
     name=DISTNAME,
     version=VERSION,
-    install_requires=['mne==0.16', 'scipy>=1.0.0']
+    install_requires=['mne==0.16', 'scipy>=1.0.0'],
+    entry_points={
+        'console_scripts': 'cognigraph=scripts.launch_cognigraph:main'
+    }
 )
