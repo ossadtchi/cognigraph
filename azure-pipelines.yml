@@ -26,7 +26,7 @@ jobs:
 
   - script: |
       conda update --yes conda
-      conda create --yes --quiet --name cogni python=3.6
+      conda env create -f environment.yml
     displayName: Create conda env
   - powershell: |
         $env:PYTHON = $env:CONDA
