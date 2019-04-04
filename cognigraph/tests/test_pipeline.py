@@ -17,7 +17,7 @@ def create_dummy_info(nchan=32, sfreq=500):
     return info
 
 
-def exec_counter_node(cls):
+def count_func_runs(cls):
     class Proxy(cls):
         def __init__(self, *pargs, **kwargs):
             cls.__init__(self, *pargs, **kwargs)
@@ -49,7 +49,7 @@ def exec_counter_node(cls):
     return Proxy
 
 
-@exec_counter_node
+@count_func_runs
 class ConcreteSource(SourceNode):
     """"Generates output updates of size (nchan, nsamp).
     Each element of output array on update is incremented by one
@@ -87,7 +87,7 @@ class ConcreteSource(SourceNode):
         pass
 
 
-@exec_counter_node
+@count_func_runs
 class ConcreteProcessor(ProcessorNode):
     """On each update increments input array by self.increment"""
     CHANGES_IN_THESE_REQUIRE_RESET = ()
@@ -117,7 +117,7 @@ class ConcreteProcessor(ProcessorNode):
         pass
 
 
-@exec_counter_node
+@count_func_runs
 class ConcreteOutput(OutputNode):
     """On each update increments input array by self.increment"""
     CHANGES_IN_THESE_REQUIRE_RESET = ()
