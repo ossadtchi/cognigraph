@@ -13,6 +13,7 @@ from ..utils.lsl import (convert_lsl_chunk_to_numpy_array,
 from ..utils.brainvision import (read_brain_vision_data, read_fif_data,
                                  read_edf_data)
 
+__all__ = ['LSLStreamSource', 'FileSource']
 
 
 class _FixedStreamInfo(lsl.StreamInfo):
