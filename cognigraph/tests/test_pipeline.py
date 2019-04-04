@@ -25,7 +25,6 @@ def exec_counter_node(cls):
             self.n_initializations = 0
             self.n_resets = 0
             self.n_messages = 0
-            self.__class__ = cls
 
         def _initialize(self):
             cls._initialize(self)
@@ -43,6 +42,9 @@ def exec_counter_node(cls):
         def receive_a_message(self, message):
             cls.receive_a_message(self, message)
             self.n_messages += 1
+
+        def __repr__(self):
+            return cls.__name__
 
     return Proxy
 
