@@ -50,7 +50,7 @@ class _Communicate(QObject):
     screenshot_sig = pyqtSignal()
 
 
-class WidgetOutput(OutputNode):
+class _WidgetOutput(OutputNode):
     """Abstract class for widget initialization logic with qt signals"""
     def __init__(self, *pargs, **kwargs):
         OutputNode.__init__(self, *pargs, **kwargs)
@@ -134,7 +134,7 @@ class LSLStreamOutput(OutputNode):
         self._outlet.push_chunk(lsl_chunk)
 
 
-class BrainViewer(WidgetOutput):
+class BrainViewer(_WidgetOutput):
 
     CHANGES_IN_THESE_REQUIRE_RESET = ('buffer_length', 'take_abs', )
     UPSTREAM_CHANGES_IN_THESE_REQUIRE_REINITIALIZATION = (
@@ -343,7 +343,7 @@ class BrainViewer(WidgetOutput):
             self._images.append(im.fromarray(_screenshot()))
 
 
-class SignalViewer(WidgetOutput):
+class SignalViewer(_WidgetOutput):
     CHANGES_IN_THESE_REQUIRE_RESET = ()
 
     UPSTREAM_CHANGES_IN_THESE_REQUIRE_REINITIALIZATION = ('mne_info',)
@@ -455,7 +455,7 @@ class TorchOutput(OutputNode):
         self.output = torch.from_numpy(self.parent.output)
 
 
-class ConnectivityViewer(WidgetOutput):
+class ConnectivityViewer(_WidgetOutput):
     """Plot connectivity matrix on circular graph"""
     CHANGES_IN_THESE_REQUIRE_RESET = ()
     UPSTREAM_CHANGES_IN_THESE_REQUIRE_REINITIALIZATION = ('mne_info',)
