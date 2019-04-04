@@ -4,7 +4,7 @@ import logging
 import time
 
 
-class Communicate(QObject):
+class _Communicate(QObject):
     """Pyqt signals sender"""
     sync_signal = pyqtSignal()
 
@@ -14,7 +14,7 @@ class AsyncUpdater(QThread):
 
     def __init__(self, app, pipeline):
         super(AsyncUpdater, self).__init__()
-        self.sender = Communicate()
+        self.sender = _Communicate()
         self.sender.sync_signal.connect(
             self.process_events_on_main_thread,
             type=Qt.BlockingQueuedConnection)

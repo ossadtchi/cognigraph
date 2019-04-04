@@ -41,7 +41,7 @@ from PIL import Image as im
 # ------------------------------ #
 
 
-class Communicate(QObject):
+class _Communicate(QObject):
     init_widget_sig = pyqtSignal()
     draw_sig = pyqtSignal('PyQt_PyObject')
     screenshot_sig = pyqtSignal()
@@ -51,7 +51,7 @@ class WidgetOutput(OutputNode):
     """Abstract class for widget initialization logic with qt signals"""
     def __init__(self, *pargs, **kwargs):
         OutputNode.__init__(self, *pargs, **kwargs)
-        self.signal_sender = Communicate()
+        self.signal_sender = _Communicate()
         self.signal_sender.init_widget_sig.connect(self._init_widget)
         self.signal_sender.draw_sig.connect(self.on_draw)
 

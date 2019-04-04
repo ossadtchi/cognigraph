@@ -123,7 +123,8 @@ window.initialize()
     # pass
     # print(pipeline.source._samples_already_read / 500)
 
-class Communicate(QtCore.QObject):
+
+class _Communicate(QtCore.QObject):
     sync_signal = QtCore.pyqtSignal()
 
 
@@ -132,7 +133,7 @@ class AsyncUpdater(QtCore.QThread):
 
     def __init__(self):
         super(AsyncUpdater, self).__init__()
-        self.sender = Communicate()
+        self.sender = _Communicate()
         self.sender.sync_signal.connect(
             self.process_events_on_main_thread,
             type=QtCore.Qt.BlockingQueuedConnection)
