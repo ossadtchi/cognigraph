@@ -52,8 +52,8 @@ from vispy.gloo.util import _screenshot
 from PIL import Image as im
 # ------------------------------ #
 
-__all__ = ['LSLStreamOutput', 'BrainViewer', 'SignalViewer',
-           'FileOutput', 'TorchOutput', 'ConnectivityViewer']
+__all__ = ('LSLStreamOutput', 'BrainViewer', 'SignalViewer',
+           'FileOutput', 'TorchOutput', 'ConnectivityViewer')
 
 
 class _Communicate(QObject):

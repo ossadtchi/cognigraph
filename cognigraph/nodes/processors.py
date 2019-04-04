@@ -32,10 +32,10 @@ from ..utils.aux_tools import nostdout
 from .. import TIME_AXIS
 from vendor.nfb.pynfb.signal_processing import filters
 
-__all__ = ['Preprocessing', 'InverseModel', 'LinearFilter',
+__all__ = ('Preprocessing', 'InverseModel', 'LinearFilter',
            'EnvelopeExtractor', 'Beamformer', 'MCE',
            'ICARejection', 'AtlasViewer', 'AmplitudeEnvelopeCorrelations',
-           'Coherence', 'MneGcs']
+           'Coherence', 'MneGcs')
 
 
 class Preprocessing(ProcessorNode):
