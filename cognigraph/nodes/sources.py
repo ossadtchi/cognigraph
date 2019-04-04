@@ -14,19 +14,20 @@ from ..utils.brainvision import (read_brain_vision_data, read_fif_data,
                                  read_edf_data)
 
 
-class FixedStreamInfo(lsl.StreamInfo):
+
+class _FixedStreamInfo(lsl.StreamInfo):
     def as_xml(self):
         return lsl.pylsl.lib.lsl_get_xml(self.obj).decode('utf-8', 'ignore')
 
 
-class FixedStreamInlet(lsl.StreamInlet):
+class _FixedStreamInlet(lsl.StreamInlet):
     def info(self, timeout=lsl.pylsl.FOREVER):
         errcode = lsl.pylsl.c_int()
         result = lsl.pylsl.lib.lsl_get_fullinfo(self.obj,
                                                 lsl.pylsl.c_double(timeout),
                                                 lsl.pylsl.byref(errcode))
         lsl.pylsl.handle_error(errcode)
-        return FixedStreamInfo(handle=result)  # StreamInfo(handle=result)
+        return _FixedStreamInfo(handle=result)  # StreamInfo(handle=result)
 
 
 class LSLStreamSource(SourceNode):
@@ -70,7 +71,7 @@ class LSLStreamSource(SourceNode):
         else:
             info = stream_infos[0]
             # self._inlet = lsl.StreamInlet(info)
-            self._inlet = FixedStreamInlet(info)
+            self._inlet = _FixedStreamInlet(info)
             self._inlet.open_stream()
             frequency = info.nominal_srate()
             self.dtype = DTYPE
