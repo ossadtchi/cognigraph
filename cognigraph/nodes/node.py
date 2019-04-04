@@ -62,7 +62,7 @@ class Node(object):
         self.logger = logging.getLogger(type(self).__name__)
 
     def __repr__(self):
-        return str(self.__class__).split('.')[-1][:-2]
+        return str(self.__class__.__name__)
 
     def initialize(self):
 
