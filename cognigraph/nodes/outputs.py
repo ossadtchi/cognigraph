@@ -1,3 +1,22 @@
+"""
+Definition of pipeline output nodes
+
+Exsposed classes
+---------------
+LSLStreamOutput: OutputNode
+    Output signal to LSL stream
+BrainViewer: WidgetOutput
+    Plot heatmap on a 3d brain
+SignalViewer: WidgetOutput
+    Plot signals
+FileOutput: OutputNode
+    Output signal to file
+TorchOutput: OutputNode
+    Wrap signal in Torch tensors
+ConnectivityViewer: WidgetOutput
+    Plot connectivity
+
+"""
 import os
 import time
 from types import SimpleNamespace
@@ -23,17 +42,10 @@ from ..utils.inverse_model import get_mesh_data_from_forward_solution
 from ..utils.brain_visualization import get_mesh_data_from_surfaces_dir
 from vendor.nfb.pynfb.widgets.signal_viewers import RawSignalViewer
 
-# visbrain visualization imports
-# from ..gui.brain_visual import BrainMesh
 from ..gui.connect_obj import ConnectObj
 from ..gui.source_obj import SourceObj
 from vispy import scene
-# from vispy.app import Canvas
 
-# import logging
-
-# from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
-# from matplotlib.figure import Figure
 
 # -------- gif recorder -------- #
 from vispy.gloo.util import _screenshot
