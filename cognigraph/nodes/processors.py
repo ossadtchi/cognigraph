@@ -262,8 +262,9 @@ class LinearFilter(ProcessorNode):
     CHANGES_IN_THESE_REQUIRE_RESET = ('lower_cutoff', 'upper_cutoff')
     SAVERS_FOR_UPSTREAM_MUTABLE_OBJECTS = {'mne_info':
                                            lambda info: (info['nchan'], )}
+    ALLOWED_CHILDREN = ('InverseModel', 'SignalViewer')
 
-    def __init__(self, lower_cutoff, upper_cutoff):
+    def __init__(self, lower_cutoff: float = 0, upper_cutoff: float = 50):
         ProcessorNode.__init__(self)
         self.lower_cutoff = lower_cutoff
         self.upper_cutoff = upper_cutoff

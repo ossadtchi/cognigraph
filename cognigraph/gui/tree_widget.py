@@ -8,7 +8,8 @@ from cognigraph.nodes.node import Node
 from cognigraph import nodes
 from functools import partial
 from pyqtgraph.parametertree import parameterTypes, ParameterTree
-from cognigraph.gui.node_controls.processors import LinearFilterControls
+from cognigraph.gui.controls import node_to_controls_map
+from cognigraph.gui import node_controls
 
 
 class _CreateNodeDialog(QDialog):
@@ -21,7 +22,9 @@ class _CreateNodeDialog(QDialog):
         self.setLayout(layout)
         params = parameterTypes.GroupParameter(name='test')
         child_node = node_cls()
-        controls = LinearFilterControls(child_node)
+        controls_cls_name = node_to_controls_map[node_cls.__name__]
+        controls_cls = getattr(node_controls, controls_cls_name)
+        controls = controls_cls(child_node)
         params.addChild(controls)
         self.widget.setParameters(params)
 
@@ -103,7 +106,7 @@ if __name__ == '__main__':
     src.add_child(proc)
     proc.add_child(out)
     pipeline.source = src
-    app = QApplication(sys.argv)
+    # app = QApplication(sys.argv)
     tree_widget = PipelineTreeWidget(pipeline)
     tree_widget.show()
     # sys.exit(app.exec_())  # dont need this: tree_widget has event_loop

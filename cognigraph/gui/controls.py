@@ -3,22 +3,37 @@ from collections import namedtuple, OrderedDict
 from pyqtgraph.parametertree import parameterTypes
 
 from ..pipeline import Pipeline
-from ..nodes import (
-    sources as source_nodes,
-    processors as processor_nodes,
-    outputs as output_nodes
-)
-from .node_controls import (
-    sources as source_controls,
-    processors as processors_controls,
-    outputs as outputs_controls
-)
+from .. import nodes
+
+from . import node_controls
+
 from ..utils.pyqtgraph import MyGroupParameter
 from ..utils.misc import class_name_of
 
 
-NodeControlClasses = namedtuple('NodeControlClasses',
-                                ['node_class', 'controls_class'])
+node_controls_map = namedtuple('node_controls_map',
+                               ['node_class', 'controls_class'])
+
+node_to_controls_map = {
+    'LinearFilter': 'LinearFilterControls',
+    'InverseModel': 'InverseModelControls',
+    'EnvelopeExtractor': 'EnvelopeExtractorControls',
+    'Preprocessing': 'PreprocessingControls',
+    'Beamformer': 'BeamformerControls',
+    'MCE': 'MCEControls',
+    'ICARejection': 'ICARejectionControls',
+    'AtlasViewer': 'AtlasViewerControls',
+    'AmplitudeEnvelopeCorrelations': 'AmplitudeEnvelopeCorrelationsControls',
+    'Coherence': 'CoherenceControls',
+    'LSLStreamOutput': 'LSLStreamOutputControls',
+    'BrainViewer': 'BrainViewerControls',
+    'SignalViewer': 'SignalViewerControls',
+    'FileOutput': 'FileOutputControls',
+    'TorchOutput': 'TorchOutputControls',
+    'ConnectivityViewer': 'ConnectivityViewerControls',
+    'LSLStreamSource': 'LSLStreamSourceControls',
+    'FileSource': 'FileSourceControls'
+}
 
 
 class MultipleNodeControls(MyGroupParameter):
@@ -48,7 +63,7 @@ class MultipleNodeControls(MyGroupParameter):
 
         # Raise an error if processor node is not supported
         msg = ("Node of class {0} is not supported by {1}.\n"
-               "Add NodeControlClasses(node_class, controls_class) to"
+               "Add node_controls_map(node_class, controls_class) to"
                " {1}.SUPPORTED_NODES").format(
                 class_name_of(processor_node), cls.__name__)
         raise ValueError(msg)
@@ -56,58 +71,52 @@ class MultipleNodeControls(MyGroupParameter):
 
 class ProcessorsControls(MultipleNodeControls):
     SUPPORTED_NODES = [
-        NodeControlClasses(
-            processor_nodes.LinearFilter,
-            processors_controls.LinearFilterControls),
-        NodeControlClasses(
-            processor_nodes.InverseModel,
-            processors_controls.InverseModelControls),
-        NodeControlClasses(
-            processor_nodes.EnvelopeExtractor,
-            processors_controls.EnvelopeExtractorControls),
-        NodeControlClasses(
-            processor_nodes.Preprocessing,
-            processors_controls.PreprocessingControls),
-        NodeControlClasses(
-            processor_nodes.Beamformer,
-            processors_controls.BeamformerControls),
-        NodeControlClasses(
-            processor_nodes.MCE,
-            processors_controls.MCEControls),
-        NodeControlClasses(
-            processor_nodes.ICARejection,
-            processors_controls.ICARejectionControls),
-        NodeControlClasses(
-            processor_nodes.AtlasViewer,
-            processors_controls.AtlasViewerControls),
-        NodeControlClasses(
-            processor_nodes.AmplitudeEnvelopeCorrelations,
-            processors_controls.AmplitudeEnvelopeCorrelationsControls),
-        NodeControlClasses(processor_nodes.Coherence,
-                           processors_controls.CoherenceControls)
+        node_controls_map(
+            nodes.LinearFilter,
+            node_controls.LinearFilterControls),
+        node_controls_map(
+            nodes.InverseModel,
+            node_controls.InverseModelControls),
+        node_controls_map(
+            nodes.EnvelopeExtractor,
+            node_controls.EnvelopeExtractorControls),
+        node_controls_map(
+            nodes.Preprocessing,
+            node_controls.PreprocessingControls),
+        node_controls_map(
+            nodes.Beamformer,
+            node_controls.BeamformerControls),
+        node_controls_map(
+            nodes.MCE,
+            node_controls.MCEControls),
+        node_controls_map(
+            nodes.ICARejection,
+            node_controls.ICARejectionControls),
+        node_controls_map(
+            nodes.AtlasViewer,
+            node_controls.AtlasViewerControls),
+        node_controls_map(
+            nodes.AmplitudeEnvelopeCorrelations,
+            node_controls.AmplitudeEnvelopeCorrelationsControls),
+        node_controls_map(nodes.Coherence,
+                          node_controls.CoherenceControls)
     ]
 
 
 class OutputsControls(MultipleNodeControls):
     SUPPORTED_NODES = [
-        NodeControlClasses(
-            output_nodes.LSLStreamOutput,
-            outputs_controls.LSLStreamOutputControls),
-        NodeControlClasses(
-            output_nodes.BrainViewer,
-            outputs_controls.BrainViewerControls),
-        NodeControlClasses(
-            output_nodes.SignalViewer,
-            outputs_controls.SignalViewerControls),
-        NodeControlClasses(
-            output_nodes.FileOutput,
-            outputs_controls.FileOutputControls),
-        NodeControlClasses(
-            output_nodes.TorchOutput,
-            outputs_controls.TorchOutputControls),
-        NodeControlClasses(
-            output_nodes.ConnectivityViewer,
-            outputs_controls.ConnectivityViewerControls)
+        node_controls_map(nodes.LSLStreamOutput,
+                          node_controls.LSLStreamOutputControls),
+        node_controls_map(nodes.BrainViewer,
+                          node_controls.BrainViewerControls),
+        node_controls_map(nodes.SignalViewer,
+                          node_controls.SignalViewerControls),
+        node_controls_map(nodes.FileOutput,
+                          node_controls.FileOutputControls),
+        node_controls_map(nodes.TorchOutput,
+                          node_controls.TorchOutputControls),
+        node_controls_map(nodes.ConnectivityViewer,
+                          node_controls.ConnectivityViewerControls)
     ]
 
 
@@ -119,13 +128,13 @@ class BaseControls(MyGroupParameter):
         # TODO: Change names to delineate source_controls as defined here and
         # source_controls - gui.node_controls.source
         source_controls = SourceControls(pipeline=pipeline, name='Source')
-        processors_controls = ProcessorsControls(nodes=pipeline._processors,
-                                                 name='Processors')
+        node_controls = ProcessorsControls(nodes=pipeline._processors,
+                                           name='Processors')
         outputs_controls = OutputsControls(nodes=pipeline._outputs,
                                            name='Outputs')
 
         self.source_controls = self.addChild(source_controls)
-        self.processors_controls = self.addChild(processors_controls)
+        self.node_controls = self.addChild(node_controls)
         self.outputs_controls = self.addChild(outputs_controls)
 
 
@@ -140,11 +149,11 @@ class SourceControls(MyGroupParameter):
     # Entries with node subclasses must precede entries with the parent class
     SOURCE_OPTIONS = OrderedDict((
         ('LSL stream',
-         NodeControlClasses(source_nodes.LSLStreamSource,
-                            source_controls.LSLStreamSourceControls)),
+         node_controls_map(nodes.LSLStreamSource,
+                           node_controls.LSLStreamSourceControls)),
         ('File data',
-         NodeControlClasses(source_nodes.FileSource,
-                            source_controls.FileSourceControls)),
+         node_controls_map(nodes.FileSource,
+                           node_controls.FileSourceControls)),
     ))
 
     SOURCE_TYPE_COMBO_NAME = 'Source type: '
@@ -194,6 +203,3 @@ class Controls(object):
         self._pipeline = pipeline  # type: Pipeline
         self._base_controls = BaseControls(pipeline=self._pipeline)
         self.widget = self._base_controls.create_widget()
-
-    def initialize(self):
-        pass
