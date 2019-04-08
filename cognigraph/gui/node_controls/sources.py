@@ -5,6 +5,8 @@ import pylsl
 from ...utils.pyqtgraph import MyGroupParameter
 from ...nodes.sources import LSLStreamSource, FileSource
 
+__all__ = ('SourceControls', 'LSLStreamSourceControls', 'FileSourceControls')
+
 
 class SourceControls(MyGroupParameter):
     @property

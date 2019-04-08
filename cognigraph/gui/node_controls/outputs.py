@@ -7,6 +7,11 @@ import logging
 
 from PyQt5 import QtWidgets
 
+__all__ = ('OutputNodeControls', 'BrainViewerControls',
+           'LSLStreamOutputControls', 'SignalViewerControls',
+           'FileOutputControls', 'TorchOutputControls',
+           'ConnectivityViewerControls')
+
 
 class OutputNodeControls(MyGroupParameter):
 

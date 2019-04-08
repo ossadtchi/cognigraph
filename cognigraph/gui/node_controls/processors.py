@@ -5,8 +5,14 @@ from ...utils.pyqtgraph import MyGroupParameter, parameterTypes
 from ..widgets import RoiSelectionDialog
 import logging
 
+__all__ = ('PreprocessingControls', 'LinearFilterControls',
+           'InverseModelControls', 'EnvelopeExtractorControls',
+           'BeamformerControls', 'MCEControls',
+           'ICARejectionControls', 'AtlasViewerControls',
+           'AmplitudeEnvelopeCorrelationsControls', 'CoherenceControls')
 
-class ProcessorNodeControls(MyGroupParameter):
+
+class _ProcessorNodeControls(MyGroupParameter):
 
     DISABLED_NAME = 'Disable: '
 
@@ -47,7 +53,7 @@ class ProcessorNodeControls(MyGroupParameter):
         self._processor_node.disabled = value
 
 
-class PreprocessingControls(ProcessorNodeControls):
+class PreprocessingControls(_ProcessorNodeControls):
     PROCESSOR_CLASS = processors.Preprocessing
     CONTROLS_LABEL = 'Preprocessing'
 
@@ -66,7 +72,7 @@ class PreprocessingControls(ProcessorNodeControls):
         self._processor_node.collect_for_x_seconds = value
 
 
-class LinearFilterControls(ProcessorNodeControls):
+class LinearFilterControls(_ProcessorNodeControls):
     PROCESSOR_CLASS = processors.LinearFilter
     CONTROLS_LABEL = 'Linear filter'
 
@@ -117,7 +123,7 @@ class LinearFilterControls(ProcessorNodeControls):
             self.lower_cutoff.setLimits((0, value))
 
 
-class InverseModelControls(ProcessorNodeControls):
+class InverseModelControls(_ProcessorNodeControls):
     CONTROLS_LABEL = 'Inverse modelling'
     PROCESSOR_CLASS = processors.InverseModel
     METHODS_COMBO_NAME = 'Method: '
@@ -173,7 +179,7 @@ class InverseModelControls(ProcessorNodeControls):
         self._processor_node.mne_forward_model_file_path = value
 
 
-class EnvelopeExtractorControls(ProcessorNodeControls):
+class EnvelopeExtractorControls(_ProcessorNodeControls):
     PROCESSOR_CLASS = processors.EnvelopeExtractor
     CONTROLS_LABEL = 'Extract envelope: '
 
@@ -205,7 +211,7 @@ class EnvelopeExtractorControls(ProcessorNodeControls):
         pass  # TODO: implement
 
 
-class BeamformerControls(ProcessorNodeControls):
+class BeamformerControls(_ProcessorNodeControls):
     PROCESSOR_CLASS = processors.Beamformer
     CONTROLS_LABEL = 'Beamformer'
 
@@ -297,7 +303,7 @@ class BeamformerControls(ProcessorNodeControls):
         self._processor_node.mne_forward_model_file_path = value
 
 
-class MCEControls(ProcessorNodeControls):
+class MCEControls(_ProcessorNodeControls):
     CONTROLS_LABEL = 'MCE Inverse modelling'
     PROCESSOR_CLASS = processors.MCE
 
@@ -350,7 +356,7 @@ class MCEControls(ProcessorNodeControls):
         self._processor_node.mne_forward_model_file_path = value
 
 
-class ICARejectionControls(ProcessorNodeControls):
+class ICARejectionControls(_ProcessorNodeControls):
     CONTROLS_LABEL = 'ICA rejection'
     PROCESSOR_CLASS = processors.MCE
 
@@ -372,7 +378,7 @@ class ICARejectionControls(ProcessorNodeControls):
         pass
 
 
-class AtlasViewerControls(ProcessorNodeControls):
+class AtlasViewerControls(_ProcessorNodeControls):
     OUTPUT_CLASS = processors.AtlasViewer
     CONTROLS_LABEL = 'Atlas Viewer'
 
@@ -407,7 +413,7 @@ class AtlasViewerControls(ProcessorNodeControls):
         self._processor_node.labels_info = self._processor_node.labels_info
 
 
-class AmplitudeEnvelopeCorrelationsControls(ProcessorNodeControls):
+class AmplitudeEnvelopeCorrelationsControls(_ProcessorNodeControls):
     """Controls class for AEC node"""
     CONTROLS_LABEL = 'AmplitudeEnvelopeCorrelations controls'
     PROCESSOR_CLASS = processors.AmplitudeEnvelopeCorrelations
@@ -416,7 +422,7 @@ class AmplitudeEnvelopeCorrelationsControls(ProcessorNodeControls):
         ...
 
 
-class CoherenceControls(ProcessorNodeControls):
+class CoherenceControls(_ProcessorNodeControls):
     """Coherence node controls"""
     CONTROLS_LABEL = 'Coherence controls'
     PROCESSOR_CLASS = processors.Coherence
