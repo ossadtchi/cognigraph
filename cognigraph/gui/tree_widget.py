@@ -1,14 +1,29 @@
 from PyQt5.QtWidgets import (QApplication, QTreeWidget, QTreeWidgetItem,
                              QMenu, QAction, QDialog)
 from PyQt5.QtCore import Qt
+from PyQt5.Qt import QSizePolicy
+from PyQt5.QtWidgets import QVBoxLayout
 from cognigraph.pipeline import Pipeline
 from cognigraph.nodes.node import Node
 from cognigraph import nodes
+from functools import partial
+from pyqtgraph.parametertree import parameterTypes, ParameterTree
+from cognigraph.gui.node_controls.processors import LinearFilterControls
 
 
-class _AddNodeDialog(QDialog):
-    def __init__(self, node_cls):
-        _AddNodeDialog.__init__(self)
+class _CreateNodeDialog(QDialog):
+    def __init__(self, node_cls, parent=None):
+        QDialog.__init__(self, parent)
+
+        self.widget = ParameterTree(showHeader=True)
+        layout = QVBoxLayout()
+        layout.addWidget(self.widget)
+        self.setLayout(layout)
+        params = parameterTypes.GroupParameter(name='test')
+        child_node = node_cls()
+        controls = LinearFilterControls(child_node)
+        params.addChild(controls)
+        self.widget.setParameters(params)
 
 
 class PipelineTreeWidget(QTreeWidget):
@@ -27,10 +42,9 @@ class PipelineTreeWidget(QTreeWidget):
             self._on_context_menu_requiested)
 
     def add_nodes(self, node, parent_item):
-        this_item = QTreeWidgetItem(parent_item, [str(node)])
+        this_item = QTreeWidgetItem(parent_item, [repr(node)])
         this_item.setData(0, 1, node)
         self.expandItem(this_item)
-        # this_item.setChildIndicatorPolicy(QTreeWidgetItem.DontShowIndicator)
         for child in node._children:
             self.add_nodes(child, this_item)
 
@@ -42,17 +56,18 @@ class PipelineTreeWidget(QTreeWidget):
         menu.addMenu(submenu)
 
         allowed_children = item.data(0, 1).ALLOWED_CHILDREN
-        actions = [QAction(c, submenu) for c in allowed_children]
-
-        for action in actions:
+        actions = []
+        for c in allowed_children:
+            child_cls = getattr(nodes, c)
+            action = QAction(repr(child_cls), submenu)
             action.triggered.connect(
-                lambda t, p=item.data(0, 1), c=getattr(nodes, action.text()):
-                    self._on_adding_node(t, p, c))
+                partial(self._on_adding_node, parent=item.data(0, 1),
+                        child_cls=child_cls))
+            actions.append(action)
 
         submenu.addActions(actions)
 
         menu.exec(self.viewport().mapToGlobal(pos))
-        # print('hi')
 
     def _on_adding_node(self, t, parent: Node, child_cls):
         """Add node to pipeline
@@ -67,6 +82,12 @@ class PipelineTreeWidget(QTreeWidget):
 
         """
         print('Adding %s to %s' % (child_cls, parent))
+        self.create_node_dialog = _CreateNodeDialog(child_cls, parent=self)
+        self.create_node_dialog.show()
+        self.create_node_dialog.widget.setSizeAdjustPolicy(1)
+        self.create_node_dialog.widget.setSizePolicy(QSizePolicy.Expanding,
+                                                     QSizePolicy.Expanding)
+        self.create_node_dialog.adjustSize()
 
 
 if __name__ == '__main__':
@@ -74,6 +95,7 @@ if __name__ == '__main__':
     from cognigraph.tests.test_pipeline import (ConcreteSource,
                                                 ConcreteProcessor,
                                                 ConcreteOutput)
+
     pipeline = Pipeline()
     src = ConcreteSource()
     proc = ConcreteProcessor()
@@ -84,4 +106,4 @@ if __name__ == '__main__':
     app = QApplication(sys.argv)
     tree_widget = PipelineTreeWidget(pipeline)
     tree_widget.show()
-    sys.exit(app.exec_())
+    # sys.exit(app.exec_())  # dont need this: tree_widget has event_loop
