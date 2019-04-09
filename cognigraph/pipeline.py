@@ -49,8 +49,7 @@ class Pipeline(object):
 
     @property
     def all_nodes(self) -> List[Node]:
-        list_with_source = [self.source] if self.source is not None else list()
-        return list_with_source + self._processors + self._outputs
+        return list(self.source)
 
     @property
     def frequency(self) -> (int, float):

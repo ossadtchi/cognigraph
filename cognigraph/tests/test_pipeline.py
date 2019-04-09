@@ -44,7 +44,11 @@ def count_func_runs(cls):
             self.n_messages += 1
 
         def __repr__(self):
-            return cls.__name__
+            return repr(cls) + ' Node'
+
+        def __str__(self):
+            class_str = str(cls)
+            return class_str[:-1] + ' Node' + class_str[-1]
 
     return Proxy
 
@@ -58,6 +62,8 @@ class ConcreteSource(SourceNode):
     """
     CHANGES_IN_THESE_REQUIRE_RESET = ('_mne_info',)
     UPSTREAM_CHANGES_IN_THESE_REQUIRE_REINITIALIZATION = ()
+
+    _GUI_STRING = 'Dummy Source'
 
     def __init__(self, nsamp=50):
         SourceNode.__init__(self)

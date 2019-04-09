@@ -7,9 +7,32 @@ from mne.io.pick import channel_type
 
 from ..utils.misc import class_name_of
 import logging
+import re
 
 
-class Node(object):
+class _ReprMeta(type):
+    """
+    Node classes representation and printing logic for better look in GUI
+
+    """
+    def __repr__(cls):
+        """
+        Either use defined in class string or convert class name
+        from CamelCase to spaces
+
+        """
+        if cls._GUI_STRING:
+            return cls._GUI_STRING
+        else:
+            camel_to_spaces = re.sub(r'([A-Z]*)([A-Z])([a-z])',
+                                     r'\1 \2\3', cls.__name__)
+            return camel_to_spaces.lstrip()
+
+    def __str__(cls):
+        return '<' + _ReprMeta.__repr__(cls) + '>'
+
+
+class Node(object, metaclass=_ReprMeta):
     """
     Any processing step (including getting and outputting data)
     is an instance of this class.
@@ -25,6 +48,7 @@ class Node(object):
     # provide a way to save only what is necessary. Keys are property names,
     # values are functions that return an appropriate tuple.
 
+    _GUI_STRING = None
     @property
     def CHANGES_IN_THESE_REQUIRE_RESET(self) -> Tuple[str]:
         """
@@ -48,6 +72,12 @@ class Node(object):
                ' constant defined')
         raise NotImplementedError(msg)
 
+    @property
+    def ALLOWED_CHILDREN(self):
+        """Nodes that can be connected to the current node"""
+        pass
+        # raise NotImplementedError
+
     SAVERS_FOR_UPSTREAM_MUTABLE_OBJECTS = dict()
 
     def __init__(self):
@@ -62,10 +92,18 @@ class Node(object):
         self.logger = logging.getLogger(type(self).__name__)
 
     def __repr__(self):
-        return str(self.__class__.__name__)
+        return repr(self.__class__) + ' Node'
+
+    def __str__(self):
+        class_str = str(self.__class__)
+        return class_str[:-1] + ' Node' + class_str[-1]
+
+    def __iter__(self):
+        yield self
+        for child in self._children:
+            yield from child
 
     def initialize(self):
-
         self._saved_from_upstream = {
             item: self.traverse_back_and_find(item)
             if item not in self.SAVERS_FOR_UPSTREAM_MUTABLE_OBJECTS
@@ -285,6 +323,8 @@ class SourceNode(Node):
 
     # There is no 'upstream' for the sources
     UPSTREAM_CHANGES_IN_THESE_REQUIRE_REINITIALIZATION = ()
+    ALLOWED_CHILDREN = ('Preprocessing', 'LinearFilter', 'ICARejection',
+                        'InverseModel', 'MCE', 'Beamformer')
 
     def __init__(self):
         Node.__init__(self)
@@ -345,6 +385,7 @@ class ProcessorNode(Node):
     Now handles empty inputs.
 
     """
+
     def __init__(self):
         Node.__init__(self)
         with self.not_triggering_reset():

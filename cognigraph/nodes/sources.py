@@ -40,6 +40,7 @@ class LSLStreamSource(SourceNode):
         pass
 
     SECONDS_TO_WAIT_FOR_THE_STREAM = 0.5
+    _GUI_STRING = 'LSL stream'
 
     def __init__(self, stream_name=None):
         super().__init__()
@@ -93,6 +94,7 @@ class FileSource(SourceNode):
                             'European Data Format': ('.edf',)}
 
     CHANGES_IN_THESE_REQUIRE_RESET = ('source_name', )
+    _GUI_STRING = 'File source'
 
     MAX_SAMPLES_IN_CHUNK = 1024
 

@@ -5,39 +5,38 @@ import pylsl
 from ...utils.pyqtgraph import MyGroupParameter
 from ...nodes.sources import LSLStreamSource, FileSource
 
-__all__ = ('SourceControls', 'LSLStreamSourceControls', 'FileSourceControls')
+__all__ = ('LSLStreamSourceControls', 'FileSourceControls')
 
 
-class SourceControls(MyGroupParameter):
+class _SourceControls(MyGroupParameter):
     @property
     def SOURCE_CLASS(self):
         raise NotImplementedError
 
-    def __init__(self, pipeline, **kwargs):
-        self._pipeline = pipeline
-        self.source_node = pipeline.source  # type: self.SOURCE_CLASS
+    def __init__(self, source_node, **kwargs):
+        self._source_node = source_node  # type: self.SOURCE_CLASS
         super().__init__(**kwargs)
 
     def create_node(self):
-        self.source_node = self.SOURCE_CLASS()
-        return self.source_node
+        self._source_node = self.SOURCE_CLASS()
+        return self._source_node
 
 
-class LSLStreamSourceControls(SourceControls):
+class LSLStreamSourceControls(_SourceControls):
     SOURCE_CLASS = LSLStreamSource
 
     STREAM_NAME_PLACEHOLDER = 'Click here to choose a stream'
     STREAM_NAMES_COMBO_NAME = 'Choose a stream: '
 
-    def __init__(self, pipeline, **kwargs):
+    def __init__(self, source_node, **kwargs):
 
         kwargs['title'] = 'LSL stream'
-        super().__init__(pipeline, **kwargs)
+        super().__init__(source_node, **kwargs)
 
         stream_names = [info.name() for info in pylsl.resolve_streams()]
         values = [self.STREAM_NAME_PLACEHOLDER] + stream_names
         try:
-            value = self.source_node.stream_name
+            value = self._source_node.stream_name
         except AttributeError:
             value = self.STREAM_NAME_PLACEHOLDER
         stream_names_combo = parameterTypes.ListParameter(
@@ -47,8 +46,8 @@ class LSLStreamSourceControls(SourceControls):
 
     def _on_stream_name_picked(self, param, value):
         # Update if needed
-        if self.source_node.stream_name != value:
-            self.source_node.stream_name = value
+        if self._source_node.stream_name != value:
+            self._source_node.stream_name = value
 
     def _remove_placeholder_option(self, default):
         stream_names_combo = self.param(self.STREAM_NAMES_COMBO_NAME)
@@ -60,18 +59,18 @@ class LSLStreamSourceControls(SourceControls):
             pass
 
 
-class FileSourceControls(SourceControls):
+class FileSourceControls(_SourceControls):
     SOURCE_CLASS = FileSource
 
     FILE_PATH_STR_NAME = 'Path to file: '
 
-    def __init__(self, pipeline, **kwargs):
+    def __init__(self, source_node, **kwargs):
 
         kwargs['title'] = 'Input file'
-        super().__init__(pipeline, **kwargs)
+        super().__init__(source_node, **kwargs)
 
         try:
-            file_path = pipeline.source.file_path
+            file_path = source_node.file_path
         except Exception:
             file_path = ''
 
@@ -93,7 +92,7 @@ class FileSourceControls(SourceControls):
 
     def _choose_file(self):
         filter_string = ''
-        supported_exts = self._pipeline.source.SUPPORTED_EXTENSIONS
+        supported_exts = self._source_node.SUPPORTED_EXTENSIONS
         for i, key in enumerate(supported_exts.keys()):
             if i > 0:
                 filter_string += ';;'
@@ -119,4 +118,4 @@ class FileSourceControls(SourceControls):
             self.file_path_str.setValue(file_path[0])
 
     def _on_file_path_changed(self, param, value):
-        self._pipeline.source.file_path = value
+        self._source_node.file_path = value

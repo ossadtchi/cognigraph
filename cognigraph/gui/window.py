@@ -7,6 +7,7 @@ from PyQt5.QtWidgets import (QDockWidget, QWidget, QMainWindow, QDesktopWidget,
                              QMdiArea, QAction)
 from ..pipeline import Pipeline
 from .async_pipeline_update import AsyncPipelineInitializer
+from .tree_widget import PipelineTreeWidget
 from .controls import Controls
 # from .screen_recorder import ScreenRecorder
 
@@ -19,33 +20,27 @@ class GUIWindow(QMainWindow):
         super().__init__()
         self._pipeline = pipeline  # type: Pipeline
         self._controls = Controls(pipeline=self._pipeline)
-        self._controls_widget = self._controls.widget
-        self._controls_widget.setSizePolicy(QSizePolicy.Preferred,
-                                            QSizePolicy.Expanding)
-
-        # Start button
+        self._controls.setSizePolicy(QSizePolicy.Preferred,
+                                     QSizePolicy.Expanding)
 
         # Resize screen
-        self.resize(QSize(
-            QDesktopWidget().availableGeometry().width() * 0.9,
-            QDesktopWidget().availableGeometry().height() * 0.9))
+        self.resize(QSize(QDesktopWidget().availableGeometry().width() * 0.9,
+                          QDesktopWidget().availableGeometry().height() * 0.9))
 
     def init_ui(self):
         self.central_widget = QMdiArea()
         self.setCentralWidget(self.central_widget)
 
         # -------- controls widget -------- #
-        self._controls.initialize()
-
         controls_dock = QDockWidget('Controls', self)
         controls_dock.setObjectName('Controls')
         controls_dock.setAllowedAreas(Qt.LeftDockWidgetArea |
                                       Qt.RightDockWidgetArea)
 
-        controls_dock.setWidget(self._controls_widget)
+        controls_dock.setWidget(self._controls)
         self.addDockWidget(Qt.LeftDockWidgetArea, controls_dock)
 
-        self._controls_widget.setMinimumWidth(800)
+        self._controls.setMinimumWidth(800)
         # --------------------------------- #
 
         self.menuBar().addMenu('&File')  # file menu
