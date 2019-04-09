@@ -5,15 +5,15 @@ Exsposed classes
 ---------------
 LSLStreamOutput: OutputNode
     Output signal to LSL stream
-BrainViewer: WidgetOutput
+BrainViewer: _WidgetOutput
     Plot heatmap on a 3d brain
-SignalViewer: WidgetOutput
+SignalViewer: _WidgetOutput
     Plot signals
 FileOutput: OutputNode
     Output signal to file
 TorchOutput: OutputNode
     Wrap signal in Torch tensors
-ConnectivityViewer: WidgetOutput
+ConnectivityViewer: _WidgetOutput
     Plot connectivity
 
 """
@@ -71,18 +71,8 @@ class _WidgetOutput(OutputNode):
         self.signal_sender.draw_sig.connect(self.on_draw)
 
     def _init_widget(self):
-        if self.widget is not None:
-            parent = self.widget.parent()
-            ind = parent.indexOf(self.widget)
-            cur_width = self.widget.size().width()
-            cur_height = self.widget.size().height()
-            self.widget.deleteLater()
-            self.widget = self._create_widget()
-            parent.insertWidget(ind, self.widget)
-            self.widget.resize(cur_width, cur_height)
-        else:
-            self.widget = self._create_widget()
-            self.widget.setMinimumWidth(50)
+        self.widget = self._create_widget()
+        self.widget.pipeline_node = self
 
     def _create_widget(self):
         raise NotImplementedError
@@ -189,6 +179,7 @@ class BrainViewer(_WidgetOutput):
     def _initialize(self):
         mne_forward_model_file_path = self.traverse_back_and_find(
             'mne_forward_model_file_path')
+        self.surfaces_dir = self.traverse_back_and_find('surfaces_dir')
 
         frequency = self.traverse_back_and_find('mne_info')['sfreq']
         buffer_sample_count = np.int(self.buffer_length * frequency)
@@ -261,7 +252,7 @@ class BrainViewer(_WidgetOutput):
         if self.smoothing_matrix is not None:
             sources_smoothed = self.smoothing_matrix.dot(normalized_values)
         else:
-            self.logger.debug('Draw without smoothing')
+            self._logger.debug('Draw without smoothing')
             sources_smoothed = normalized_values
         threshold = self.threshold_pct / 100
         mask = sources_smoothed <= threshold
@@ -276,11 +267,11 @@ class BrainViewer(_WidgetOutput):
                                        to_overlay=1)
 
         self.mesh_data.update()
-        if self.logger.getEffectiveLevel() == 20:  # INFO level
+        if self._logger.getEffectiveLevel() == 20:  # INFO level
             self.canvas.measure_fps(
                 window=10,
                 callback=(lambda x:
-                          self.logger.info('Updating at %1.1f FPS' % x)))
+                          self._logger.info('Updating at %1.1f FPS' % x)))
 
     def _create_widget(self):
         canvas = scene.SceneCanvas(keys='interactive', show=False)
@@ -316,8 +307,8 @@ class BrainViewer(_WidgetOutput):
         try:
             return sparse.load_npz(smoothing_matrix_file_path)
         except FileNotFoundError:
-            self.logger.info('Calculating smoothing matrix.' +
-                             ' This might take a while the first time.')
+            self._logger.info('Calculating smoothing matrix.' +
+                              ' This might take a while the first time.')
             sources_idx, *_ = get_mesh_data_from_forward_solution(
                 self.forward_solution)
             adj_mat = mesh_edges(self.mesh_data._faces)

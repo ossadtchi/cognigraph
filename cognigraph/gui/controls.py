@@ -1,5 +1,9 @@
-from PyQt5.QtWidgets import QVBoxLayout, QWidget
+from PyQt5.QtWidgets import (
+    QApplication, QTreeWidget, QTreeWidgetItem, QMenu,
+    QAction, QDialog, QTreeWidgetItemIterator, QVBoxLayout, QWidget,
+    QDialogButtonBox, QMessageBox)
 from PyQt5.Qt import QSizePolicy
+from PyQt5.QtCore import Qt, pyqtSignal
 from collections import namedtuple, OrderedDict
 
 from pyqtgraph.parametertree import parameterTypes, ParameterTree
@@ -12,15 +16,21 @@ from cognigraph.gui import node_controls
 from cognigraph.utils.pyqtgraph import MyGroupParameter
 from cognigraph.utils.misc import class_name_of
 
-from PyQt5.QtWidgets import (QApplication, QTreeWidget, QTreeWidgetItem,
-                             QMenu, QAction, QDialog, QTreeWidgetItemIterator)
-from PyQt5.QtCore import Qt
 from cognigraph.nodes.node import Node
 from functools import partial
+import traceback
+import logging
 
 
 node_controls_map = namedtuple('node_controls_map',
                                ['node_class', 'controls_class'])
+
+
+class _PipelineTreeWidgetItem(QTreeWidgetItem):
+    def __init__(self, parent_item, node, widget):
+        QTreeWidgetItem.__init__(self, parent_item, [repr(node)])
+        self.node = node
+        self.widget = widget
 
 
 class SourceControls(MyGroupParameter):
@@ -154,6 +164,7 @@ class BaseControls(QWidget):
             layout.addWidget(widget)
         self.setLayout(layout)
 
+
 class _CreateNodeDialog(QDialog):
     def __init__(self, node_cls, parent=None):
         QDialog.__init__(self, parent)
@@ -161,20 +172,41 @@ class _CreateNodeDialog(QDialog):
         self.widget = ParameterTree(showHeader=False)
         layout = QVBoxLayout()
         layout.addWidget(self.widget)
-        self.setLayout(layout)
         params = parameterTypes.GroupParameter(name='test')
-        child_node = node_cls()
+        self.node = node_cls()
         controls_cls = node_to_controls_map[node_cls.__name__]
-        controls = controls_cls(child_node)
+        controls = controls_cls(self.node)
         params.addChild(controls)
         self.widget.setParameters(params)
+        dialog_buttons = QDialogButtonBox(QDialogButtonBox.Ok |
+                                          QDialogButtonBox.Cancel)
+        layout.addWidget(dialog_buttons)
+        dialog_buttons.accepted.connect(self._on_ok)
+        dialog_buttons.rejected.connect(self.reject)
+
+        self.setLayout(layout)
+
+    def _on_ok(self):
+        try:
+            self.node.initialize()
+            self.accept()
+        except Exception:
+            msg = QMessageBox(self)
+            msg.setIcon(QMessageBox.Warning)
+            msg.setText('Failed to create %s' % str(self.node))
+            msg.setDetailedText(traceback.format_exc())
+            msg.show()
 
 
 class PipelineTreeWidget(QTreeWidget):
+    node_added = pyqtSignal('PyQt_PyObject', 'PyQt_PyObject')
+    node_removed = pyqtSignal('PyQt_PyObject')
+
     def __init__(self, pipeline: Pipeline):
         super().__init__()
         self.clear()
         self.setColumnCount(1)
+        self.setHeaderHidden(True)
         self.setItemsExpandable(True)
 
         self.controls_layout = QVBoxLayout()
@@ -184,28 +216,47 @@ class PipelineTreeWidget(QTreeWidget):
         self.customContextMenuRequested.connect(
             self._on_context_menu_requiested)
         self.itemSelectionChanged.connect(self._on_tree_item_selection_changed)
+        self.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Expanding)
+        self._logger = logging.getLogger(self.__class__.__name__)
 
     def _on_context_menu_requiested(self, pos):
-        menu = QMenu(self)
-        submenu = QMenu(menu)
-        submenu.setTitle('Add node')
         item = self.itemAt(pos)
-        menu.addMenu(submenu)
+        if item is None:
+            return
+        menu = QMenu(self)
 
         allowed_children = item.node.ALLOWED_CHILDREN
         actions = []
-        for c in allowed_children:
-            child_cls = getattr(nodes, c)
-            action = QAction(repr(child_cls), submenu)
-            action.triggered.connect(
-                partial(self._on_adding_node, parent=item.node,
-                        child_cls=child_cls))
-            actions.append(action)
+        if len(allowed_children) > 0:
+            submenu = QMenu(menu)
+            submenu.setTitle('Add node')
+            menu.addMenu(submenu)
+            for c in allowed_children:
+                child_cls = getattr(nodes, c)
+                add_node_action = QAction(repr(child_cls), submenu)
+                add_node_action.triggered.connect(
+                    partial(self._on_add_node_action, parent=item.node,
+                            child_cls=child_cls, item=item))
+                actions.append(add_node_action)
+            submenu.addActions(actions)
+        if len(item.node._children) == 0:
+            remove_node_action = QAction('Remove node', menu)
+            menu.addAction(remove_node_action)
+            remove_node_action.triggered.connect(
+                partial(self._on_remove_node_action, item))
 
-        submenu.addActions(actions)
         menu.exec(self.viewport().mapToGlobal(pos))
 
-    def _on_adding_node(self, t, parent: Node, child_cls):
+    def remove_item(self, item: _PipelineTreeWidgetItem):
+        item.node.parent = None
+        item.parent().removeChild(item)
+        self._logger.debug('Removed %s from tree widget', str(item.node))
+
+    def _on_remove_node_action(self, item: _PipelineTreeWidgetItem):
+        self.remove_item(item)
+        self.node_removed.emit(item)
+
+    def _on_add_node_action(self, t, parent: Node, child_cls, item):
         """Add node to pipeline
         Parameters
         ----------
@@ -224,6 +275,15 @@ class PipelineTreeWidget(QTreeWidget):
         self.create_node_dialog.widget.setSizePolicy(QSizePolicy.Expanding,
                                                      QSizePolicy.Expanding)
         self.create_node_dialog.adjustSize()
+        self.create_node_dialog.node.disabled = True
+        parent.add_child(self.create_node_dialog.node)
+        self.create_node_dialog.exec()
+        # self.create_node_dialog.node.initialize()
+        if self.create_node_dialog.result():
+            self.create_node_dialog.node.disabled = False
+            self.node_added.emit(self.create_node_dialog.node, item)
+        else:
+            parent.remove_child(self.create_node_dialog.node)
 
     def _create_node_controls_widget(self, node):
         controls_cls = node_to_controls_map[node.__class__.__name__]
@@ -245,39 +305,46 @@ class PipelineTreeWidget(QTreeWidget):
         for item in self.selectedItems():
             item.widget.show()
 
-
-class NodeTreeWidgetItem(QTreeWidgetItem):
-    def __init__(self, parent_item, node, widget):
-        QTreeWidgetItem.__init__(self, parent_item, [repr(node)])
-        self.node = node
-        self.widget = widget
+    def fetch_item_by_node(self, node):
+        print('fetching')
+        iterator = QTreeWidgetItemIterator(self)
+        while iterator.value():
+            item = iterator.value()
+            if item.node is node:
+                return item
+            iterator += 1
+        return None
 
 
 class Controls(QWidget):
     def __init__(self, pipeline: Pipeline, parent=None):
         QWidget.__init__(self, parent)
         self._pipeline = pipeline  # type: Pipeline
-        layout = QVBoxLayout()
+
         self.tree_widget = PipelineTreeWidget(pipeline=self._pipeline)
-        # self.tree_widget.itemSelectionChanged.connect(
-        #     self._on_tree_item_selection_changed)
+        layout = QVBoxLayout()
         layout.addWidget(self.tree_widget)
-        # self.params_widget = BaseControls(pipeline=self._pipeline)
-        # layout.addWidget(self.params_widget)
+
         self.params_layout = QVBoxLayout()
-        self.add_nodes(pipeline.source, self.tree_widget)
+        self._add_nodes(pipeline.source, self.tree_widget)
         layout.addLayout(self.params_layout)
+
         self.setLayout(layout)
 
-    def add_nodes(self, node, parent_item):
+        self.tree_widget.node_added.connect(self._add_nodes)
+
+    def _add_nodes(self, node, parent_item):
         widget = self._create_node_controls_widget(node)
-        this_item = NodeTreeWidgetItem(parent_item, node, widget)
+        widget.hide()
+        this_item = _PipelineTreeWidgetItem(parent_item, node, widget)
+        if parent_item is self.tree_widget:
+            self.tree_widget.setCurrentItem(this_item)
+            widget.show()
         self.tree_widget.controls_layout.addWidget(widget)
         self.params_layout.addWidget(widget)
-        widget.hide()
         self.tree_widget.expandItem(this_item)
         for child in node._children:
-            self.add_nodes(child, this_item)
+            self._add_nodes(child, this_item)
 
     def _create_node_controls_widget(self, node):
         controls_cls = node_to_controls_map[node.__class__.__name__]
@@ -286,16 +353,16 @@ class Controls(QWidget):
         params.addChild(controls)
         widget = ParameterTree(showHeader=False)
         widget.setParameters(params)
-        widget.setSizePolicy(QSizePolicy.Minimum, QSizePolicy.Expanding)
+        widget.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Expanding)
         widget.setSizeAdjustPolicy(1)
         return widget
 
 
 if __name__ == '__main__':
     import sys
-    from cognigraph.tests.test_pipeline import (ConcreteSource,
-                                                ConcreteProcessor,
-                                                ConcreteOutput)
+    from cognigraph.tests.prepare_pipeline_tests import (ConcreteSource,
+                                                         ConcreteProcessor,
+                                                         ConcreteOutput)
 
     pipeline = Pipeline()
     src = ConcreteSource()
@@ -305,6 +372,6 @@ if __name__ == '__main__':
     proc.add_child(out)
     pipeline.source = src
     app = QApplication(sys.argv)
-    tree_widget = PipelineTreeWidget(pipeline)
+    tree_widget = Controls(pipeline)
     tree_widget.show()
     sys.exit(app.exec_())  # dont need this: tree_widget has event_loop

@@ -19,7 +19,7 @@ np.warnings.filterwarnings('ignore')  # noqa
 # ----------------------------- setup logging  ----------------------------- #
 logfile = None
 format = '%(asctime)s:%(name)-17s:%(levelname)s:%(message)s'
-logging.basicConfig(level=logging.INFO, filename=logfile, format=format)
+logging.basicConfig(level=logging.DEBUG, filename=logfile, format=format)
 logger = logging.getLogger(__name__)
 mne.set_log_level('ERROR')
 mne.set_log_file(fname=logfile, output_format=format)
@@ -175,7 +175,7 @@ def main():
 
     pipeline.all_nodes[0].file_path = file_path
     pipeline.all_nodes[3]._user_provided_forward_model_file_path = fwd_path
-    pipeline.all_nodes[5].surfaces_dir = op.join(subjects_dir, subject)
+    pipeline.all_nodes[0].surfaces_dir = op.join(subjects_dir, subject)
 
     QTimer.singleShot(0, window.initialize)  # initializes all pipeline nodes
 

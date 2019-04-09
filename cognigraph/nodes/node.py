@@ -73,10 +73,9 @@ class Node(object, metaclass=_ReprMeta):
         raise NotImplementedError(msg)
 
     @property
-    def ALLOWED_CHILDREN(self):
+    def ALLOWED_CHILDREN(self) -> Tuple[str]:
         """Nodes that can be connected to the current node"""
-        pass
-        # raise NotImplementedError
+        return tuple()
 
     SAVERS_FOR_UPSTREAM_MUTABLE_OBJECTS = dict()
 
@@ -87,9 +86,10 @@ class Node(object, metaclass=_ReprMeta):
         self._children = []
         self._root = self
         self.output = None  # type: np.ndarray
+        self._viz_type = None
 
         self._saved_from_upstream = None  # type: dict
-        self.logger = logging.getLogger(type(self).__name__)
+        self._logger = logging.getLogger(self.__class__.__name__)
 
     def __repr__(self):
         return repr(self.__class__) + ' Node'
@@ -114,11 +114,11 @@ class Node(object, metaclass=_ReprMeta):
 
         with self.not_triggering_reset():
             t1 = time.time()
-            self.logger.info(
+            self._logger.info(
                 'Initializing the {} node'.format(class_name_of(self)))
             self._initialize()
             t2 = time.time()
-            self.logger.info(
+            self._logger.info(
                 'Finish initialization in {:.1f} ms'.format((t2 - t1) * 1000))
             self.initialized = True
 
@@ -143,7 +143,7 @@ class Node(object, metaclass=_ReprMeta):
         self._update()
 
         t2 = time.time()
-        self.logger.debug('Updated in {:.1f} ms'.format((t2 - t1) * 1000))
+        self._logger.debug('Updated in {:.1f} ms'.format((t2 - t1) * 1000))
 
         for child in self._children:
             child.update()
@@ -158,7 +158,7 @@ class Node(object, metaclass=_ReprMeta):
             is_output_hist_invalid = True
         elif is_local_attr_changed:  # local attribute change
             with self.not_triggering_reset():
-                self.logger.info(
+                self._logger.info(
                     'Resetting the {} node '.format(class_name_of(self)) +
                     'because of attribute changes')
                 is_output_hist_invalid = self._reset()
@@ -222,7 +222,7 @@ class Node(object, metaclass=_ReprMeta):
 
         """
         with self.not_triggering_reset():
-            self.logger.info(
+            self._logger.info(
                 'Resetting the {} node '.format(class_name_of(self)) +
                 'because history is no longer valid')
             self._on_input_history_invalidation()
@@ -317,6 +317,21 @@ class Node(object, metaclass=_ReprMeta):
 
         return False  # Nothing has changed
 
+    @property
+    def viz_type(self) -> str:
+        return self._viz_type
+
+    @viz_type.setter
+    def viz_type(self, value):
+        allowed_types = ('sensor time series', 'source time series',
+                         'connectivity', 'roi time series', None)
+        if value in allowed_types:
+            self._viz_type = value
+        else:
+            raise AttributeError(
+                'viz_type should be one of %s; instead got %s'
+                % (allowed_types, value))
+
 
 class SourceNode(Node):
     """Objects of this class read data from a source"""
@@ -329,6 +344,7 @@ class SourceNode(Node):
     def __init__(self):
         Node.__init__(self)
         self.mne_info = None
+        self.viz_type = 'sensor time series'
 
     def initialize(self):
         self.mne_info = None
@@ -410,9 +426,15 @@ class OutputNode(Node):
     Now handles empty inputs.
 
     """
+    def __init__(self):
+        Node.__init__(self)
+        self.viz_type = None
+        with self.not_triggering_reset():
+            self.disabled = False
+
     def update(self):
-        if (self.parent.output is None or
-                self.parent.output.size == 0):
+        if (self.parent.output is None or self.parent.output.size == 0
+                or self.disabled is True):
             return
         else:
             Node.update(self)
