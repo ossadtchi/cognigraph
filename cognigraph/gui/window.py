@@ -1,15 +1,12 @@
 from typing import List
 from PyQt5.QtGui import QIcon
-# from PyQt5 import Qt
 from PyQt5.QtCore import Qt, QSize
 from PyQt5.Qt import QSizePolicy
 from PyQt5.QtWidgets import (QDockWidget, QWidget, QMainWindow, QDesktopWidget,
                              QMdiArea, QAction)
 from ..pipeline import Pipeline
 from .async_pipeline_update import AsyncPipelineInitializer
-from .tree_widget import PipelineTreeWidget
 from .controls import Controls
-# from .screen_recorder import ScreenRecorder
 
 import logging
 logger = logging.getLogger(name=__name__)
