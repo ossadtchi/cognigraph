@@ -13,7 +13,6 @@ dependencies:
     - scikit-learn
     - h5py
     - sympy
-    - pyqtgraph
     - numba
     - pytest
     - pytest-cov
@@ -21,6 +20,7 @@ dependencies:
     - pillow
     - cython
     - pip:
+        - git+https://github.com/pyqtgraph/pyqtgraph.git@develop
         - pylsl
         - nibabel
         - mne==0.16
