@@ -439,6 +439,9 @@ class Beamformer(ProcessorNode):
             self._default_forward_model_file_path = get_default_forward_file(
                     mne_info)
 
+        assert self.mne_forward_model_file_path is not None,\
+            'Please provide forward model file.'
+
         try:
             fwd, missing_ch_names = get_clean_forward(
                 self.mne_forward_model_file_path, mne_info)
