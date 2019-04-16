@@ -887,11 +887,11 @@ class AtlasViewer(ProcessorNode):
     UPSTREAM_CHANGES_IN_THESE_REQUIRE_REINITIALIZATION = ()
     ALLOWED_CHILDREN = ('EnvelopeExtractor', 'SignalViewer')
 
-    def __init__(self, subject, subjects_dir, parc='aparc'):
+    def __init__(self, parc='aparc'):
         ProcessorNode.__init__(self)
         self.parc = parc
-        self.subjects_dir = subjects_dir
-        self.subject = subject
+        self.subjects_dir = None
+        self.subject = None
         self.active_labels = []
 
         self.viz_type = 'roi time series'
@@ -921,6 +921,8 @@ class AtlasViewer(ProcessorNode):
         # Assign labels to available sources
         # self.source_labels = np.array(
         #     [self.vert_labels[i] for i in sources_idx])
+        self.subject = self.traverse_back_and_find('subject')
+        self.subjects_dir = self.traverse_back_and_find('subjects_dir')
         self._read_annotation()
 
         self.active_labels = [l for l in self.labels if l.is_active]
