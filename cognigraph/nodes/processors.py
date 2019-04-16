@@ -49,7 +49,8 @@ class Preprocessing(ProcessorNode):
     SAVERS_FOR_UPSTREAM_MUTABLE_OBJECTS = {'mne_info': channel_labels_saver}
 
     ALLOWED_CHILDREN = ('ICARejection', 'SignalViewer', 'MCE', 'InverseModel',
-                        'Beamformer', 'EnvelopeExtractor', 'LinearFilter')
+                        'Beamformer', 'EnvelopeExtractor', 'LinearFilter',
+                        'LSLStreamOutput')
 
     def __init__(self, collect_for_x_seconds=60, dsamp_freq=None):
         ProcessorNode.__init__(self)
@@ -150,7 +151,7 @@ class InverseModel(ProcessorNode):
                                       'snr', 'method')
     SAVERS_FOR_UPSTREAM_MUTABLE_OBJECTS = {'mne_info': channel_labels_saver}
     ALLOWED_CHILDREN = ('EnvelopeExtractor', 'SignalViewer', 'BrainViewer',
-                        'AtlasViewer')
+                        'AtlasViewer', 'LSLStreamOutput')
 
     def __init__(self, forward_model_path=None, snr=1.0, method='MNE',
                  depth=None, loose=1, fixed=False):
@@ -275,7 +276,7 @@ class LinearFilter(ProcessorNode):
     SAVERS_FOR_UPSTREAM_MUTABLE_OBJECTS = {'mne_info':
                                            lambda info: (info['nchan'], )}
     ALLOWED_CHILDREN = ('InverseModel', 'MCE', 'Beamformer',
-                        'SignalViewer', 'EnvelopeExtractor')
+                        'SignalViewer', 'EnvelopeExtractor', 'LSLStreamOutput')
 
     def __init__(self, lower_cutoff: float = 1, upper_cutoff: float = 50):
         ProcessorNode.__init__(self)
@@ -346,7 +347,7 @@ class EnvelopeExtractor(ProcessorNode):
     SUPPORTED_METHODS = ('Exponential smoothing', )
     SAVERS_FOR_UPSTREAM_MUTABLE_OBJECTS = {'mne_info':
                                            lambda info: (info['nchan'],)}
-    ALLOWED_CHILDREN = ('SignalViewer', )
+    ALLOWED_CHILDREN = ('SignalViewer', 'LSLStreamOutput')
 
     def __init__(self, factor=0.9):
         ProcessorNode.__init__(self)
@@ -364,9 +365,9 @@ class EnvelopeExtractor(ProcessorNode):
 
         self.viz_type = self.parent.viz_type
         if self.parent.viz_type == 'source time series':
-            self.ALLOWED_CHILDREN = ('BrainViewer', )
+            self.ALLOWED_CHILDREN = ('BrainViewer', 'LSLStreamOutput')
         elif self.parent.viz_type == 'connectivity':
-            self.ALLOWED_CHILDREN = ('ConnectivityViewer', )
+            self.ALLOWED_CHILDREN = ('ConnectivityViewer', 'LSLStreamOutput')
 
     def _update(self):
         input_data = self.parent.output
@@ -401,7 +402,7 @@ class Beamformer(ProcessorNode):
                                       'fixed_orientation',
                                       'mne_forward_model_file_path')
     ALLOWED_CHILDREN = ('EnvelopeExtractor', 'SignalViewer', 'BrainViewer',
-                        'AtlasViewer')
+                        'AtlasViewer', 'LSLStreamOutput')
 
     SAVERS_FOR_UPSTREAM_MUTABLE_OBJECTS = {'mne_info': channel_labels_saver}
 
@@ -664,7 +665,8 @@ def pynfb_filter_based_processor_class(pynfb_filter_class):
 class MCE(ProcessorNode):
     UPSTREAM_CHANGES_IN_THESE_REQUIRE_REINITIALIZATION = ()
     CHANGES_IN_THESE_REQUIRE_RESET = ('mne_forward_model_file_path', 'snr')
-    ALLOWED_CHILDREN = ('BrainViewer', 'EnvelopeExtractor', 'AtlasViewer')
+    ALLOWED_CHILDREN = ('BrainViewer', 'EnvelopeExtractor', 'AtlasViewer',
+                        'LSLStreamOutput')
 
     def __init__(self, snr=1.0, forward_model_path=None, n_comp=40):
         ProcessorNode.__init__(self)
@@ -784,7 +786,8 @@ class MCE(ProcessorNode):
 
 class ICARejection(ProcessorNode):
     ALLOWED_CHILDREN = ('SignalViewer', 'LinearFilter', 'InverseModel',
-                        'MCE', 'Beamformer', 'EnvelopeExtractor')
+                        'MCE', 'Beamformer', 'EnvelopeExtractor',
+                        'LSLStreamOutput')
 
     def __init__(self, collect_for_x_seconds: int = 60):
         ProcessorNode.__init__(self)
@@ -885,7 +888,7 @@ class ICARejection(ProcessorNode):
 class AtlasViewer(ProcessorNode):
     CHANGES_IN_THESE_REQUIRE_RESET = ('labels_info')
     UPSTREAM_CHANGES_IN_THESE_REQUIRE_REINITIALIZATION = ()
-    ALLOWED_CHILDREN = ('EnvelopeExtractor', 'SignalViewer')
+    ALLOWED_CHILDREN = ('EnvelopeExtractor', 'SignalViewer', 'LSLStreamOutput')
 
     def __init__(self, parc='aparc'):
         ProcessorNode.__init__(self)
