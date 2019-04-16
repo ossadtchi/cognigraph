@@ -125,11 +125,10 @@ class BrainViewerControls(OutputNodeControls):
 
     def _reset_gif_sector(self):
         # Get to the main window widget
-        widgetRect = (self.parent().parent().widget.parent().parent().parent()
-                      .centralWidget().widget(0).geometry())
-        widgetRect.moveTopLeft(
-            self.parent().parent().widget.parent().parent().parent()
-            .centralWidget().mapToGlobal(widgetRect.topLeft()))
+        widgetRect = self._output_node.widget.geometry()
+        # widgetRect.moveTopLeft(
+        #     self.parent().parent().widget.parent().parent().parent()
+        #     .centralWidget().mapToGlobal(widgetRect.topLeft()))
         self._output_node.sector = (widgetRect.left(), widgetRect.top(),
                                     widgetRect.right(), widgetRect.bottom())
 
