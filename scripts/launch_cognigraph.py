@@ -8,7 +8,7 @@ import mne
 import numpy as np
 from PyQt5 import QtWidgets
 from PyQt5.QtCore import QTimer
-from cognigraph.pipeline import Pipeline
+from cognigraph.nodes.pipeline import Pipeline
 from cognigraph.nodes import sources, processors, outputs
 from cognigraph.gui.window import GUIWindow
 from cognigraph.gui.async_pipeline_update import AsyncUpdater
@@ -19,7 +19,7 @@ np.warnings.filterwarnings('ignore')  # noqa
 # ----------------------------- setup logging  ----------------------------- #
 logfile = None
 format = '%(asctime)s:%(name)-17s:%(levelname)s:%(message)s'
-logging.basicConfig(level=logging.INFO, filename=logfile, format=format)
+logging.basicConfig(level=logging.DEBUG, filename=logfile, format=format)
 logger = logging.getLogger(__name__)
 mne.set_log_level('ERROR')
 mne.set_log_file(fname=logfile, output_format=format)
@@ -46,36 +46,36 @@ def assemble_pipeline(file_path=None, fwd_path=None, subject=None,
     source = sources.FileSource(file_path=file_path)
     source.loop_the_file = True
     source.MAX_SAMPLES_IN_CHUNK = 10000
-    pipeline.source = source
+    pipeline.add_child(source)
 
     # ----------------------------- processors ----------------------------- #
     preprocessing = processors.Preprocessing(collect_for_x_seconds=120)
-    pipeline.add_processor(preprocessing)
+    source.add_child(preprocessing)
 
     linear_filter = processors.LinearFilter(lower_cutoff=8.0,
                                             upper_cutoff=12.0)
-    pipeline.add_processor(linear_filter)
+    preprocessing.add_child(linear_filter)
 
     if inverse_method == 'mne':
         inverse_model = processors.InverseModel(method='MNE', snr=1.0,
                                                 forward_model_path=fwd_path)
         # inverse_model = processors.MneGcs(snr=1.0, seed=1000,
         #                                   forward_model_path=fwd_path)
-        pipeline.add_processor(inverse_model)
+        linear_filter.add_child(inverse_model)
         envelope_extractor = processors.EnvelopeExtractor(0.99)
-        pipeline.add_processor(envelope_extractor)
+        inverse_model.add_child(envelope_extractor)
     elif inverse_method == 'beamformer':
         inverse_model = processors.Beamformer(
             forward_model_path=fwd_path, is_adaptive=True,
             output_type='activation', forgetting_factor_per_second=0.95)
-        pipeline.add_processor(inverse_model)
+        linear_filter.add_child(inverse_model)
         envelope_extractor = processors.EnvelopeExtractor(0.99)
-        pipeline.add_processor(envelope_extractor)
+        inverse_model.add_child(envelope_extractor)
     elif inverse_method == 'mce':
         inverse_model = processors.MCE(forward_model_path=fwd_path, snr=1.0)
-        pipeline.add_processor(inverse_model)
+        linear_filter.add_child(inverse_model)
         envelope_extractor = processors.EnvelopeExtractor(0.995)
-        pipeline.add_processor(envelope_extractor)
+        inverse_model.add_child(envelope_extractor)
     # ---------------------------------------------------------------------- #
 
     # ------------------------------ outputs ------------------------------ #
@@ -84,7 +84,7 @@ def assemble_pipeline(file_path=None, fwd_path=None, subject=None,
     brain_viewer = outputs.BrainViewer(
         limits_mode=global_mode, buffer_length=6,
         surfaces_dir=None)
-    pipeline.add_output(brain_viewer, parent=envelope_extractor)
+    envelope_extractor.add_child(brain_viewer)
 
     # roi_average = processors.AtlasViewer(SUBJECT, subjects_dir)
     # roi_average.parent = inverse_model
@@ -174,11 +174,11 @@ def main():
         raise Exception("FORWARD SOLUTION IS MANDATORY!")
         logger.info('Exiting ...')
 
-    pipeline.all_nodes[0].file_path = file_path
-    pipeline.all_nodes[3]._user_provided_forward_model_file_path = fwd_path
-    pipeline.all_nodes[0].surfaces_dir = op.join(subjects_dir, subject)
-    pipeline.all_nodes[0].subjects_dir = subjects_dir
-    pipeline.all_nodes[0].subject = subject
+    pipeline._children[0].file_path = file_path
+    pipeline.all_nodes[4]._user_provided_forward_model_file_path = fwd_path
+    pipeline.surfaces_dir = op.join(subjects_dir, subject)
+    pipeline.subjects_dir = subjects_dir
+    pipeline.subject = subject
 
     QTimer.singleShot(0, window.initialize)  # initializes all pipeline nodes
 

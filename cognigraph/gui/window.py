@@ -4,7 +4,7 @@ from PyQt5.QtCore import Qt, QSize
 from PyQt5.Qt import QSizePolicy
 from PyQt5.QtWidgets import (QDockWidget, QWidget, QMainWindow, QDesktopWidget,
                              QMdiArea, QAction, QMdiSubWindow)
-from ..pipeline import Pipeline
+from ..nodes.pipeline import Pipeline
 from .async_pipeline_update import AsyncPipelineInitializer
 from .controls import Controls
 

@@ -33,7 +33,7 @@ class AsyncUpdater(QThread):
         is_first_iter = True
         while True:
             # start = time.time()
-            self.pipeline.update_all_nodes()
+            self.pipeline.update()
             # end = time.time()
             if is_first_iter:
                 # without this hack widgets are not updated unless
@@ -147,4 +147,4 @@ class AsyncPipelineInitializer(ThreadToBeWaitedFor):
         self.pipeline = pipeline
 
     def _run(self):
-        self.pipeline.initialize_all_nodes()
+        self.pipeline.chain_initialize()

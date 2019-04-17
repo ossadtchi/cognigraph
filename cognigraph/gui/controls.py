@@ -8,7 +8,7 @@ from collections import namedtuple, OrderedDict
 
 from pyqtgraph.parametertree import parameterTypes, ParameterTree
 
-from cognigraph.pipeline import Pipeline
+from cognigraph.nodes.pipeline import Pipeline
 from cognigraph import nodes
 
 from cognigraph.gui import node_controls
@@ -94,6 +94,7 @@ class SourceControls(MyGroupParameter):
 
 
 node_to_controls_map = {
+    'Pipeline': node_controls.PipelineControls,
     'LinearFilter': node_controls.LinearFilterControls,
     'InverseModel': node_controls.InverseModelControls,
     'EnvelopeExtractor': node_controls.EnvelopeExtractorControls,
@@ -326,7 +327,7 @@ class Controls(QWidget):
         layout.addWidget(self.tree_widget)
 
         self.params_layout = QVBoxLayout()
-        self._add_nodes(pipeline.source, self.tree_widget)
+        self._add_nodes(pipeline, self.tree_widget)
         layout.addLayout(self.params_layout)
 
         self.setLayout(layout)
@@ -370,7 +371,7 @@ if __name__ == '__main__':
     out = ConcreteOutput()
     src.add_child(proc)
     proc.add_child(out)
-    pipeline.source = src
+    pipeline.add_child(src)
     app = QApplication(sys.argv)
     tree_widget = Controls(pipeline)
     tree_widget.show()
