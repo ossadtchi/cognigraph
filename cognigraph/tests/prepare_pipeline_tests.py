@@ -71,7 +71,6 @@ class ConcreteSource(SourceNode):
         self.output = np.ones([self.nchan, self.nsamp]) * self.n_updates
 
     def _reset(self):
-        self._should_reinitialize = True
         self.initialize()
         return False
 

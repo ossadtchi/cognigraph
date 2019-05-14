@@ -101,7 +101,6 @@ class LSLStreamOutput(OutputNode):
     def _reset(self):
         # It is impossible to change then name of an already
         # started stream so we have to initialize again
-        self._should_reinitialize = True
         self.initialize()
 
     def __init__(self, stream_name=None):
@@ -411,7 +410,6 @@ class FileOutput(OutputNode):
         pass  # TODO: check that value as a string usable as a stream name
 
     def _reset(self):
-        self._should_reinitialize = True
         self.initialize()
 
     def __init__(self, output_fname='output.h5'):

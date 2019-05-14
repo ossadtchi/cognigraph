@@ -249,7 +249,6 @@ class InverseModel(ProcessorNode):
                     'snr (signal-to-noise ratio) must be a positive number.')
 
     def _reset(self):
-        self._should_reinitialize = True
         self.initialize()
         output_history_is_no_longer_valid = True
         return output_history_is_no_longer_valid
@@ -335,7 +334,6 @@ class LinearFilter(ProcessorNode):
             self._linear_filter.reset()
 
     def _reset(self):
-        self._should_reinitialize = True
         self.initialize()
         output_history_is_no_longer_valid = True
         return output_history_is_no_longer_valid
@@ -385,7 +383,6 @@ class EnvelopeExtractor(ProcessorNode):
                     ' Use one of: {}'.format(value, self.SUPPORTED_METHODS))
 
     def _reset(self):
-        self._should_reinitialize = True
         self.initialize()
         output_history_is_no_longer_valid = True
         return output_history_is_no_longer_valid
@@ -552,7 +549,6 @@ class Beamformer(ProcessorNode):
         # Only change adaptiveness or fixed_orientation requires reinit
         # if (self._initialized_as_adaptive is not self.is_adaptive
         #         or self._initialized_as_fixed is not self.fixed_orientation):
-        self._should_reinitialize = True
         self.initialize()
 
         output_history_is_no_longer_valid = True
@@ -561,7 +557,6 @@ class Beamformer(ProcessorNode):
     def _on_input_history_invalidation(self):
         # Only adaptive version relies on history
         if self._initialized_as_adaptive is True:
-            self._should_reinitialize = True
             self.initialize()
 
     def _check_value(self, key, value):
@@ -775,7 +770,6 @@ class MCE(ProcessorNode):
         pass
 
     def _reset(self):
-        self._should_reinitialize = True
         self.initialize()
         output_history_is_no_longer_valid = True
         return output_history_is_no_longer_valid
@@ -1094,7 +1088,6 @@ class AmplitudeEnvelopeCorrelations(ProcessorNode):
             self.output = self._orthogonalized_env_corr(input_data)
 
     def _reset(self):
-        self._should_reinitialize = True
         self.initialize()
         output_history_is_no_longer_valid = True
         return output_history_is_no_longer_valid
