@@ -16,7 +16,7 @@ def count_func_runs(cls):
             self.n_updates = 0
             self.n_initializations = 0
             self.n_resets = 0
-            self.n_messages = 0
+            self.n_hist_invalidations = 0
 
         def _initialize(self):
             cls._initialize(self)
@@ -26,14 +26,14 @@ def count_func_runs(cls):
             cls._update(self)
             self.n_updates += 1
 
-        def _reset(self):
-            res = cls._reset(self)
+        def _on_critical_attr_change(self, key, old_val, new_val):
+            res = cls._on_critical_attr_change(self, key, old_val, new_val)
             self.n_resets += 1
             return res
 
-        def receive_a_message(self, message):
-            cls.receive_a_message(self, message)
-            self.n_messages += 1
+        def _on_input_history_invalidation(self):
+            cls._on_input_history_invalidation(self)
+            self.n_hist_invalidations += 1
 
         def __repr__(self):
             return repr(cls) + ' Node'
@@ -70,15 +70,8 @@ class ConcreteSource(SourceNode):
     def _update(self):
         self.output = np.ones([self.nchan, self.nsamp]) * self.n_updates
 
-    def _reset(self):
-        self.initialize()
-        return False
-
     def _check_value(self, key, value):
         pass
-
-    def receive_a_message(self, message):
-        SourceNode.receive_a_message(self, message)
 
     def _on_input_history_invalidation(self):
         pass
@@ -104,12 +97,6 @@ class ConcreteProcessor(ProcessorNode):
     def _check_value(self, key, value):
         pass
 
-    def _reset(self):
-        return True
-
-    def receive_a_message(self, message):
-        super().receive_a_message(message)
-
     def _on_input_history_invalidation(self):
         pass
 
@@ -132,12 +119,6 @@ class ConcreteOutput(OutputNode):
         pass
 
     def _check_value(self, key, value):
-        pass
-
-    def receive_a_message(self, message):
-        super().receive_a_message(message)
-
-    def _reset(self):
         pass
 
     def _on_input_history_invalidation(self):

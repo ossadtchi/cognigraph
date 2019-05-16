@@ -94,7 +94,7 @@ class FileSource(SourceNode):
                             'European Data Format': ('.edf',)}
 
     CHANGES_IN_THESE_REQUIRE_RESET = ('source_name', )
-    _GUI_STRING = 'File source'
+    _GUI_STRING = 'File Source'
 
     MAX_SAMPLES_IN_CHUNK = 1024
 
@@ -163,6 +163,8 @@ class FileSource(SourceNode):
 
             self.dtype = DTYPE
             self.data = self.data.astype(self.dtype)
+        else:
+            raise ValueError('File path is not set.')
 
     def _update(self):
         if self.data is None:

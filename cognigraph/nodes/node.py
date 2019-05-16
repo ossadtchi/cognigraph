@@ -49,6 +49,7 @@ class Node(object, metaclass=_ReprMeta):
     # values are functions that return an appropriate tuple.
 
     _GUI_STRING = None
+
     @property
     def CHANGES_IN_THESE_REQUIRE_RESET(self) -> Tuple[str]:
         """
@@ -80,7 +81,7 @@ class Node(object, metaclass=_ReprMeta):
     SAVERS_FOR_UPSTREAM_MUTABLE_OBJECTS = dict()
 
     def __init__(self):
-        self.initialized = False
+        self.initialized = False  # see __setattr__
 
         self._parent = None  # type: Node
         self._children = []
@@ -151,36 +152,31 @@ class Node(object, metaclass=_ReprMeta):
     def _update(self):
         raise NotImplementedError('_update should be implemented')
 
-    def reset(self, is_input_hist_invalid, is_local_attr_changed=False):
-        """Take care of reinitialization and parameters reset"""
-        if self._is_critical_upstream_change():
-            self.initialize()
-            is_output_hist_invalid = True
-        elif is_local_attr_changed:  # local attribute change
-            with self.not_triggering_reset():
-                self._logger.info(
-                    'Resetting the {} node '.format(class_name_of(self)) +
-                    'because of attribute changes')
-                is_output_hist_invalid = self._reset()
-        else:
-            is_output_hist_invalid = False
-
-        if is_output_hist_invalid:
-            self._on_input_history_invalidation()
-
-        for child in self._children:
-            child.reset(is_output_hist_invalid)
-
-    def _reset(self) -> bool:
+    def _on_critical_attr_change(self, key, old_val, new_val) -> bool:
         """
-        Does what needs to be done when one of the self.
-        CHANGES_IN_THESE_REQUIRE_RESET has been changed
+        Does what needs to be done when one of the
+        self.CHANGES_IN_THESE_REQUIRE_RESET has been changed
         Must return whether output history is no longer valid.
         True if descendants should forget about anything that
         has happened before, False if changes are strictly local.
 
         """
-        raise NotImplementedError('_reset should be implemented')
+        raise NotImplementedError(
+            '_on_critical_attr_change should be implemented')
+
+    def on_upstream_change(self, is_input_hist_invalid):
+        is_output_hist_invalid = is_input_hist_invalid
+
+        if is_input_hist_invalid:
+            self.on_input_history_invalidation()
+
+        if self._is_critical_upstream_change():
+            self._logger.info('Reinitializing %s' % str(self) +
+                              ' due to critical upstream attribute changes')
+            self.initialize()
+            is_output_hist_invalid = True
+        for child in self._children:
+            child.on_upstream_change(is_output_hist_invalid)
 
     def add_child(self, child, initialize=False):
         """Add child node to nodes tree"""
@@ -215,7 +211,7 @@ class Node(object, metaclass=_ReprMeta):
         else:
             self._root = self
 
-    def _on_input_history_invalidation(self):
+    def on_input_history_invalidation(self):
         """
         If the node state is dependent on previous inputs,
         reset whatever relies on them.
@@ -223,8 +219,7 @@ class Node(object, metaclass=_ReprMeta):
         """
         with self.not_triggering_reset():
             self._logger.info(
-                'Resetting the {} node '.format(class_name_of(self)) +
-                'because history is no longer valid')
+                'Resetting history-dependent attributes for %s ' % str(self))
             self._on_input_history_invalidation()
 
     def traverse_back_and_find(self, item: str):
@@ -245,15 +240,22 @@ class Node(object, metaclass=_ReprMeta):
                 raise AttributeError(msg)
 
     # Trigger resetting chain if the change in the attribute needs it
-    def __setattr__(self, key, value):
-        self._check_value(key, value)
-        object.__setattr__(self, key, value)
+    def __setattr__(self, key, new_value):
+        self._check_value(key, new_value)
+        try:
+            old_value = self.__dict__[key]
+        except KeyError:  # setting attribute anew
+            old_value = None
+        object.__setattr__(self, key, new_value)
         if self.initialized:
             if key in self.CHANGES_IN_THESE_REQUIRE_RESET:
-                object.__setattr__(self, '_should_reset', True)
-                object.__setattr__(self, 'there_has_been_a_change', True)
-                self.reset(is_input_hist_invalid=False,
-                           is_local_attr_changed=True)
+                self._logger.info('Resetting %s ' % str(self) +
+                                  'because of local attribute change.')
+                with self.not_triggering_reset():
+                    is_output_hist_invalid = self._on_critical_attr_change(
+                        key, old_value, new_value)
+                for child in self._children:
+                    child.on_upstream_change(is_output_hist_invalid)
 
     @property
     def initialized(self):
@@ -382,9 +384,8 @@ class SourceNode(Node):
                                  'self-consistent'.format(class_name_of(self)))
             raise Exception(exception_message) from e
 
-    def _reset(self):
+    def _on_critical_attr_change(self, key, old_val, new_val):
         # There is nothing to reset. Just go ahead and initialize
-        self._should_reinitialize = True
         self.initialize()
         is_output_hist_invalid = True
         return is_output_hist_invalid

@@ -383,15 +383,6 @@ class AtlasViewerControls(_ProcessorNodeControls):
     CONTROLS_LABEL = 'Atlas Viewer'
 
     def _create_parameters(self):
-        # for i, label in enumerate(self._processor_node.labels_info):
-        #     val = parameterTypes.SimpleParameter(
-        #         type='bool',
-        #         name=label['name'] + ' --> ' + str(label['label_id']),
-        #         value=label['state'])
-        #     val.sigValueChanged.connect(
-        #         lambda s, ss, ii=i,
-        #         v=val: self._on_label_state_changed(ii, v))
-        #     self.addChild(val)
         roi_selection_button = parameterTypes.ActionParameter(
             type='action', name='Select ROI')
         roi_selection_button.sigActivated.connect(self._choose_roi)
@@ -405,7 +396,6 @@ class AtlasViewerControls(_ProcessorNodeControls):
                                             self._processor_node.subject))
         if dialog.exec_():
             self._processor_node.labels_info = dialog.table.labels_info
-            print('Ok')
         self.logger.debug('ROI selection button was clicked')
 
     def _on_label_state_changed(self, i, val):

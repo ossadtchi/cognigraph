@@ -16,22 +16,27 @@ from cognigraph.gui.forward_dialog import FwdSetupDialog
 
 np.warnings.filterwarnings('ignore')  # noqa
 
-# ----------------------------- setup logging  ----------------------------- #
-logfile = None
-format = '%(asctime)s:%(name)-17s:%(levelname)s:%(message)s'
-logging.basicConfig(level=logging.DEBUG, filename=logfile, format=format)
-logger = logging.getLogger(__name__)
-mne.set_log_level('ERROR')
-mne.set_log_file(fname=logfile, output_format=format)
-# -------------------------------------------------------------------------- #
-
 # ----------------------------- setup argparse ----------------------------- #
 parser = argparse.ArgumentParser()
 parser.add_argument('-d', '--data', type=argparse.FileType('r'),
                     help='data path')
 parser.add_argument('-f', '--forward', type=argparse.FileType('r'),
                     help='forward model path')
+parser.add_argument('-l', '--logfile', type=argparse.FileType('w'),
+                    default=None)
 args = parser.parse_args()
+# -------------------------------------------------------------------------- #
+
+# ----------------------------- setup logging  ----------------------------- #
+if args.logfile:
+    logfile = args.logfile.name
+else:
+    logfile = None
+format = '%(asctime)s:%(name)-17s:%(levelname)s:%(message)s'
+logging.basicConfig(level=logging.DEBUG, filename=logfile, format=format)
+logger = logging.getLogger(__name__)
+mne.set_log_level('ERROR')
+mne.set_log_file(fname=logfile, output_format=format)
 # -------------------------------------------------------------------------- #
 
 sys.path.append('../vendor/nfb')  # For nfb submodule
@@ -175,7 +180,7 @@ def main():
         logger.info('Exiting ...')
 
     pipeline._children[0].file_path = file_path
-    pipeline.all_nodes[4]._user_provided_forward_model_file_path = fwd_path
+    pipeline.all_nodes[4].fwd_path = fwd_path
     pipeline.surfaces_dir = op.join(subjects_dir, subject)
     pipeline.subjects_dir = subjects_dir
     pipeline.subject = subject

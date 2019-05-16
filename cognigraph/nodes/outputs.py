@@ -98,7 +98,7 @@ class LSLStreamOutput(OutputNode):
         {'mne_info': lambda info: (info['sfreq'], ) +
          channel_labels_saver(info)})
 
-    def _reset(self):
+    def _on_critical_attr_change(self, key, old_val, new_val) -> bool:
         # It is impossible to change then name of an already
         # started stream so we have to initialize again
         self.initialize()
@@ -110,11 +110,11 @@ class LSLStreamOutput(OutputNode):
         self._outlet = None
 
     def _initialize(self):
-        # If no name was supplied we will use a modified
+        # If no name was supplied use a modified
         # version of the source name (a file or a stream name)
         source_name = self.traverse_back_and_find('source_name')
-        self.stream_name = (self._provided_stream_name or
-                            (source_name + '_output'))
+        if not self.stream_name:
+            self.stream_name = source_name + '_output'
 
         # Get other info from somewhere down the predecessor chain
         dtype = self.traverse_back_and_find('dtype')
@@ -192,13 +192,13 @@ class BrainViewer(_WidgetOutput):
             mne_forward_model_file_path)
 
     def _on_input_history_invalidation(self):
-        self._should_reset = True
-        self.reset()
+        # TODO: change min-max buffer values
+        pass
 
     def _check_value(self, key, value):
         pass
 
-    def _reset(self):
+    def _on_critical_attr_change(self, key, old_val, new_val) -> bool:
         self._limits_buffer.clear()
 
     @property
@@ -381,12 +381,12 @@ class SignalViewer(_WidgetOutput):
             else:
                 self.widget.update(chunk.T)
 
-    def _reset(self) -> bool:
+    def _on_critical_attr_change(self, key, old_val, new_val) -> bool:
         # Nothing to reset, really
         pass
 
     def _on_input_history_invalidation(self):
-        # Don't really care, will draw whatever
+        # Doesn't really care, will draw anything
         pass
 
     def _check_value(self, key, value):
@@ -396,7 +396,7 @@ class SignalViewer(_WidgetOutput):
 
 class FileOutput(OutputNode):
 
-    CHANGES_IN_THESE_REQUIRE_RESET = ('stream_name', )
+    CHANGES_IN_THESE_REQUIRE_RESET = ('output_fname')
 
     UPSTREAM_CHANGES_IN_THESE_REQUIRE_REINITIALIZATION = ('mne_info', )
     SAVERS_FOR_UPSTREAM_MUTABLE_OBJECTS = {'mne_info':
@@ -409,7 +409,7 @@ class FileOutput(OutputNode):
     def _check_value(self, key, value):
         pass  # TODO: check that value as a string usable as a stream name
 
-    def _reset(self):
+    def _on_critical_attr_change(self, key, old_val, new_val):
         self.initialize()
 
     def __init__(self, output_fname='output.h5'):
@@ -445,7 +445,7 @@ class TorchOutput(OutputNode):
     def _check_value(self, key, value):
         pass  # TODO: check that value as a string usable as a stream name
 
-    def _reset(self):
+    def _on_critical_attr_change(self, key, old_val, new_val) -> bool:
         pass
 
     def _initialize(self):
@@ -521,14 +521,14 @@ class ConnectivityViewer(_WidgetOutput):
         self.view.add(self.s_obj._sources)
         self.view.add(self.c_obj._connect)
 
-    def _reset(self):
-        ...
+    def _on_critical_attr_change(self, key, old_val, new_val) -> bool:
+        pass
 
     def _on_input_history_invalidation(self):
-        ...
+        pass
 
     def _check_value(self, key, value):
-        ...
+        pass
 
     def _create_widget(self):
         canvas = scene.SceneCanvas(keys='interactive', show=False)

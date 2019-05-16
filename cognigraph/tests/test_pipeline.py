@@ -58,7 +58,15 @@ def test_pipeline_update(pipeline):
     assert_array_equal(out.output, proc.output + out_inc * 2)
 
 
-def test_pipeline_initialization_simplified(pipeline):
+def test_reset_mechanics(pipeline):
+    """
+    Test if upstream output shape changes when changing number of channels in
+    source via _mne_info, test if src._on_critical_attr_changed is called when
+    this happens, test if it triggers reinitialization for node for
+    which _mne_info is in UPSTREAM_CHANGES_IN_THESE_REQUIRE_REINITIALIZATION,
+    finally test if history invalidation mechanics works.
+
+    """
     src = pipeline._children[0]
     proc = src._children[0]
     out = proc._children[0]
@@ -68,12 +76,18 @@ def test_pipeline_initialization_simplified(pipeline):
     new_nchan = 43
     new_info = create_dummy_info(nchan=new_nchan)
 
+    assert(src.n_resets == 0)
+    assert(proc.n_initializations == 1)
+    assert(proc.n_hist_invalidations == 0)
     src._mne_info = new_info
+    assert(src.n_resets == 1)
     for i in range(3):
         pipeline.update()
     pipeline.update()
     assert(np.all(out.output))
     assert(out.output.shape[0] == new_nchan)
+    assert(proc.n_initializations == 2)
+    assert(proc.n_hist_invalidations == 1)
 
 
 def test_add_child_on_the_fly(pipeline):
@@ -89,3 +103,10 @@ def test_add_child_on_the_fly(pipeline):
     assert_array_equal(new_processor.output, np.ones([nch, nsamp]) +
                        new_processor.increment)
     assert(new_processor._root is pipeline)
+
+
+# def test_critical_upstream_change_happened(pipeline):
+#     src = pipeline._children[0]
+#     proc = src._children[0]
+#     pipeline.chain_initialize()
+#     pipeline.update()

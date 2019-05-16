@@ -162,6 +162,6 @@ def make_inverse_operator(fwd, mne_info, depth=None,
     cov = mne.Covariance(cov_data, ch_names, mne_info['bads'],
                          mne_info['projs'], nfree=1)
     inv = mne.minimum_norm.make_inverse_operator(info_goods, fwd, cov,
-                                                 depth=None, loose=0.8,
-                                                 fixed=False, verbose='ERROR')
+                                                 depth=depth, loose=loose,
+                                                 fixed=fixed, verbose='ERROR')
     return inv
