@@ -199,16 +199,16 @@ class EnvelopeExtractorControls(_ProcessorNodeControls):
 
         factor_value = self._processor_node.factor
         factor_spin_box = parameterTypes.SimpleParameter(
-            type='float', name=self.FACTOR_NAME, decimals=2,
-            limits=(0.5, 0.99), value=factor_value)
+            type='float', name=self.FACTOR_NAME, decimals=3,
+            limits=(0.5, 1), value=factor_value, step=0.001)
         factor_spin_box.sigValueChanged.connect(self._on_factor_changed)
         self.factor_spin_box = self.addChild(factor_spin_box)
 
     def _on_method_changed(self):
         pass  # TODO: implement
 
-    def _on_factor_changed(self):
-        pass  # TODO: implement
+    def _on_factor_changed(self, param, value):
+        self._processor_node.factor = value
 
 
 class BeamformerControls(_ProcessorNodeControls):
