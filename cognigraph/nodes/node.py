@@ -341,7 +341,7 @@ class SourceNode(Node):
     # There is no 'upstream' for the sources
     UPSTREAM_CHANGES_IN_THESE_REQUIRE_REINITIALIZATION = ()
     ALLOWED_CHILDREN = ('Preprocessing', 'LinearFilter', 'ICARejection',
-                        'InverseModel', 'MCE', 'Beamformer', 'LSLStreamOutput')
+                        'MNE', 'MCE', 'Beamformer', 'LSLStreamOutput')
 
     def __init__(self):
         Node.__init__(self)

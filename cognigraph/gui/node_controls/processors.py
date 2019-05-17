@@ -6,7 +6,7 @@ from ..widgets import RoiSelectionDialog
 import logging
 
 __all__ = ('PreprocessingControls', 'LinearFilterControls',
-           'InverseModelControls', 'EnvelopeExtractorControls',
+           'MNEControls', 'EnvelopeExtractorControls',
            'BeamformerControls', 'MCEControls',
            'ICARejectionControls', 'AtlasViewerControls',
            'AmplitudeEnvelopeCorrelationsControls', 'CoherenceControls')
@@ -123,9 +123,9 @@ class LinearFilterControls(_ProcessorNodeControls):
             self.lower_cutoff.setLimits((0, value))
 
 
-class InverseModelControls(_ProcessorNodeControls):
+class MNEControls(_ProcessorNodeControls):
     CONTROLS_LABEL = 'Inverse modelling'
-    PROCESSOR_CLASS = processors.InverseModel
+    PROCESSOR_CLASS = processors.MNE
     METHODS_COMBO_NAME = 'Method: '
     FILE_PATH_STR_NAME = 'Path to forward solution: '
 

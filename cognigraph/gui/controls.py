@@ -96,7 +96,7 @@ class SourceControls(MyGroupParameter):
 node_to_controls_map = {
     'Pipeline': node_controls.PipelineControls,
     'LinearFilter': node_controls.LinearFilterControls,
-    'InverseModel': node_controls.InverseModelControls,
+    'MNE': node_controls.MNEControls,
     'EnvelopeExtractor': node_controls.EnvelopeExtractorControls,
     'Preprocessing': node_controls.PreprocessingControls,
     'Beamformer': node_controls.BeamformerControls,

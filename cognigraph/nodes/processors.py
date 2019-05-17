@@ -33,7 +33,7 @@ from ..utils.aux_tools import nostdout
 from .. import TIME_AXIS
 from vendor.nfb.pynfb.signal_processing import filters
 
-__all__ = ('Preprocessing', 'InverseModel', 'LinearFilter',
+__all__ = ('Preprocessing', 'MNE', 'LinearFilter',
            'EnvelopeExtractor', 'Beamformer', 'MCE',
            'ICARejection', 'AtlasViewer', 'AmplitudeEnvelopeCorrelations',
            'Coherence', 'MneGcs')
@@ -48,7 +48,7 @@ class Preprocessing(ProcessorNode):
     UPSTREAM_CHANGES_IN_THESE_REQUIRE_REINITIALIZATION = ('mne_info', )
     SAVERS_FOR_UPSTREAM_MUTABLE_OBJECTS = {'mne_info': channel_labels_saver}
 
-    ALLOWED_CHILDREN = ('ICARejection', 'SignalViewer', 'MCE', 'InverseModel',
+    ALLOWED_CHILDREN = ('ICARejection', 'SignalViewer', 'MCE', 'MNE',
                         'Beamformer', 'EnvelopeExtractor', 'LinearFilter',
                         'LSLStreamOutput')
 
@@ -144,7 +144,7 @@ class Preprocessing(ProcessorNode):
         pass
 
 
-class InverseModel(ProcessorNode):
+class MNE(ProcessorNode):
     SUPPORTED_METHODS = ['MNE', 'dSPM', 'sLORETA']
     UPSTREAM_CHANGES_IN_THESE_REQUIRE_REINITIALIZATION = ('mne_info', )
     CHANGES_IN_THESE_REQUIRE_RESET = ('mne_inverse_model_file_path',
@@ -275,7 +275,7 @@ class LinearFilter(ProcessorNode):
     CHANGES_IN_THESE_REQUIRE_RESET = ('lower_cutoff', 'upper_cutoff')
     SAVERS_FOR_UPSTREAM_MUTABLE_OBJECTS = {'mne_info':
                                            lambda info: (info['nchan'], )}
-    ALLOWED_CHILDREN = ('InverseModel', 'MCE', 'Beamformer',
+    ALLOWED_CHILDREN = ('MNE', 'MCE', 'Beamformer',
                         'SignalViewer', 'EnvelopeExtractor', 'LSLStreamOutput')
 
     def __init__(self, lower_cutoff: float = 1, upper_cutoff: float = 50):
@@ -789,7 +789,7 @@ class MCE(ProcessorNode):
 
 
 class ICARejection(ProcessorNode):
-    ALLOWED_CHILDREN = ('SignalViewer', 'LinearFilter', 'InverseModel',
+    ALLOWED_CHILDREN = ('SignalViewer', 'LinearFilter', 'MNE',
                         'MCE', 'Beamformer', 'EnvelopeExtractor',
                         'LSLStreamOutput')
 
@@ -1164,7 +1164,7 @@ class Coherence(ProcessorNode):
         pass
 
 
-class MneGcs(InverseModel):
+class MneGcs(MNE):
     """
     Minimum norm fixed orientation inverse with geometric correction for
     signal leakage
@@ -1178,8 +1178,8 @@ class MneGcs(InverseModel):
     """
     def __init__(self, seed, forward_model_path, snr=1.0):
         method = 'MNE'
-        InverseModel.__init__(self, forward_model_path=forward_model_path,
-                              snr=snr, method=method)
+        MNE.__init__(self, forward_model_path=forward_model_path,
+                     snr=snr, method=method)
         self.seed = seed
         self.viz_type = 'source time series'
         self.depth = None
@@ -1187,7 +1187,7 @@ class MneGcs(InverseModel):
         self.fixed = True
 
     def _initialize(self):
-        InverseModel._initialize(self)
+        MNE._initialize(self)
         self.fwd = mne.convert_forward_solution(
             self.fwd, force_fixed=True, surf_ori=True)
 

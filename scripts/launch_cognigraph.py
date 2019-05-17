@@ -62,8 +62,8 @@ def assemble_pipeline(file_path=None, fwd_path=None, subject=None,
     preprocessing.add_child(linear_filter)
 
     if inverse_method == 'mne':
-        inverse_model = processors.InverseModel(method='MNE', snr=1.0,
-                                                forward_model_path=fwd_path)
+        inverse_model = processors.MNE(method='MNE', snr=1.0,
+                                       forward_model_path=fwd_path)
         # inverse_model = processors.MneGcs(snr=1.0, seed=1000,
         #                                   forward_model_path=fwd_path)
         linear_filter.add_child(inverse_model)

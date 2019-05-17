@@ -1,7 +1,7 @@
 import numpy as np
 
 import pytest
-from cognigraph.nodes.processors import InverseModel
+from cognigraph.nodes.processors import MNE
 from cognigraph.nodes.sources import FileSource
 from cognigraph.nodes.tests.prepare_tests_data import (info,  # noqa
                                                        fwd_model_path,
@@ -12,7 +12,7 @@ from cognigraph.nodes.tests.prepare_tests_data import (info,  # noqa
 def inv_model(info, fwd_model_path, data_path):  # noqa
     snr = 1
     method = 'MNE'
-    inv_model = InverseModel(
+    inv_model = MNE(
         snr=snr, forward_model_path=fwd_model_path, method=method)
     inv_model.mne_info = info
     N_SEN = len(info['ch_names'])
@@ -26,7 +26,7 @@ def inv_model(info, fwd_model_path, data_path):  # noqa
 
 @pytest.fixture
 def inv_model_def(info):  # noqa
-    inv_model_def = InverseModel()
+    inv_model_def = MNE()
     parent = FileSource()
     parent.mne_info = info
     parent.output = np.random.rand(info['nchan'], 1)

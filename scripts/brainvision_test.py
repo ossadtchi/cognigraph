@@ -13,7 +13,7 @@ pipeline.source = sources.FileSource(file_path=file_path)
 
 # linear_filter = processors.LinearFilter(lower_cutoff=0.1, upper_cutoff=40)
 # pipeline.add_processor(linear_filter)
-# pipeline.add_processor(processors.InverseModel(method='MNE'))
+# pipeline.add_processor(processors.MNE(method='MNE'))
 # pipeline.add_processor(processors.EnvelopeExtractor())
 # pipeline.add_output(outputs.BrainViewer())
 # pipeline.add_output(outputs.LSLStreamOutput())
