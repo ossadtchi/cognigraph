@@ -3,6 +3,7 @@ import numpy as np
 
 class RingBufferSlow(object):
     """Represents a multi-row deque object"""
+
     TIME_AXIS = 1
 
     def __init__(self, row_cnt, maxlen):
@@ -26,19 +27,20 @@ class RingBufferSlow(object):
 
         else:
             # New data should start after the end of the old one
-            start = ((self._start + self._curr_samp_count) % self.maxlen)
+            start = (self._start + self._curr_samp_count) % self.maxlen
 
             # Put as much as possible after start.
             end = min(start + new_sample_cnt, self.maxlen)
-            self._data[:, start:end] = array[:, :(end-start)]
+            self._data[:, start:end] = array[:, : (end - start)]
 
             # Then wrap around if needed
             if end - start < new_sample_cnt:
                 end = (start + new_sample_cnt) % self.maxlen
                 self._data[:, :end] = array[:, -end:]
 
-            self._curr_samp_count = min(self._curr_samp_count + new_sample_cnt,
-                                        self.maxlen)
+            self._curr_samp_count = min(
+                self._curr_samp_count + new_sample_cnt, self.maxlen
+            )
 
             if self._curr_samp_count == self.maxlen:
                 # The buffer is fully populated
@@ -46,9 +48,12 @@ class RingBufferSlow(object):
 
     def _check_input_shape(self, array):
         if array.shape[0] != self.row_cnt:
-            msg = ('Wrong shape. You are trying to extend a buffer with {} '
-                   'rows with an array with {} rows'.format(self.row_cnt,
-                                                            array.shape[0]))
+            msg = (
+                "Wrong shape. You are trying to extend a buffer with {} "
+                "rows with an array with {} rows".format(
+                    self.row_cnt, array.shape[0]
+                )
+            )
             raise ValueError(msg)
 
     def clear(self):
@@ -58,13 +63,16 @@ class RingBufferSlow(object):
     @property
     def data(self):
         indices = self._start + np.arange(self._curr_samp_count)
-        return self._data.take(indices=indices, axis=self.TIME_AXIS,
-                               mode='wrap')
+        return self._data.take(
+            indices=indices, axis=self.TIME_AXIS, mode="wrap"
+        )
 
     @property
     def test_data(self):
-        return np.concatenate((self._data[:, self._start:],
-                               self._data[:, :self._start]), axis=1)
+        return np.concatenate(
+            (self._data[:, self._start :], self._data[:, : self._start]),
+            axis=1,
+        )
 
 
 class RingBuffer(object):
@@ -90,8 +98,8 @@ class RingBuffer(object):
 
         # If new data will take all the space, we can forget about the old data
         if new_sample_cnt >= self.maxlen:
-            self._data[:, :self.maxlen] = array[:, -self.maxlen:]
-            self._data[:, self.maxlen:] = array[:, -self.maxlen:]
+            self._data[:, : self.maxlen] = array[:, -self.maxlen :]
+            self._data[:, self.maxlen :] = array[:, -self.maxlen :]
             self._start = 0
             self._curr_samp_count = self.maxlen
 
@@ -101,28 +109,34 @@ class RingBuffer(object):
 
             # Put as much as possible after start.
             end = min(start + new_sample_cnt, self.maxlen)
-            self._data[:, start:end] = array[:, :(end-start)]
-            self._data[:, (start + self.maxlen):(end + self.maxlen)] \
-                = array[:, :(end-start)]
+            self._data[:, start:end] = array[:, : (end - start)]
+            self._data[:, (start + self.maxlen) : (end + self.maxlen)] = array[
+                :, : (end - start)
+            ]
 
             # Then wrap around if needed
             if end - start < new_sample_cnt:
                 end = (start + new_sample_cnt) % self.maxlen
                 self._data[:, :end] = array[:, -end:]
-                self._data[:, self.maxlen:(end + self.maxlen)] = (
-                    array[:, -end:])
+                self._data[:, self.maxlen : (end + self.maxlen)] = array[
+                    :, -end:
+                ]
 
             self._curr_samp_count = min(
-                self._curr_samp_count + new_sample_cnt, self.maxlen)
+                self._curr_samp_count + new_sample_cnt, self.maxlen
+            )
             if self._curr_samp_count == self.maxlen:
                 # The buffer is fully populated
                 self._start = end % self.maxlen
 
     def _check_input_shape(self, array):
         if array.shape[0] != self.row_cnt:
-            msg = ('Wrong shape. You are trying to extend a buffer with {}'
-                   ' rows with an array with {} rows'.format(self.row_cnt,
-                                                             array.shape[0]))
+            msg = (
+                "Wrong shape. You are trying to extend a buffer with {}"
+                " rows with an array with {} rows".format(
+                    self.row_cnt, array.shape[0]
+                )
+            )
             raise ValueError(msg)
 
     def clear(self):
@@ -131,4 +145,6 @@ class RingBuffer(object):
 
     @property
     def data(self):
-        return self._data[:, self._start:(self._start + self._curr_samp_count)]
+        return self._data[
+            :, self._start : (self._start + self._curr_samp_count)
+        ]

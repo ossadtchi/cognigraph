@@ -1,9 +1,27 @@
+"""
+Definition of pipeline output nodes
+
+Exposed classes
+---------------
+LSLStreamOutput: OutputNode
+    Output signal to LSL stream
+BrainViewer: _WidgetOutput
+    Plot heatmap on a 3d brain
+SignalViewer: _WidgetOutput
+    Plot signals
+FileOutput: OutputNode
+    Output signal to file
+TorchOutput: OutputNode
+    Wrap signal in Torch tensors
+ConnectivityViewer: _WidgetOutput
+    Plot connectivity
+
+"""
 import os
 import time
 from types import SimpleNamespace
 
 import tables
-from PyQt5.QtCore import pyqtSignal, QObject
 from PyQt5.QtWidgets import QApplication
 
 import mne
@@ -13,9 +31,11 @@ from scipy import sparse
 from ..utils.pysurfer.smoothing_matrix import smoothing_matrix, mesh_edges
 from .node import OutputNode
 from .. import CHANNEL_AXIS, TIME_AXIS, PYNFB_TIME_AXIS
-from ..utils.lsl import (convert_numpy_format_to_lsl,
-                         convert_numpy_array_to_lsl_chunk,
-                         create_lsl_outlet)
+from ..utils.lsl import (
+    convert_numpy_format_to_lsl,
+    convert_numpy_array_to_lsl_chunk,
+    create_lsl_outlet,
+)
 from ..utils.matrix_functions import last_sample, make_time_dimension_second
 from ..utils.ring_buffer import RingBuffer
 from ..utils.channels import read_channel_types, channel_labels_saver
@@ -23,51 +43,50 @@ from ..utils.inverse_model import get_mesh_data_from_forward_solution
 from ..utils.brain_visualization import get_mesh_data_from_surfaces_dir
 from vendor.nfb.pynfb.widgets.signal_viewers import RawSignalViewer
 
-# visbrain visualization imports
-# from ..gui.brain_visual import BrainMesh
 from ..gui.connect_obj import ConnectObj
 from ..gui.source_obj import SourceObj
 from vispy import scene
-# from vispy.app import Canvas
 
-# import logging
-
-# from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
-# from matplotlib.figure import Figure
 
 # -------- gif recorder -------- #
 from vispy.gloo.util import _screenshot
 from PIL import Image as im
+
 # ------------------------------ #
 
+__all__ = (
+    "LSLStreamOutput",
+    "BrainViewer",
+    "SignalViewer",
+    "FileOutput",
+    "TorchOutput",
+    "ConnectivityViewer",
+)
 
-class Communicate(QObject):
-    init_widget_sig = pyqtSignal()
-    draw_sig = pyqtSignal('PyQt_PyObject')
-    screenshot_sig = pyqtSignal()
 
-
-class WidgetOutput(OutputNode):
+class _WidgetOutput(OutputNode):
     """Abstract class for widget initialization logic with qt signals"""
+
     def __init__(self, *pargs, **kwargs):
         OutputNode.__init__(self, *pargs, **kwargs)
-        self.signal_sender = Communicate()
-        self.signal_sender.init_widget_sig.connect(self._init_widget)
-        self.signal_sender.draw_sig.connect(self.on_draw)
+        self._signal_sender.init_widget_sig.connect(self._init_widget)
+        self._signal_sender.draw_sig.connect(self.on_draw)
 
     def _init_widget(self):
-        if self.widget is not None:
+        if self.widget and self.widget.parent():
             parent = self.widget.parent()
-            ind = parent.indexOf(self.widget)
-            cur_width = self.widget.size().width()
-            cur_height = self.widget.size().height()
-            self.widget.deleteLater()
-            self.widget = self._create_widget()
-            parent.insertWidget(ind, self.widget)
-            self.widget.resize(cur_width, cur_height)
+            old_widget = self.widget
         else:
-            self.widget = self._create_widget()
-            self.widget.setMinimumWidth(50)
+            parent = None
+        self.widget = self._create_widget()
+        if parent:
+            parent.setWidget(self.widget)
+            old_widget.deleteLater()
+        else:
+            self.root._signal_sender.node_widget_added.emit(
+                self.widget, repr(self)
+            )
+        self.widget.pipeline_node = self
 
     def _create_widget(self):
         raise NotImplementedError
@@ -77,26 +96,27 @@ class WidgetOutput(OutputNode):
 
 
 class LSLStreamOutput(OutputNode):
-
     def _on_input_history_invalidation(self):
         pass
 
     def _check_value(self, key, value):
         pass  # TODO: check that value as a string usable as a stream name
 
-    CHANGES_IN_THESE_REQUIRE_RESET = ('stream_name', )
+    CHANGES_IN_THESE_REQUIRE_RESET = ("stream_name",)
 
     UPSTREAM_CHANGES_IN_THESE_REQUIRE_REINITIALIZATION = (
-        'source_name', 'mne_info', 'dtype')
+        "source_name",
+        "mne_info",
+        "dtype",
+    )
 
-    SAVERS_FOR_UPSTREAM_MUTABLE_OBJECTS = (
-        {'mne_info': lambda info: (info['sfreq'], ) +
-         channel_labels_saver(info)})
+    SAVERS_FOR_UPSTREAM_MUTABLE_OBJECTS = {
+        "mne_info": lambda info: (info["sfreq"],) + channel_labels_saver(info)
+    }
 
-    def _reset(self):
+    def _on_critical_attr_change(self, key, old_val, new_val) -> bool:
         # It is impossible to change then name of an already
         # started stream so we have to initialize again
-        self._should_reinitialize = True
         self.initialize()
 
     def __init__(self, stream_name=None):
@@ -106,24 +126,27 @@ class LSLStreamOutput(OutputNode):
         self._outlet = None
 
     def _initialize(self):
-        # If no name was supplied we will use a modified
+        # If no name was supplied use a modified
         # version of the source name (a file or a stream name)
-        source_name = self.traverse_back_and_find('source_name')
-        self.stream_name = (self._provided_stream_name or
-                            (source_name + '_output'))
+        source_name = self.traverse_back_and_find("source_name")
+        if not self.stream_name:
+            self.stream_name = source_name + "_output"
 
         # Get other info from somewhere down the predecessor chain
-        dtype = self.traverse_back_and_find('dtype')
+        dtype = self.traverse_back_and_find("dtype")
         channel_format = convert_numpy_format_to_lsl(dtype)
-        mne_info = self.traverse_back_and_find('mne_info')
-        frequency = mne_info['sfreq']
-        channel_labels = mne_info['ch_names']
+        mne_info = self.traverse_back_and_find("mne_info")
+        frequency = mne_info["sfreq"]
+        channel_labels = mne_info["ch_names"]
         channel_types = read_channel_types(mne_info)
 
         self._outlet = create_lsl_outlet(
-            name=self.stream_name, frequency=frequency,
-            channel_format=channel_format, channel_labels=channel_labels,
-            channel_types=channel_types)
+            name=self.stream_name,
+            frequency=frequency,
+            channel_format=channel_format,
+            channel_labels=channel_labels,
+            channel_types=channel_types,
+        )
 
     def _update(self):
         chunk = self.parent.output
@@ -131,19 +154,32 @@ class LSLStreamOutput(OutputNode):
         self._outlet.push_chunk(lsl_chunk)
 
 
-class BrainViewer(WidgetOutput):
+class BrainViewer(_WidgetOutput):
 
-    CHANGES_IN_THESE_REQUIRE_RESET = ('buffer_length', 'take_abs', )
+    CHANGES_IN_THESE_REQUIRE_RESET = (
+        "buffer_length",
+        "take_abs",
+        "limits_mode",
+        "threshold_pct",
+    )
     UPSTREAM_CHANGES_IN_THESE_REQUIRE_REINITIALIZATION = (
-        'mne_forward_model_file_path', 'mne_info')
+        "fwd_path",
+        "mne_info",
+    )
 
-    SAVERS_FOR_UPSTREAM_MUTABLE_OBJECTS = {'mne_info': channel_labels_saver}
+    SAVERS_FOR_UPSTREAM_MUTABLE_OBJECTS = {"mne_info": channel_labels_saver}
 
-    LIMITS_MODES = SimpleNamespace(GLOBAL='Global', LOCAL='Local',
-                                   MANUAL='Manual')
+    LIMITS_MODES = SimpleNamespace(
+        GLOBAL="Global", LOCAL="Local", MANUAL="Manual"
+    )
 
-    def __init__(self, take_abs=True, limits_mode=LIMITS_MODES.LOCAL,
-                 buffer_length=1, threshold_pct=50, surfaces_dir=None):
+    def __init__(
+        self,
+        take_abs=True,
+        limits_mode=LIMITS_MODES.LOCAL,
+        buffer_length=1,
+        threshold_pct=50,
+    ):
         super().__init__()
 
         self.limits_mode = limits_mode
@@ -151,12 +187,12 @@ class BrainViewer(WidgetOutput):
         self.buffer_length = buffer_length
         self.take_abs = take_abs
         self.colormap_limits = SimpleNamespace(lower=None, upper=None)
-        self._threshold_pct = threshold_pct
+        self.threshold_pct = threshold_pct
 
         self._limits_buffer = None
-        self.surfaces_dir = surfaces_dir
-        self.mesh_data = None
-        self.smoothing_matrix = None
+        self.surfaces_dir = None
+        self._mesh = None
+        self._smoothing_matrix = None
         self.widget = None
         self.output = None
 
@@ -168,41 +204,35 @@ class BrainViewer(WidgetOutput):
         self._display_time = None  # Time in ms between switching images
 
         self._images = []
-        self.signal_sender.screenshot_sig.connect(self._append_screenshot)
+        self._signal_sender.screenshot_sig.connect(self._append_screenshot)
         # ------------------------------ #
 
     def _initialize(self):
-        mne_forward_model_file_path = self.traverse_back_and_find(
-            'mne_forward_model_file_path')
+        fwd_path = self.traverse_back_and_find("fwd_path")
+        subject = self.traverse_back_and_find("subject")
+        subjects_dir = self.traverse_back_and_find("subjects_dir")
+        self.surfaces_dir = os.path.join(subjects_dir, subject)
 
-        frequency = self.traverse_back_and_find('mne_info')['sfreq']
+        frequency = self.traverse_back_and_find("mne_info")["sfreq"]
         buffer_sample_count = np.int(self.buffer_length * frequency)
         self._limits_buffer = RingBuffer(row_cnt=2, maxlen=buffer_sample_count)
 
         self.forward_solution = mne.read_forward_solution(
-            mne_forward_model_file_path, verbose='ERROR')
-        self.mesh_data = get_mesh_data_from_surfaces_dir(self.surfaces_dir)
-        self.signal_sender.init_widget_sig.emit()
-        self.smoothing_matrix = self._get_smoothing_matrix(
-            mne_forward_model_file_path)
+            fwd_path, verbose="ERROR"
+        )
+        self._mesh = get_mesh_data_from_surfaces_dir(self.surfaces_dir)
+        self._signal_sender.init_widget_sig.emit()
+        self._smoothing_matrix = self._get_smoothing_matrix(fwd_path)
 
     def _on_input_history_invalidation(self):
-        self._should_reset = True
-        self.reset()
+        # TODO: change min-max buffer values
+        pass
 
     def _check_value(self, key, value):
         pass
 
-    def _reset(self):
+    def _on_critical_attr_change(self, key, old_val, new_val) -> bool:
         self._limits_buffer.clear()
-
-    @property
-    def threshold_pct(self):
-        return self._threshold_pct
-
-    @threshold_pct.setter
-    def threshold_pct(self, value):
-        self._threshold_pct = value
 
     def _update(self):
         sources = self.parent.output
@@ -211,16 +241,24 @@ class BrainViewer(WidgetOutput):
             sources = np.abs(sources)
         self._update_colormap_limits(sources)
         normalized_sources = self._normalize_sources(last_sample(sources))
-        self.signal_sender.draw_sig.emit(normalized_sources)
+        self._signal_sender.draw_sig.emit(normalized_sources)
 
         if self.is_recording:
-            self.signal_sender.screenshot_sig.emit()
+            self._signal_sender.screenshot_sig.emit()
 
     def _update_colormap_limits(self, sources):
-        self._limits_buffer.extend(np.array([
-            make_time_dimension_second(np.min(sources, axis=CHANNEL_AXIS)),
-            make_time_dimension_second(np.max(sources, axis=CHANNEL_AXIS)),
-        ]))
+        self._limits_buffer.extend(
+            np.array(
+                [
+                    make_time_dimension_second(
+                        np.min(sources, axis=CHANNEL_AXIS)
+                    ),
+                    make_time_dimension_second(
+                        np.max(sources, axis=CHANNEL_AXIS)
+                    ),
+                ]
+            )
+        )
 
         if self.limits_mode == self.LIMITS_MODES.GLOBAL:
             mins, maxs = self._limits_buffer.data
@@ -243,45 +281,46 @@ class BrainViewer(WidgetOutput):
 
     def on_draw(self, normalized_values):
         QApplication.processEvents()
-        if self.smoothing_matrix is not None:
-            sources_smoothed = self.smoothing_matrix.dot(normalized_values)
+        if self._smoothing_matrix is not None:
+            sources_smoothed = self._smoothing_matrix.dot(normalized_values)
         else:
-            self.logger.debug('Draw without smoothing')
+            self._logger.debug("Draw without smoothing")
             sources_smoothed = normalized_values
         threshold = self.threshold_pct / 100
         mask = sources_smoothed <= threshold
 
         # reset colors to white
-        self.mesh_data._alphas[:, :] = 0.
-        self.mesh_data._alphas_buffer.set_data(self.mesh_data._alphas)
+        self._mesh._alphas[:, :] = 0.0
+        self._mesh._alphas_buffer.set_data(self._mesh._alphas)
 
         if np.any(~mask):
-            self.mesh_data.add_overlay(sources_smoothed[~mask],
-                                       vertices=np.where(~mask)[0],
-                                       to_overlay=1)
+            self._mesh.add_overlay(
+                sources_smoothed[~mask],
+                vertices=np.where(~mask)[0],
+                to_overlay=1,
+            )
 
-        self.mesh_data.update()
-        if self.logger.getEffectiveLevel() == 20:  # INFO level
-            self.canvas.measure_fps(
-                window=10,
-                callback=(lambda x:
-                          self.logger.info('Updating at %1.1f FPS' % x)))
+        self._mesh.update()
+        # if self._logger.getEffectiveLevel() == 20:  # INFO level
+        self.canvas.measure_fps(
+            window=10, callback=self._signal_sender.fps_updated.emit
+        )
 
     def _create_widget(self):
-        canvas = scene.SceneCanvas(keys='interactive', show=False)
+        canvas = scene.SceneCanvas(keys="interactive", show=False)
         self.canvas = canvas
 
         # Add a ViewBox to let the user zoom/rotate
         view = canvas.central_widget.add_view()
-        view.camera = 'turntable'
+        view.camera = "turntable"
         view.camera.fov = 50
         view.camera.distance = 400
         # Make light follow the camera
-        self.mesh_data.shared_program.frag['camtf'] = view.camera.transform
-        view.add(self.mesh_data)
+        self._mesh.shared_program.frag["camtf"] = view.camera.transform
+        view.add(self._mesh)
         return canvas.native
 
-    def _get_smoothing_matrix(self, mne_forward_model_file_path):
+    def _get_smoothing_matrix(self, fwd_path):
         """
         Creates or loads a smoothing matrix that lets us
         interpolate source values onto all mesh vertices
@@ -294,25 +333,31 @@ class BrainViewer(WidgetOutput):
         # If in future we decide to use low-definition mesh from
         # the forward model for drawing, we should index into that.
         # Shorter: the coordinates of the jth source are
-        # in self.mesh_data.vertexes()[sources_idx[j], :]
+        # in self._mesh.vertexes()[sources_idx[j], :]
         smoothing_matrix_file_path = (
-            os.path.splitext(mne_forward_model_file_path)[0] +
-            '-smoothing-matrix.npz')
+            os.path.splitext(fwd_path)[0] + "-smoothing-matrix.npz"
+        )
         try:
             return sparse.load_npz(smoothing_matrix_file_path)
         except FileNotFoundError:
-            self.logger.info('Calculating smoothing matrix.' +
-                             ' This might take a while the first time.')
+            self._logger.info(
+                "Calculating smoothing matrix."
+                + " This might take a while the first time."
+            )
             sources_idx, *_ = get_mesh_data_from_forward_solution(
-                self.forward_solution)
-            adj_mat = mesh_edges(self.mesh_data._faces)
+                self.forward_solution
+            )
+            adj_mat = mesh_edges(self._mesh._faces)
             smoothing_mat = smoothing_matrix(sources_idx, adj_mat)
             sparse.save_npz(smoothing_matrix_file_path, smoothing_mat)
             return smoothing_mat
 
     def _start_gif(self):
         self._images = []
-        self._start_time = time.time()
+        self._gif_times = []
+        self._gif_start_time = time.time()
+        self._run_start_time = self.traverse_back_and_find("start_time")
+        self._gif_times.append(self._gif_start_time - self._run_start_time)
 
         self.is_recording = True
 
@@ -320,18 +365,32 @@ class BrainViewer(WidgetOutput):
         self.is_recording = False
         # self._timer.stop()
 
-        duration = time.time() - self._start_time
+        duration = time.time() - self._gif_start_time
         self._display_time = (duration * 1000) / len(self._images)
 
     def _save_gif(self, path):
-        self._images[0].save(
-            path,
-            save_all=True,
-            append_images=self._images[1:],
-            duration=self._display_time,
-            loop=0)
+        try:
+            self._images[0].save(
+                path,
+                save_all=True,
+                append_images=self._images[1:],
+                duration=self._display_time,
+                loop=0,
+            )
+
+            base, ext = os.path.splitext(path)
+            times_savepath = base + "_gif_times.txt"
+            with open(times_savepath, "w") as f:
+                for t in self._gif_times:
+                    f.write("%1.3f\n" % t)
+        except Exception as e:
+            self._logger.exception(e)
+            self._root._signal_sender.request_message.emit(
+                "Saving gif to %s failed!" % path, str(e), "error"
+            )
 
     def _append_screenshot(self):
+        self._gif_times.append(time.time() - self._run_start_time)
         if self.sector is None:
             # self._images.append(ImageGrab.grab())
             self._images.append(im.fromarray(_screenshot()))
@@ -340,33 +399,35 @@ class BrainViewer(WidgetOutput):
             self._images.append(im.fromarray(_screenshot()))
 
 
-class SignalViewer(WidgetOutput):
+class SignalViewer(_WidgetOutput):
     CHANGES_IN_THESE_REQUIRE_RESET = ()
 
-    UPSTREAM_CHANGES_IN_THESE_REQUIRE_REINITIALIZATION = ('mne_info',)
-    SAVERS_FOR_UPSTREAM_MUTABLE_OBJECTS = {'mne_info': channel_labels_saver}
+    UPSTREAM_CHANGES_IN_THESE_REQUIRE_REINITIALIZATION = ("mne_info",)
+    SAVERS_FOR_UPSTREAM_MUTABLE_OBJECTS = {"mne_info": channel_labels_saver}
 
     def __init__(self):
         super().__init__()
         self.widget = None
 
     def _initialize(self):
-        self.signal_sender.init_widget_sig.emit()
+        self._signal_sender.init_widget_sig.emit()
 
     def _create_widget(self):
-        mne_info = self.traverse_back_and_find('mne_info')
-        if mne_info['nchan']:
-            return RawSignalViewer(fs=mne_info['sfreq'],
-                                   names=mne_info['ch_names'],
-                                   seconds_to_plot=10)
+        mne_info = self.traverse_back_and_find("mne_info")
+        if mne_info["nchan"]:
+            return RawSignalViewer(
+                fs=mne_info["sfreq"],
+                names=mne_info["ch_names"],
+                seconds_to_plot=10,
+            )
         else:
-            return RawSignalViewer(fs=mne_info['sfreq'],
-                                   names=[''],
-                                   seconds_to_plot=10)
+            return RawSignalViewer(
+                fs=mne_info["sfreq"], names=[""], seconds_to_plot=10
+            )
 
     def _update(self):
         chunk = self.parent.output
-        self.signal_sender.draw_sig.emit(chunk)
+        self._signal_sender.draw_sig.emit(chunk)
 
     def on_draw(self, chunk):
         QApplication.processEvents()
@@ -376,12 +437,12 @@ class SignalViewer(WidgetOutput):
             else:
                 self.widget.update(chunk.T)
 
-    def _reset(self) -> bool:
+    def _on_critical_attr_change(self, key, old_val, new_val) -> bool:
         # Nothing to reset, really
         pass
 
     def _on_input_history_invalidation(self):
-        # Don't really care, will draw whatever
+        # Doesn't really care, will draw anything
         pass
 
     def _check_value(self, key, value):
@@ -391,12 +452,12 @@ class SignalViewer(WidgetOutput):
 
 class FileOutput(OutputNode):
 
-    CHANGES_IN_THESE_REQUIRE_RESET = ('stream_name', )
+    CHANGES_IN_THESE_REQUIRE_RESET = ("output_fname",)
 
-    UPSTREAM_CHANGES_IN_THESE_REQUIRE_REINITIALIZATION = ('mne_info', )
-    SAVERS_FOR_UPSTREAM_MUTABLE_OBJECTS = {'mne_info':
-                                           lambda info: (info['sfreq'], ) +
-                                           channel_labels_saver(info)}
+    UPSTREAM_CHANGES_IN_THESE_REQUIRE_REINITIALIZATION = ("mne_info",)
+    SAVERS_FOR_UPSTREAM_MUTABLE_OBJECTS = {
+        "mne_info": lambda info: (info["sfreq"],) + channel_labels_saver(info)
+    }
 
     def _on_input_history_invalidation(self):
         pass
@@ -404,26 +465,26 @@ class FileOutput(OutputNode):
     def _check_value(self, key, value):
         pass  # TODO: check that value as a string usable as a stream name
 
-    def _reset(self):
-        self._should_reinitialize = True
+    def _on_critical_attr_change(self, key, old_val, new_val):
         self.initialize()
 
-    def __init__(self, output_fname='output.h5'):
+    def __init__(self, output_fname="output.h5"):
         super().__init__()
         self.output_fname = output_fname
-        self.out_file = None
+        self._out_file = None
 
     def _initialize(self):
-        if self.out_file:  # for resets
-            self.out_file.close()
+        if self._out_file:  # for resets
+            self._out_file.close()
 
-        info = self.traverse_back_and_find('mne_info')
-        col_size = info['nchan']
-        self.out_file = tables.open_file(self.output_fname, mode='w')
+        info = self.traverse_back_and_find("mne_info")
+        col_size = info["nchan"]
+        self._out_file = tables.open_file(self.output_fname, mode="w")
         atom = tables.Float64Atom()
 
-        self.output_array = self.out_file.create_earray(
-            self.out_file.root, 'data', atom, (col_size, 0))
+        self.output_array = self._out_file.create_earray(
+            self._out_file.root, "data", atom, (col_size, 0)
+        )
 
     def _update(self):
         chunk = self.parent.output
@@ -441,7 +502,7 @@ class TorchOutput(OutputNode):
     def _check_value(self, key, value):
         pass  # TODO: check that value as a string usable as a stream name
 
-    def _reset(self):
+    def _on_critical_attr_change(self, key, old_val, new_val) -> bool:
         pass
 
     def _initialize(self):
@@ -449,29 +510,35 @@ class TorchOutput(OutputNode):
 
     def _update(self):
         import torch
+
         self.output = torch.from_numpy(self.parent.output)
 
 
-class ConnectivityViewer(WidgetOutput):
-    """Plot connectivity matrix on circular graph"""
-    CHANGES_IN_THESE_REQUIRE_RESET = ()
-    UPSTREAM_CHANGES_IN_THESE_REQUIRE_REINITIALIZATION = ('mne_info',)
+class ConnectivityViewer(_WidgetOutput):
+    """Plot connectivity matrix on glass brain"""
 
-    def __init__(self, surfaces_dir, n_lines=30):
+    CHANGES_IN_THESE_REQUIRE_RESET = ("n_lines",)
+    UPSTREAM_CHANGES_IN_THESE_REQUIRE_REINITIALIZATION = ("mne_info",)
+
+    def __init__(self, n_lines=30):
         super().__init__()
-        self.mesh = None
+        self._mesh = None
         self.widget = None
         self.s_obj = None
         self.c_obj = None
         self.view = None
         self.n_lines = n_lines
-        self.surfaces_dir = surfaces_dir
 
     def _initialize(self):
-        self.mne_info = self.traverse_back_and_find('mne_info')
-        self.mesh = get_mesh_data_from_surfaces_dir(self.surfaces_dir,
-                                                    translucent=True)
-        self.signal_sender.init_widget_sig.emit()
+        self.mne_info = self.traverse_back_and_find("mne_info")
+        subject = self.traverse_back_and_find("subject")
+        subjects_dir = self.traverse_back_and_find("subjects_dir")
+        self.surfaces_dir = os.path.join(subjects_dir, subject)
+
+        self._mesh = get_mesh_data_from_surfaces_dir(
+            self.surfaces_dir, translucent=True
+        )
+        self._signal_sender.init_widget_sig.emit()
 
     def _update(self):
         input_data = np.abs(self.parent.output)  # connectivity matrix
@@ -480,13 +547,14 @@ class ConnectivityViewer(WidgetOutput):
         l_triang = np.tril(input_data, k=-1)
         nl = self.n_lines
         ii, jj = np.unravel_index(
-             np.argpartition(-l_triang, nl, axis=None)[:nl], l_triang.shape)
+            np.argpartition(-l_triang, nl, axis=None)[:nl], l_triang.shape
+        )
         # 2. Get corresponding vertices indices
         nodes_inds = np.unique(np.r_[ii, jj])
-        labels = self.traverse_back_and_find('labels')
+        labels = self.traverse_back_and_find("labels")
         nodes_inds_surf = np.array([labels[i].mass_center for i in nodes_inds])
         # 3. Get nodes = xyz of these vertices
-        nodes = self.mesh._vertices[nodes_inds_surf]
+        nodes = self._mesh._vertices[nodes_inds_surf]
         # 4. Edges are input data restricted to best n_lines nodes
         edges = input_data[nodes_inds[:, None], nodes_inds]  # None needed
         # 5. Select = mask matrix with True in (i,j)-th positions
@@ -494,10 +562,11 @@ class ConnectivityViewer(WidgetOutput):
         select[ii, jj] = True
         select = select[nodes_inds[:, None], nodes_inds]
         select += select.T
-        nchan = self.mne_info['nchan']
-        assert input_data.shape == (nchan, nchan), ('Number of channels doesnt'
-                                                    ' conform to input data'
-                                                    ' shape')
+        nchan = self.mne_info["nchan"]
+        assert input_data.shape == (
+            nchan,
+            nchan,
+        ), "Number of channels doesnt conform to input data shape"
         try:
             self.s_obj._sources.visible = False
         except Exception:
@@ -508,34 +577,43 @@ class ConnectivityViewer(WidgetOutput):
             pass
 
         self.s_obj = SourceObj(
-            'sources', nodes, color='#ab4642', radius_min=10.)
+            "sources", nodes, color="#ab4642", radius_min=20.0
+        )
 
         self.c_obj = ConnectObj(
-            'default', nodes, edges, select=select, line_width=2.,
-            cmap='Spectral_r', color_by='strength')
+            "default",
+            nodes,
+            edges,
+            select=select,
+            line_width=2.0,
+            cmap="Spectral_r",
+            color_by="strength",
+        )
+        self._signal_sender.draw_sig.emit(None)
 
+    def on_draw(self):
         self.view.add(self.s_obj._sources)
         self.view.add(self.c_obj._connect)
 
-    def _reset(self):
-        ...
+    def _on_critical_attr_change(self, key, old_val, new_val) -> bool:
+        pass
 
     def _on_input_history_invalidation(self):
-        ...
+        pass
 
     def _check_value(self, key, value):
-        ...
+        pass
 
     def _create_widget(self):
-        canvas = scene.SceneCanvas(keys='interactive', show=False)
+        canvas = scene.SceneCanvas(keys="interactive", show=False)
         self.canvas = canvas
 
         # Add a ViewBox to let the user zoom/rotate
         self.view = canvas.central_widget.add_view()
-        self.view.camera = 'turntable'
+        self.view.camera = "turntable"
         self.view.camera.fov = 50
         self.view.camera.distance = 400
         # Make light follow the camera
-        self.mesh.shared_program.frag['camtf'] = self.view.camera.transform
-        self.view.add(self.mesh)
+        self._mesh.shared_program.frag["camtf"] = self.view.camera.transform
+        self.view.add(self._mesh)
         return canvas.native

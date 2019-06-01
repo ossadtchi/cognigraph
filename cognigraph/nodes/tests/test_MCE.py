@@ -3,8 +3,8 @@ import numpy as np
 import pytest
 from cognigraph.nodes.processors import MCE
 from cognigraph.nodes.sources import FileSource
-from cognigraph.nodes.tests.prepare_inv_tests_data import (info,  # noqa
-                                                           fwd_model_path)
+from cognigraph.nodes.tests.prepare_tests_data import (info,  # noqa
+                                                       fwd_model_path)
 
 
 @pytest.fixture
@@ -33,7 +33,7 @@ def mce_def(info):  # noqa
 
 
 def test_defaults(mce_def):
-    assert(mce_def.mne_forward_model_file_path is None)
+    assert(mce_def.fwd_path is None)
     assert(mce_def.mne_info is None)
 
 
@@ -41,9 +41,13 @@ def test_initialize(mce):
     mce.initialize()
 
 
-def test_reset(mce):
-    out_hist = mce._reset()
-    assert(out_hist is True)
+def test_change_api_attributes(mce):
+    """Change snr and check if mne_inv is reset"""
+    mce.initialize()
+    mce.mne_inv = None
+    mce.snr += 1
+    mce.update()
+    assert mce.mne_inv is not None
 
 
 def test_update(mce):
