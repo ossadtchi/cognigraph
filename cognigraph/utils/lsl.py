@@ -7,7 +7,7 @@ from pylsl.pylsl import fmt2string, string2fmt
 from .. import TIME_AXIS
 import xml.etree.ElementTree as ET
 
-string2fmt['float64'] = string2fmt['double64']
+string2fmt["float64"] = string2fmt["double64"]
 LSL_TIME_DIMENSION_ID = 0
 
 
@@ -19,22 +19,28 @@ def convert_numpy_format_to_lsl(numpy_channel_format: np.dtype):
     return string2fmt[str(numpy_channel_format)]
 
 
-def create_lsl_outlet(name, frequency, channel_format,
-                      channel_labels, channel_types, type=''):
+def create_lsl_outlet(
+    name, frequency, channel_format, channel_labels, channel_types, type=""
+):
     # Create StreamInfo
     channel_count = len(channel_labels)
     source_id = str(uuid.uuid4())
-    info = lsl.StreamInfo(name=name, type=type, channel_count=channel_count,
-                          nominal_srate=frequency,
-                          channel_format=channel_format, source_id=source_id)
+    info = lsl.StreamInfo(
+        name=name,
+        type=type,
+        channel_count=channel_count,
+        nominal_srate=frequency,
+        channel_format=channel_format,
+        source_id=source_id,
+    )
 
     # Add channel labels
     desc = info.desc()
-    channels_tag = desc.append_child(name='channels')
+    channels_tag = desc.append_child(name="channels")
     for label, channel_type in zip(channel_labels, channel_types):
-        single_channel_tag = channels_tag.append_child(name='channel')
-        single_channel_tag.append_child_value(name='label', value=label)
-        single_channel_tag.append_child_value(name='type', value=channel_type)
+        single_channel_tag = channels_tag.append_child(name="channel")
+        single_channel_tag.append_child_value(name="label", value=label)
+        single_channel_tag.append_child_value(name="type", value=channel_type)
 
     # Create outlet
     return lsl.StreamOutlet(info)
@@ -68,16 +74,24 @@ def convert_numpy_array_to_lsl_chunk(ndarray):
 
 
 convert_numpy_array_to_lsl_chunk.__doc__ = (
-    convert_lsl_chunk_to_numpy_array.__doc__)
+    convert_lsl_chunk_to_numpy_array.__doc__
+)
 
 
 def read_channel_labels_from_info(info: lsl.StreamInfo):
     info_xml = info.as_xml()
     rt = ET.fromstring(info_xml)
-    channels_tree = (rt.find('desc').findall("channel") or
-                     rt.find('desc').find("channels").findall("channel"))
-    labels = [(ch.find('label') if ch.find('label') is not None
-               else ch.find('name')).text for ch in channels_tree]
+    channels_tree = rt.find("desc").findall("channel") or rt.find("desc").find(
+        "channels"
+    ).findall("channel")
+    labels = [
+        (
+            ch.find("label")
+            if ch.find("label") is not None
+            else ch.find("name")
+        ).text
+        for ch in channels_tree
+    ]
     # channels_tag = info.desc().child('channels')
     # if channels_tag.empty():
     #     return None
@@ -95,6 +109,6 @@ def read_channel_labels_from_info(info: lsl.StreamInfo):
     #     return labels, types
     types = []
     for l in labels:
-        types.append('eeg')
+        types.append("eeg")
     labels = [l[:-3] for l in labels]
     return labels, types

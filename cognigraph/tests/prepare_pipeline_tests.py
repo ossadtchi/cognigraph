@@ -5,7 +5,7 @@ from mne import create_info
 
 def create_dummy_info(nchan=32, sfreq=500):
     ch_names = [str(i).zfill(2) for i in range(nchan)]
-    info = create_info(ch_names, sfreq, ch_types='eeg')
+    info = create_info(ch_names, sfreq, ch_types="eeg")
     return info
 
 
@@ -36,11 +36,11 @@ def count_func_runs(cls):
             self.n_hist_invalidations += 1
 
         def __repr__(self):
-            return repr(cls) + ' Node'
+            return repr(cls) + " Node"
 
         def __str__(self):
             class_str = str(cls)
-            return class_str[:-1] + ' Node' + class_str[-1]
+            return class_str[:-1] + " Node" + class_str[-1]
 
     return Proxy
 
@@ -52,19 +52,20 @@ class ConcreteSource(SourceNode):
     starting with an array of all zeroes.
 
     """
-    CHANGES_IN_THESE_REQUIRE_RESET = ('_mne_info',)
+
+    CHANGES_IN_THESE_REQUIRE_RESET = ("_mne_info",)
     UPSTREAM_CHANGES_IN_THESE_REQUIRE_REINITIALIZATION = ()
 
-    _GUI_STRING = 'Dummy Source'
+    _GUI_STRING = "Dummy Source"
 
     def __init__(self, nsamp=50):
         SourceNode.__init__(self)
         self.nsamp = nsamp  # number of time samples in one update
         self._mne_info = create_dummy_info()
-        self.nchan = self._mne_info['nchan']
+        self.nchan = self._mne_info["nchan"]
 
     def _initialize(self):
-        self.nchan = self._mne_info['nchan']
+        self.nchan = self._mne_info["nchan"]
         self.mne_info = self._mne_info
 
     def _update(self):
@@ -80,16 +81,18 @@ class ConcreteSource(SourceNode):
 @count_func_runs
 class ConcreteProcessor(ProcessorNode):
     """On each update increments input array by self.increment"""
+
     CHANGES_IN_THESE_REQUIRE_RESET = ()
-    UPSTREAM_CHANGES_IN_THESE_REQUIRE_REINITIALIZATION = ('_mne_info', )
+    UPSTREAM_CHANGES_IN_THESE_REQUIRE_REINITIALIZATION = ("_mne_info",)
 
     def __init__(self, increment=0.1):
         super().__init__()
         self.increment = increment
 
     def _update(self):
-        self.output = (self.parent.output +
-                       self.increment * (self.n_updates + 1))
+        self.output = self.parent.output + self.increment * (
+            self.n_updates + 1
+        )
 
     def _initialize(self):
         pass
@@ -104,16 +107,18 @@ class ConcreteProcessor(ProcessorNode):
 @count_func_runs
 class ConcreteOutput(OutputNode):
     """On each update increments input array by self.increment"""
+
     CHANGES_IN_THESE_REQUIRE_RESET = ()
-    UPSTREAM_CHANGES_IN_THESE_REQUIRE_REINITIALIZATION = ('_mne_info',)
+    UPSTREAM_CHANGES_IN_THESE_REQUIRE_REINITIALIZATION = ("_mne_info",)
 
     def __init__(self, increment=0.01):
         OutputNode.__init__(self)
         self.increment = increment
 
     def _update(self):
-        self.output = (self.parent.output +
-                       self.increment * (self.n_updates + 1))
+        self.output = self.parent.output + self.increment * (
+            self.n_updates + 1
+        )
 
     def _initialize(self):
         pass
