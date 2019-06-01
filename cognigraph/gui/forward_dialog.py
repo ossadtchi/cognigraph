@@ -16,15 +16,32 @@ import numpy as np
 import logging
 
 import mne
-from PyQt5.QtWidgets import (QDialog, QHBoxLayout, QLabel, QComboBox,
-                             QDialogButtonBox, QPushButton, QFileDialog,
-                             QRadioButton, QGroupBox, QVBoxLayout, QLineEdit,
-                             QWidget, QDoubleSpinBox, QMessageBox, QMainWindow)
+from PyQt5.QtWidgets import (
+    QDialog,
+    QHBoxLayout,
+    QLabel,
+    QComboBox,
+    QDialogButtonBox,
+    QPushButton,
+    QFileDialog,
+    QRadioButton,
+    QGroupBox,
+    QVBoxLayout,
+    QLineEdit,
+    QWidget,
+    QDoubleSpinBox,
+    QMessageBox,
+    QMainWindow,
+    QCheckBox,
+    QGridLayout,
+)
 
 from PyQt5.Qt import QSizePolicy, QTimer
 from PyQt5.QtCore import Qt, pyqtSignal, QSignalBlocker
-from cognigraph import COGNIGRAPH_DATA
+from cognigraph import COGNIGRAPH_DATA, MONTAGES_DIR
 from cognigraph.gui.async_pipeline_update import ThreadToBeWaitedFor
+from cognigraph.utils.io import download_anatomy_and_forwards
+from .montage_editor import MontageEditor
 
 
 class _ResettableComboBox(QComboBox):
@@ -33,8 +50,9 @@ class _ResettableComboBox(QComboBox):
     anew and retrieving items as list.
 
     """
+
     def __init__(self, *pargs, **kwargs):
-        super().__init__(*pargs, **kwargs)
+        QComboBox.__init__(self, *pargs, **kwargs)
 
     def setItems(self, items):
         block_signals = QSignalBlocker(self)  # noqa
@@ -48,8 +66,9 @@ class _ResettableComboBox(QComboBox):
 
 class _PathSelectorWidget(QWidget):
     """QLineEdit + QPushButton connected to QFileDialog to set path"""
-    def __init__(self, dialog_caption, path='', parent=None):
-        super().__init__(parent)
+
+    def __init__(self, dialog_caption, path="", parent=None):
+        QWidget.__init__(self, parent)
         self._path = None
 
         layout = QHBoxLayout()
@@ -58,7 +77,9 @@ class _PathSelectorWidget(QWidget):
         fm = self.path_ledit.fontMetrics()
         min_lineedit_width = fm.boundingRect(COGNIGRAPH_DATA).width()
         self.path_ledit.setMinimumWidth(min_lineedit_width)
-        self.browse_button = QPushButton('Browse')
+        self.path_ledit.setToolTip(self.path_ledit.text())
+        self.path_ledit.textChanged.connect(self._set_lineedit_tooltip)
+        self.browse_button = QPushButton("Browse")
         self.browse_button.setDefault(False)
         self.browse_button.setAutoDefault(True)
         self.browse_button.clicked.connect(self._on_browse_clicked)
@@ -66,8 +87,12 @@ class _PathSelectorWidget(QWidget):
         layout.addWidget(self.browse_button)
         self.setLayout(layout)
         self.setSizePolicy(QSizePolicy.Minimum, QSizePolicy.Minimum)
-        self._file_dialog = QFileDialog(caption=dialog_caption,
-                                        directory=self.path_ledit.text())
+        self._file_dialog = QFileDialog(
+            caption=dialog_caption, directory=self.path_ledit.text()
+        )
+
+    def _set_lineedit_tooltip(self):
+        self.path_ledit.setToolTip(self.path_ledit.text())
 
     def _on_browse_clicked(self):
         raise NotImplementedError
@@ -100,8 +125,9 @@ class _FileSelectorWidget(_PathSelectorWidget):
     QLineEdit + QPushButton connected to QFileDialog to set path to FILE
 
     """
-    def __init__(self, dialog_caption, file_filter, path='', parent=None):
-        super().__init__(dialog_caption, path, parent)
+
+    def __init__(self, dialog_caption, file_filter, path="", parent=None):
+        _PathSelectorWidget.__init__(self, dialog_caption, path, parent)
         self.filter = file_filter
 
     def _on_browse_clicked(self):
@@ -115,10 +141,11 @@ class _StateAwareGroupbox(QGroupBox):
     and emitting a signal when these states change.
 
     """
+
     state_changed = pyqtSignal()
 
     def __init__(self, *pargs, **kwargs):
-        super().__init__(*pargs, **kwargs)
+        QGroupBox.__init__(self, *pargs, **kwargs)
         self._is_valid = True
         self._is_active = True
 
@@ -162,15 +189,16 @@ class _StateAwareGroupbox(QGroupBox):
 
 class _FwdOptionsRadioButtons(QGroupBox):
     """Groupbox with three radio buttons"""
-    def __init__(self, title='Forward model', parent=None):
-        super().__init__(title=title, parent=parent)
 
-        self.use_default_fwd_radio = QRadioButton('&Use available forward')
+    def __init__(self, title="Forward model", parent=None):
+        QGroupBox.__init__(self, title=title, parent=parent)
+
+        self.use_default_fwd_radio = QRadioButton("&Use available forward")
         self.use_default_fwd_radio.setChecked(True)
 
-        self.compute_fwd_radio = QRadioButton('&Compute forward')
+        self.compute_fwd_radio = QRadioButton("&Compute forward")
 
-        self.import_fwd_radio = QRadioButton('&Import forward')
+        self.import_fwd_radio = QRadioButton("&Import forward")
 
         forward_radio_layout = QVBoxLayout()
         forward_radio_layout.addWidget(self.use_default_fwd_radio)
@@ -182,47 +210,58 @@ class _FwdOptionsRadioButtons(QGroupBox):
 
 class _AnatGroupbox(_StateAwareGroupbox):
     """Groupbox to setup subjects_dir and subject"""
-    def __init__(self, title='Anatomy',
-                 default_subj_dir=op.join(COGNIGRAPH_DATA, 'anatomy'),
-                 default_subj='fsaverage', parent=None):
-        super().__init__(parent, title=title)
+
+    def __init__(
+        self,
+        title="Anatomy",
+        default_subj_dir=op.join(COGNIGRAPH_DATA, "anatomy"),
+        default_subj="fsaverage",
+        subjects_dir=None,
+        subject=None,
+        parent=None,
+    ):
+        _StateAwareGroupbox.__init__(self, parent, title=title)
         self.default_subj_dir = default_subj_dir
         self.default_subj = default_subj
-        self.subjects_dir = self.default_subj_dir
-        self.subject = self.default_subj
+        self.subjects_dir = subjects_dir or self.default_subj_dir
+        self.subject = subject or self.default_subj
         self.subjects = self._get_fsf_subjects(self.subjects_dir)
         # ------------------ anatomy gpbox ------------------ #
-        self._use_avail_anat_radio = QRadioButton('&Use available anatomy')
+        self._use_avail_anat_radio = QRadioButton("&Use available anatomy")
         self._use_avail_anat_radio.setChecked(True)
         self._use_avail_anat_radio.toggled.connect(self._on_toggled)
-        self.import_anat_radio = QRadioButton('&Import anatomy')
+        self.import_anat_radio = QRadioButton("&Import anatomy")
         self.import_anat_radio.setChecked(False)
 
         self.subject_combobox = _ResettableComboBox()
         self.subject_combobox.addItems(self.subjects)
         self.subject_combobox.setCurrentText(self.subject)
-        subject_label = QLabel('Subject:')
+        subject_label = QLabel("Subject:")
         subject_layout = QHBoxLayout()
         subject_layout.addWidget(subject_label)
         subject_layout.addWidget(self.subject_combobox)
 
         self.subjects_dir_widget = _FolderSelectorWidget(
-            'Select subjects directory', path=self.subjects_dir)
+            "Select subjects directory", path=self.subjects_dir
+        )
 
         subjects_dir_subject_layout = QVBoxLayout()
         subjects_dir_subject_layout.addWidget(self.subjects_dir_widget)
         subjects_dir_subject_layout.addLayout(subject_layout)
 
         self.subjects_dir_widget.path_ledit.textChanged.connect(
-            self._on_anat_path_changed)
+            self._on_anat_path_changed
+        )
 
         self.subject_combobox.currentTextChanged.connect(
-            self._on_subject_combo_changed)
+            self._on_subject_combo_changed
+        )
 
         self.anat_path_widget = QWidget()
         self.anat_path_widget.setLayout(subjects_dir_subject_layout)
-        self.anat_path_widget.setSizePolicy(QSizePolicy.Minimum,
-                                            QSizePolicy.Fixed)
+        self.anat_path_widget.setSizePolicy(
+            QSizePolicy.Minimum, QSizePolicy.Fixed
+        )
         self.subjects_dir_widget.setDisabled(True)
 
         anat_gbox_layout = QVBoxLayout()
@@ -238,7 +277,8 @@ class _AnatGroupbox(_StateAwareGroupbox):
             self.subjects_dir_widget.setDisabled(True)
             if self.subjects_dir != self.default_subj_dir:
                 self.subjects_dir_widget.path_ledit.setText(
-                    self.default_subj_dir)
+                    self.default_subj_dir
+                )
             self.is_valid = True
         else:
             if self.subjects_dir and self.subject:
@@ -250,8 +290,24 @@ class _AnatGroupbox(_StateAwareGroupbox):
 
     def _get_fsf_subjects(self, path):
         files = os.listdir(path)
-        return sorted([f for f in files if op.isdir(op.join(path, f))
-                       and 'surf' in os.listdir(op.join(path, f))])
+        if not files:
+            ans = QMessageBox.question(
+                self,
+                "Default anatomy folder is empty",
+                "Default anatomy is missing. Download?",
+                QMessageBox.Yes | QMessageBox.No,
+            )
+            if ans == QMessageBox.Yes:
+                download_anatomy_and_forwards()
+            files = os.listdir(path)
+        return sorted(
+            [
+                f
+                for f in files
+                if op.isdir(op.join(path, f))
+                and "surf" in os.listdir(op.join(path, f))
+            ]
+        )
 
     def _on_anat_path_changed(self):
         new_path = self.subjects_dir_widget.path_ledit.text()
@@ -275,19 +331,79 @@ class _AnatGroupbox(_StateAwareGroupbox):
         return self._use_avail_anat_radio.isChecked()
 
 
-class _FwdGeomGroupbox(_StateAwareGroupbox):
-    """Groupbox to setup spacing and montage"""
-    default_montage = 'standard_1005'
-    default_spacing = 'oct6'
+class _CustomMontageWidget(QWidget):
+    def __init__(self, parent=None):
+        QWidget.__init__(self, parent)
+        self.checkbox = QCheckBox()
+        checkbox_label = QLabel("&Use custom montage:")
+        checkbox_label.setBuddy(self.checkbox)
+        self.button = QPushButton("&Edit")
+        self.button.setDisabled(True)
+        self.lineedit = QLineEdit("custom montage")
 
-    def __init__(self, default_subj,
-                 title='Select montage and spacing', parent=None):
-        super().__init__(title=title, parent=parent)
+        self.checkbox.stateChanged.connect(self._on_checkbox_toggled)
+        self.lineedit.setDisabled(True)
+        self.lineedit.setReadOnly(True)
+        self.lineedit.setToolTip(self.lineedit.text())
+        self.lineedit.textChanged.connect(self._set_lineedit_tooltip)
+
+        layout = QGridLayout()
+        self.setLayout(layout)
+        layout.addWidget(checkbox_label, 0, 0)
+        layout.addWidget(self.checkbox, 0, 1)
+        layout.addWidget(self.button, 0, 2)
+        layout.addWidget(self.lineedit, 1, 0, 1, 3)
+        self.hide()
+
+    def _set_lineedit_tooltip(self):
+        self.lineedit.setToolTip(self.lineedit.text())
+
+    def _on_checkbox_toggled(self, state):
+        if state:
+            self.lineedit.setDisabled(False)
+            self.button.setDisabled(False)
+        else:
+            self.lineedit.setDisabled(True)
+            self.button.setDisabled(True)
+
+
+class _FwdGeomGroupbox(_StateAwareGroupbox):
+    """
+    Groupbox to setup spacing and montage and select forward from disk.
+
+    If in choosing from available forwards mode, combobox values in spacing
+    and montage correspond to folders in COGNIGRAPH_DATA.
+    Availabled forwards are fetched from these folers.
+
+    If in computing forward mode, montage combobox values come from mne-python
+    get_builtin_montages function while spacing combobox values are
+    preset to be from ['oct5', 'ico5', 'oct6', 'ico6'], which are
+    octahedron and icosahedron tesselations of a sphere with number
+    corresponding to the number of tesselation steps.
+
+    """
+
+    default_montage = "standard_1005"
+    default_spacing = "oct6"
+
+    def __init__(
+        self,
+        default_subj,
+        title="Select montage and spacing",
+        parent=None,
+        data_chnames=None,
+    ):
+        _StateAwareGroupbox.__init__(self, title=title, parent=parent)
+        self._data_chnames = data_chnames
+        self._anat_folder = None
+        # self.is_valid = True
+        # self.setToolTip('I`m here to help')
 
         # -------- setup paths and fetch montages -------- #
         self._get_builtin_montages()
         self._default_forwards_path = op.join(
-            COGNIGRAPH_DATA, 'forwards', default_subj)
+            COGNIGRAPH_DATA, "forwards", default_subj
+        )
         self.get_available_forwards(self._default_forwards_path)
         # self._is_montages_combo_connected = False  # to spacings combo
         # ------------------------------------------------ #
@@ -295,8 +411,10 @@ class _FwdGeomGroupbox(_StateAwareGroupbox):
         # -------- setup comboboxes -------- #
         self._montages_combo = _ResettableComboBox()
         self._montages_combo.currentTextChanged.connect(
-            self._on_montage_combo_changed)
-        montages_combo_label = QLabel('Select montage:')
+            self._on_montage_combo_changed
+        )
+        # self._montages_combo.currentIndexChanged.connect(self._check_if_valid)
+        montages_combo_label = QLabel("Select montage:")
         montages_combo_label.setBuddy(self._montages_combo)
         montages_combo_layout = QHBoxLayout()
         montages_combo_layout.addWidget(montages_combo_label)
@@ -306,8 +424,9 @@ class _FwdGeomGroupbox(_StateAwareGroupbox):
 
         self._spacings_combo = _ResettableComboBox()
         self._spacings_combo.currentTextChanged.connect(
-            self._on_spacings_combo_changed)
-        spacings_label = QLabel('Select spacing:')
+            self._on_spacings_combo_changed
+        )
+        spacings_label = QLabel("Select spacing:")
         spacings_label.setBuddy(self._spacings_combo)
         spacings_combo_layout = QHBoxLayout()
         spacings_combo_layout.addWidget(spacings_label)
@@ -316,7 +435,7 @@ class _FwdGeomGroupbox(_StateAwareGroupbox):
         self._spacings_combo_widget.setLayout(spacings_combo_layout)
 
         self._forwards_combo = _ResettableComboBox()
-        forwards_label = QLabel('Select forward operator:')
+        forwards_label = QLabel("Select forward operator:")
         forwards_label.setBuddy(self._spacings_combo)
         forwards_combo_layout = QVBoxLayout()
         forwards_combo_layout.addWidget(forwards_label)
@@ -325,21 +444,40 @@ class _FwdGeomGroupbox(_StateAwareGroupbox):
         self._forwards_combo_widget.setLayout(forwards_combo_layout)
         # ---------------------------------- #
 
-        self._use_default_montage_radio = QRadioButton('&Use default')
-        self._import_montage_radio = QRadioButton('&Import montage')
+        self._use_default_montage_radio = QRadioButton("&Use default")
+        self._import_montage_radio = QRadioButton("&Import montage")
         self._use_default_montage_radio.setChecked(True)
         self._use_default_montage_radio.toggled.connect(
-            self._on_import_montage_radio_toggled)
+            self._on_import_montage_radio_toggled
+        )
         self._import_montage_radio.toggled.connect(
-            self._on_import_montage_radio_toggled)
+            self._on_import_montage_radio_toggled
+        )
 
         self._select_montage_dialog = _FileSelectorWidget(
-            dialog_caption='Select montage model', path='',
-            file_filter='*.txt *.elc *.csd *.elp *.htps'
-                        ' *.sfp *.loc *.locs *.eloc *.bvef')
+            dialog_caption="Select montage model",
+            path="",
+            file_filter="*.txt *.elc *.csd *.elp *.htps"
+            " *.sfp *.loc *.locs *.eloc *.bvef",
+        )
         self._select_montage_dialog.path_ledit.textChanged.connect(
-            self._on_montage_path_changed)
+            self._on_montage_path_changed
+        )
+        # self._select_montage_dialog.path_ledit.textChanged.connect(
+        #     self._check_if_valid
+        # )
         self._select_montage_dialog.setDisabled(True)
+
+        self._custom_montage_widget = _CustomMontageWidget()
+        self._custom_montage_widget.button.clicked.connect(
+            self._on_edit_montage_button_clicked
+        )
+        self._custom_montage_widget.checkbox.stateChanged.connect(
+            self._on_custom_montage_checkbox_toggled
+        )
+        # self._custom_montage_widget.lineedit.textChanged.connect(
+        #     self._check_if_valid
+        # )
 
         # initialize combos with available forwards
         self.is_use_available = True
@@ -350,40 +488,54 @@ class _FwdGeomGroupbox(_StateAwareGroupbox):
         default_fwd_layout.addWidget(self._montages_combo_widget)
         default_fwd_layout.addWidget(self._import_montage_radio)
         default_fwd_layout.addWidget(self._select_montage_dialog)
+        default_fwd_layout.addWidget(self._custom_montage_widget)
         default_fwd_layout.addWidget(self._spacings_combo_widget)
         default_fwd_layout.addWidget(self._forwards_combo_widget)
 
         self.default_fwd_widget = QWidget()
         self.default_fwd_widget.setLayout(default_fwd_layout)
-        self.default_fwd_widget.setSizePolicy(QSizePolicy.Minimum,
-                                              QSizePolicy.Fixed)
+        self.default_fwd_widget.setSizePolicy(
+            QSizePolicy.Minimum, QSizePolicy.Fixed
+        )
 
         default_fwd_setup_layout = QVBoxLayout()
         default_fwd_setup_layout.addWidget(self.default_fwd_widget)
 
         self.setLayout(default_fwd_setup_layout)
         # ------------------------------ #
+        # self._check_if_valid()
 
     def _get_builtin_montages(self):
-        montages_desc_path = op.join(COGNIGRAPH_DATA, 'montages_desc.json')
-        with open(montages_desc_path, 'r') as f:
+        # called when choosing forward from available files on disk
+        montages_desc_path = op.join(COGNIGRAPH_DATA, "montages_desc.json")
+        with open(montages_desc_path, "r", encoding="utf8") as f:
             description = json.load(f)
-            self.montages_desc = description['montages']
-            self.spacings_desc = description['spacings']
+            self.montages_desc = description["montages"]
+            self.spacings_desc = description["spacings"]
         self.builtin_montage_names = sorted(
-            mne.channels.get_builtin_montages())
+            mne.channels.get_builtin_montages()
+        )
 
     def get_available_forwards(self, folder):
+        """Fetch forwards from COGNIGRAPH_DATA folders structure"""
+        self._anat_folder = folder
         p = folder
-        self._available_montages = sorted(
-            [i for i in os.listdir(p) if op.isdir(op.join(p, i))])
+        if op.isdir(p):
+            self._available_montages = sorted(
+                [i for i in os.listdir(p) if op.isdir(op.join(p, i))]
+            )
+        else:
+            self._available_montages = []
         self._available_forwards = {}
         for a in self._available_montages:
             spacings = os.listdir(op.join(p, a))
             self._available_forwards[a] = {}
             for s in spacings:
-                forwards = [f for f in os.listdir(op.join(p, a, s))
-                            if f.endswith('fwd.fif')]
+                forwards = [
+                    f
+                    for f in os.listdir(op.join(p, a, s))
+                    if f.endswith("fwd.fif")
+                ]
                 self._available_forwards[a][s] = forwards
 
     def _set_hints(self):
@@ -393,14 +545,16 @@ class _FwdGeomGroupbox(_StateAwareGroupbox):
         for i, key in enumerate(self._montages_combo.getItems()):
             try:
                 self._montages_combo.setItemData(
-                    i, self.montages_desc[key], Qt.ToolTipRole)
+                    i, self.montages_desc[key], Qt.ToolTipRole
+                )
             except KeyError:
                 pass
 
         for i, key in enumerate(self._spacings_combo.getItems()):
             try:
                 self._spacings_combo.setItemData(
-                    i, self.spacings_desc[key], Qt.ToolTipRole)
+                    i, self.spacings_desc[key], Qt.ToolTipRole
+                )
             except KeyError:
                 pass
 
@@ -410,7 +564,8 @@ class _FwdGeomGroupbox(_StateAwareGroupbox):
         self._montages_combo.setItems(self.builtin_montage_names)
         self.montage = self.default_montage
         self._spacings_combo.setItems(
-            [k for k in self.spacings_desc if k != 'imported'])
+            [k for k in self.spacings_desc if k != "imported"]
+        )
         self.spacing = self.default_spacing  # uses spacing setter
         self._forwards_combo_widget.hide()
         self._set_hints()
@@ -418,6 +573,7 @@ class _FwdGeomGroupbox(_StateAwareGroupbox):
         self._use_default_montage_radio.show()
         self._import_montage_radio.show()
         self._select_montage_dialog.show()
+        self._custom_montage_widget.show()
 
     def _set_combos_to_available(self):
         """Default option: load forward from cognigraph folders structure"""
@@ -430,6 +586,7 @@ class _FwdGeomGroupbox(_StateAwareGroupbox):
         self._use_default_montage_radio.hide()
         self._import_montage_radio.hide()
         self._select_montage_dialog.hide()
+        self._custom_montage_widget.hide()
 
     def _set_montages_combo_to_available(self):
         block_signals = QSignalBlocker(self._montages_combo)  # noqa
@@ -439,13 +596,18 @@ class _FwdGeomGroupbox(_StateAwareGroupbox):
 
     def _set_spacings_combo_to_available(self):
         montage = self.montage
-        self._spacings_combo.setItems(self._available_forwards[montage].keys())
+        if self._available_forwards:
+            self._spacings_combo.setItems(
+                self._available_forwards[montage].keys()
+            )
         self.spacing = self.default_spacing
         self._set_forwards_combo_to_available()
 
     def _set_forwards_combo_to_available(self):
-        self._forwards_combo.setItems(
-            self._available_forwards[self.montage][self.spacing])
+        if self._available_forwards:
+            self._forwards_combo.setItems(
+                self._available_forwards[self.montage][self.spacing]
+            )
 
     def _on_montage_combo_changed(self):
         """
@@ -456,51 +618,123 @@ class _FwdGeomGroupbox(_StateAwareGroupbox):
         if self.is_use_available:
             self._set_spacings_combo_to_available()
 
-            if self._forwards_combo.currentText():
-                self.is_valid = True
-            else:
-                self.is_valid = False
+            # if self._forwards_combo.currentText():
+            #     self.is_valid = True
+            # else:
+            #     self.is_valid = False
+        if self._custom_montage_widget.checkbox.isChecked():
+            self._custom_montage_widget.lineedit.setText(
+                self._montages_combo.currentText()
+            )
+        QTimer.singleShot(0, self._check_if_valid)
 
     def _on_spacings_combo_changed(self):
         if self.is_use_available:
             self._set_forwards_combo_to_available()
+        QTimer.singleShot(0, self._check_if_valid)
 
     def _on_import_montage_radio_toggled(self):
         if self._use_default_montage_radio.isChecked():
             self._select_montage_dialog.setDisabled(True)
             self._montages_combo_widget.setDisabled(False)
-            if self._forwards_combo.currentText():
-                self.is_valid = True
-            else:
-                self.is_valid = False
-        else:
+            # if self._forwards_combo.currentText():
+            #     self.is_valid = True
+            # else:
+            #     self.is_valid = False
+        else:  # 'compute forward' case
             self._select_montage_dialog.setDisabled(False)
             self._montages_combo_widget.setDisabled(True)
-            if self._select_montage_dialog.path_ledit.text():
-                self.is_valid = True
-            else:
-                self.is_valid = False
+            # if self._select_montage_dialog.path_ledit.text():
+            #     self.is_valid = True
+            # else:
+            #     self.is_valid = False
             self._select_montage_dialog.browse_button.setFocus()
+        QTimer.singleShot(0, self._check_if_valid)
 
     def _on_montage_path_changed(self):
-        if self._select_montage_dialog.path_ledit.text():
-            self.is_valid = True
+        # if self._select_montage_dialog.path_ledit.text():
+        #     self.is_valid = True
+        if self._custom_montage_widget.checkbox.isChecked():
+            self._custom_montage_widget.lineedit.setText(
+                self._select_montage_dialog.path_ledit.text()
+            )
+        QTimer.singleShot(0, self._check_if_valid)
+
+    def _check_if_valid(self):
+        is_montage_valid = self._check_montage()
+        if (
+            self._use_default_montage_radio.isChecked()
+            and not self._forwards_combo.currentText()
+        ):
+            is_forward_ok = False
+        else:
+            is_forward_ok = True
+        self.is_valid = is_montage_valid and is_forward_ok
+        if not is_montage_valid:
+            self.parent()._dialog_buttons.button(
+                QDialogButtonBox.Ok
+            ).setToolTip(
+                "Data and forward channel names dont match."
+                " Please edit montage or select another forward."
+            )
+        elif not is_forward_ok:
+            self.parent()._dialog_buttons.button(
+                QDialogButtonBox.Ok
+            ).setToolTip("Forward model is missing.")
+        else:
+            self.parent()._dialog_buttons.button(
+                QDialogButtonBox.Ok
+            ).setToolTip("")
+
+    def _check_montage(self):
+        montage_name = self.montage
+        if montage_name != "imported":
+            try:
+                montage = mne.channels.read_montage(montage_name)
+            except ValueError:
+                montage_path = op.join(MONTAGES_DIR, montage_name) + ".elc"
+                try:
+                    montage = mne.channels.read_montage(montage_path)
+                except Exception:
+                    return False
+            ch_names_forward = montage.ch_names
+        else:
+            fwd_path = op.join(
+                self._anat_folder, self.montage, self.spacing, self.fwd_name
+            )
+            fwd = mne.read_forward_solution(fwd_path)
+            ch_names_forward = fwd["info"]["ch_names"]
+
+        data_chnames_upper = [d.upper() for d in self._data_chnames]
+        ch_names_intersect = [
+            n for n in ch_names_forward if n.upper() in data_chnames_upper
+        ]
+        if len(ch_names_intersect) > 0.2 * len(self._data_chnames):
+            return True
+        else:
+            return False
 
     @property
     def montage(self):
         montage = None
-        if self._use_default_montage_radio.isChecked():
-            montage = self._montages_combo.currentText()
+        if not self._custom_montage_widget.checkbox.isChecked():
+            if self._use_default_montage_radio.isChecked():
+                montage = self._montages_combo.currentText()
+            else:
+                montage = self._select_montage_dialog.path_ledit.text()
         else:
-            montage = self._select_montage_dialog.path_ledit.text()
+            montage = self._custom_montage_widget.lineedit.text()
         return montage
 
     @montage.setter
     def montage(self, value):
-        if self._use_default_montage_radio.isChecked():
-            self._montages_combo.setCurrentText(value)
+        if not self._custom_montage_widget.checkbox.isChecked():
+            if self._use_default_montage_radio.isChecked():
+                self._montages_combo.setCurrentText(value)
+            else:
+                self._select_montage_dialog.path_ledit.setText(value)
         else:
-            self._select_montage_dialog.path_ledit.setText(value)
+            self._custom_montage_widget.lineedit.setText(value)
 
     @property
     def spacing(self):
@@ -525,24 +759,49 @@ class _FwdGeomGroupbox(_StateAwareGroupbox):
     @is_use_available.setter
     def is_use_available(self, value):
         self._is_use_available = value
+        self._use_default_montage_radio.setChecked(True)
         if value:
             self._set_combos_to_available()
         else:
+            # forward computation case
             self._set_combos_to_builtin()
+
+    def _on_edit_montage_button_clicked(self):
+        m = mne.channels.read_montage(self.montage)
+        montage_editor = MontageEditor(self._data_chnames, m, self)
+        montage_editor.exec()
+        if montage_editor.result():
+            self.montage = montage_editor.montage_path
+        QTimer.singleShot(0, self._check_if_valid)
+
+    def _on_custom_montage_checkbox_toggled(self, state):
+        if state:
+            if self._use_default_montage_radio.isChecked():
+                montage = self._montages_combo.currentText()
+            else:
+                montage = self._select_montage_dialog.path_ledit.text()
+            self._custom_montage_widget.lineedit.setText(montage)
 
 
 class _ImportFwdGroupbox(_StateAwareGroupbox):
     """Groupbox for loading forward model from file"""
-    def __init__(self, title='Import forward model', parent=None):
-        super().__init__(title=title, parent=parent)
+
+    def __init__(
+        self, title="Import forward model", parent=None, data_chnames=None
+    ):
+        _StateAwareGroupbox.__init__(self, title=title, parent=parent)
+        self._data_chnames = data_chnames
         self.is_valid = False
         self.is_active = False
         self.select_fwd_dialog = _FileSelectorWidget(
-            dialog_caption='Select forward model', path='',
-            file_filter='*fwd.fif')
+            dialog_caption="Select forward model",
+            path="",
+            file_filter="*fwd.fif",
+        )
 
         self.select_fwd_dialog.path_ledit.textChanged.connect(
-            self._on_path_changed)
+            self._on_path_changed
+        )
 
         import_fwd_layout = QVBoxLayout()
         import_fwd_layout.addWidget(self.select_fwd_dialog)
@@ -551,36 +810,60 @@ class _ImportFwdGroupbox(_StateAwareGroupbox):
         self.setVisible(True)
 
     def _on_path_changed(self):
-        self.is_valid = True
+        fwd_path = self.select_fwd_dialog.path_ledit.text()
+        fwd = mne.read_forward_solution(fwd_path)
+        ch_names_forward = fwd["info"]["ch_names"]
+
+        data_chnames_upper = [d.upper() for d in self._data_chnames]
+        ch_names_intersect = [
+            n for n in ch_names_forward if n.upper() in data_chnames_upper
+        ]
+        if len(ch_names_intersect) > 0.2 * len(self._data_chnames):
+            self.parent()._dialog_buttons.button(
+                QDialogButtonBox.Ok
+            ).setToolTip("")
+            self.is_valid = True
+        else:
+            self.parent()._dialog_buttons.button(
+                QDialogButtonBox.Ok
+            ).setToolTip(
+                "Data and forward channel names dont match."
+                " Please select another forward."
+            )
+            self.is_valid = False
 
 
 class _ComputeFwdGroupbox(_StateAwareGroupbox):
     """Groupbox with parameters for forward computation"""
 
-    def __init__(self, title='Compute forward', parent=None):
-        super().__init__(title=title, parent=parent)
+    def __init__(self, title="Forward computation parameters", parent=None):
+        _StateAwareGroupbox.__init__(self, title=title, parent=parent)
 
         self.default_coreg_file = None
         self._is_valid = True
         self.is_active = False
         # -------- create widgets -------- #
-        self._no_coreg_radio = QRadioButton('None')
-        self._select_coreg_radio = QRadioButton('Select')
+        self._no_coreg_radio = QRadioButton("None")
+        self._select_coreg_radio = QRadioButton("Select")
         self._select_coreg_widget = _FileSelectorWidget(
-            dialog_caption='Select coregistration file',
-            file_filter='*trans.fif')
+            dialog_caption="Select coregistration file",
+            file_filter="*trans.fif",
+        )
 
         cond_defaults = self._get_default_mne_conductivities()
         self._brain_conductivity_spinbox = QDoubleSpinBox(
-            singleStep=0.001, decimals=3, value=cond_defaults[0])
+            singleStep=0.001, decimals=3, value=cond_defaults[0]
+        )
 
         self._skull_conductivity_spinbox = QDoubleSpinBox(
-            singleStep=0.001, decimals=3, value=cond_defaults[1])
+            singleStep=0.001, decimals=3, value=cond_defaults[1]
+        )
 
         self._scalp_conductivity_spinbox = QDoubleSpinBox(
-            singleStep=0.001, decimals=3, value=cond_defaults[2])
+            singleStep=0.001, decimals=3, value=cond_defaults[2]
+        )
 
-        conductivity_label = QLabel('Conductivities:')
+        conductivity_label = QLabel("Conductivities:")
         conductivity_label.setBuddy(self._brain_conductivity_spinbox)
         # -------------------------------- #
 
@@ -591,7 +874,8 @@ class _ComputeFwdGroupbox(_StateAwareGroupbox):
         self._select_coreg_widget.setDisabled(True)
 
         self._select_coreg_widget.path_ledit.textChanged.connect(
-            self._on_path_changed)
+            self._on_path_changed
+        )
         # ------------------------------------------------- #
 
         # Coregistration subgpbox
@@ -600,7 +884,7 @@ class _ComputeFwdGroupbox(_StateAwareGroupbox):
         coreg_layout.addWidget(self._select_coreg_radio)
         coreg_layout.addWidget(self._select_coreg_widget)
 
-        coreg_gpbox = QGroupBox('Coregistration file')
+        coreg_gpbox = QGroupBox("Coregistration file")
         coreg_gpbox.setSizePolicy(QSizePolicy.Minimum, QSizePolicy.Fixed)
         coreg_gpbox.setLayout(coreg_layout)
         ##
@@ -618,7 +902,7 @@ class _ComputeFwdGroupbox(_StateAwareGroupbox):
 
     def _get_default_mne_conductivities(self):
         sign = inspect.signature(mne.make_bem_model)
-        return sign.parameters['conductivity'].default
+        return sign.parameters["conductivity"].default
 
     def _on_toggled(self):
         if self._no_coreg_radio.isChecked():
@@ -641,7 +925,8 @@ class _ComputeFwdGroupbox(_StateAwareGroupbox):
         conductivity = (
             self._brain_conductivity_spinbox.value(),
             self._skull_conductivity_spinbox.value(),
-            self._scalp_conductivity_spinbox.value())
+            self._scalp_conductivity_spinbox.value(),
+        )
         return conductivity
 
     @property
@@ -660,12 +945,22 @@ class BadInputFile(Exception):
 class ComputeFwdInThread(ThreadToBeWaitedFor):
     """Compute forward model in parallel thread"""
 
-    def __init__(self, montage, subjects_dir, subject,
-                 spacing, conductivity, trans_file, dest_dir, n_jobs=8,
-                 verbose='ERROR', parent=None):
-        super().__init__(parent=parent)
-        self.progress_text = 'Computing forward model... Please be patient.'
-        self.error_text = 'Forward model computation failed.'
+    def __init__(
+        self,
+        montage,
+        subjects_dir,
+        subject,
+        spacing,
+        conductivity,
+        trans_file,
+        dest_dir,
+        n_jobs=8,
+        verbose="ERROR",
+        parent=None,
+    ):
+        ThreadToBeWaitedFor.__init__(self, parent=parent)
+        self.progress_text = "Computing forward model... Please be patient."
+        self.error_text = "Forward model computation failed."
         self.montage = montage
         self.subjects_dir = subjects_dir
         self.subject = subject
@@ -679,7 +974,7 @@ class ComputeFwdInThread(ThreadToBeWaitedFor):
         self.is_show_progress = True
 
         montage_kind = op.splitext(op.basename(montage))[0]
-        fwd_name = '-'.join([subject, 'eeg', spacing, montage_kind, 'fwd.fif'])
+        fwd_name = "-".join([subject, "eeg", spacing, montage_kind, "fwd.fif"])
         self.fwd_savename = op.join(dest_dir, montage_kind, spacing, fwd_name)
 
         self._logger = logging.getLogger(type(self).__name__)
@@ -687,16 +982,18 @@ class ComputeFwdInThread(ThreadToBeWaitedFor):
     def no_blocking_execution(self):
         if op.isfile(self.fwd_savename):
             ans = QMessageBox.question(
-                self.parent(), 'Destination file exists',
+                self.parent(),
+                "Destination file exists",
                 'Forward model file "%s" already exists.'
-                ' Recomtute?' % self.fwd_savename,
-                QMessageBox.Yes | QMessageBox.No)
+                " Recomtute?" % self.fwd_savename,
+                QMessageBox.Yes | QMessageBox.No,
+            )
             if ans == QMessageBox.Yes:
-                return super().no_blocking_execution()
+                return ThreadToBeWaitedFor.no_blocking_execution(self)
             else:
                 return True  # success since forward model is already there
         else:
-            return super().no_blocking_execution()
+            return ThreadToBeWaitedFor.no_blocking_execution(self)
 
     def _run(self):
         """Compute 3-layer BEM based forward model from montage and anatomy"""
@@ -709,59 +1006,75 @@ class ComputeFwdInThread(ThreadToBeWaitedFor):
         dest_dir = self.dest_dir
         n_jobs = self.n_jobs
         verbose = self.verbose
-        self._logger.debug('Computing forward with the following parameters.')
-        self._logger.debug('montage: %s', montage)
-        self._logger.debug('SUBJECT: %s', subject)
-        self._logger.debug('SUBJECTS_DIR: %s', subjects_dir)
-        self._logger.debug('spacing: %s', spacing)
-        self._logger.debug('trans_file: %s', trans_file)
-        self._logger.debug('conductivity: %s', conductivity)
-        self._logger.debug('dest_dir: %s', dest_dir)
+        self._logger.debug("Computing forward with the following parameters.")
+        self._logger.debug("montage: %s", montage)
+        self._logger.debug("SUBJECT: %s", subject)
+        self._logger.debug("SUBJECTS_DIR: %s", subjects_dir)
+        self._logger.debug("spacing: %s", spacing)
+        self._logger.debug("trans_file: %s", trans_file)
+        self._logger.debug("conductivity: %s", conductivity)
+        self._logger.debug("dest_dir: %s", dest_dir)
 
         try:
             montage = mne.channels.read_montage(kind=montage)
         except Exception:
-            raise BadInputFile('Bad montage file: %s' % montage)
+            raise BadInputFile("Bad montage file: %s" % montage)
 
         os.makedirs(op.dirname(self.fwd_savename), exist_ok=True)
 
-        fiducials = ['LPA', 'RPA', 'Nz', 'FidT9', 'FidT10', 'FidNz']
-        self._logger.info('Setting up the source space ...')
-        src = mne.setup_source_space(subject, spacing=spacing,
-                                     subjects_dir=subjects_dir,
-                                     add_dist=False, verbose=verbose)
+        fiducials = ["LPA", "RPA", "Nz", "FidT9", "FidT10", "FidNz"]
+        self._logger.info("Setting up the source space ...")
+        src = mne.setup_source_space(
+            subject,
+            spacing=spacing,
+            subjects_dir=subjects_dir,
+            add_dist=False,
+            verbose=verbose,
+        )
         self.progress_updated.emit(25)
 
         # raise Exception('Some catastrophic shit happened')
-        self._logger.info('Creating bem model (be patient) ...')
-        model = mne.make_bem_model(subject=subject, ico=4,
-                                   conductivity=conductivity,
-                                   subjects_dir=subjects_dir,
-                                   verbose=verbose)
+        self._logger.info("Creating bem model (be patient) ...")
+        model = mne.make_bem_model(
+            subject=subject,
+            ico=4,
+            conductivity=conductivity,
+            subjects_dir=subjects_dir,
+            verbose=verbose,
+        )
         self.progress_updated.emit(50)
         bem = mne.make_bem_solution(model, verbose=verbose)
         self.progress_updated.emit(75)
         if not trans_file:
             trans_file = None
         n_jobs = n_jobs
-        self._logger.info('Computing forward solution (be patient) ...')
+        self._logger.info("Computing forward solution (be patient) ...")
         ch_names = montage.ch_names
         ch_names = [c for c in ch_names if c not in fiducials]
-        info = mne.create_info(ch_names, sfreq=1, ch_types='eeg')
-        raw = mne.io.RawArray(np.ones([len(info['ch_names']), 1]), info,
-                              verbose=verbose)
+        info = mne.create_info(ch_names, sfreq=1, ch_types="eeg")
+        raw = mne.io.RawArray(
+            np.ones([len(info["ch_names"]), 1]), info, verbose=verbose
+        )
         raw.set_montage(montage)
 
         ch_names = montage.ch_names
         ch_names = [c for c in ch_names if c not in fiducials]
-        fwd = mne.make_forward_solution(raw.info, trans=trans_file,
-                                        src=src, bem=bem, meg=False,
-                                        eeg=True, mindist=5.0,
-                                        n_jobs=n_jobs, verbose=verbose)
+        fwd = mne.make_forward_solution(
+            raw.info,
+            trans=trans_file,
+            src=src,
+            bem=bem,
+            meg=False,
+            eeg=True,
+            mindist=5.0,
+            n_jobs=n_jobs,
+            verbose=verbose,
+        )
         self.progress_updated.emit(100)
 
-        mne.write_forward_solution(self.fwd_savename,
-                                   fwd, overwrite=True, verbose=verbose)
+        mne.write_forward_solution(
+            self.fwd_savename, fwd, overwrite=True, verbose=verbose
+        )
 
 
 class FwdSetupDialog(QDialog):
@@ -786,15 +1099,21 @@ class FwdSetupDialog(QDialog):
         subject name corresponding to a subfolder of SUBJECTS_DIR
 
     """
-    def __init__(self, parent=None):
-        super().__init__(parent)
+
+    def __init__(
+        self, parent=None, subjects_dir=None, subject=None, data_chnames=None
+    ):
+        QDialog.__init__(self, parent)
+
         self._is_ok_to_close = True
         # -------- create widgets -------- #
-        self._anat_gpbox = _AnatGroupbox()
+        self._anat_gpbox = _AnatGroupbox(subjects_dir=None, subject=None)
         self._forward_gpbox = _FwdOptionsRadioButtons()
-        self._fwd_geom_gpbox = _FwdGeomGroupbox(self._anat_gpbox.default_subj)
+        self._fwd_geom_gpbox = _FwdGeomGroupbox(
+            self._anat_gpbox.default_subj, data_chnames=data_chnames
+        )
         self._compute_fwd_gpbox = _ComputeFwdGroupbox()
-        self._import_fwd_gpbox = _ImportFwdGroupbox()
+        self._import_fwd_gpbox = _ImportFwdGroupbox(data_chnames=data_chnames)
         # -------------------------------- #
 
         # -------- setup widgets and connects slots -------- #
@@ -802,29 +1121,31 @@ class FwdSetupDialog(QDialog):
         self._import_fwd_gpbox.is_active = False
 
         self._anat_gpbox.import_anat_radio.toggled.connect(
-            self._on_anat_radio_toggled)
+            self._on_anat_radio_toggled
+        )
         self._anat_gpbox.subject_combobox.currentTextChanged.connect(
-            self._reset_forward_groupbox)
+            self._reset_forward_groupbox
+        )
 
         self._forward_gpbox.use_default_fwd_radio.toggled.connect(
-            self._on_fwd_option_toggled)
+            self._on_fwd_option_toggled
+        )
 
         self._forward_gpbox.import_fwd_radio.toggled.connect(
-            self._on_fwd_option_toggled)
+            self._on_fwd_option_toggled
+        )
         self._forward_gpbox.import_fwd_radio.toggled.connect(
-            self._import_fwd_gpbox.select_fwd_dialog.browse_button.setFocus)
+            self._import_fwd_gpbox.select_fwd_dialog.browse_button.setFocus
+        )
 
         self._forward_gpbox.compute_fwd_radio.toggled.connect(
-            self._on_fwd_option_toggled)
+            self._on_fwd_option_toggled
+        )
 
-        self._anat_gpbox.state_changed.connect(
-            self._states_changed)
-        self._compute_fwd_gpbox.state_changed.connect(
-            self._states_changed)
-        self._import_fwd_gpbox.state_changed.connect(
-            self._states_changed)
-        self._fwd_geom_gpbox.state_changed.connect(
-            self._states_changed)
+        self._anat_gpbox.state_changed.connect(self._states_changed)
+        self._compute_fwd_gpbox.state_changed.connect(self._states_changed)
+        self._import_fwd_gpbox.state_changed.connect(self._states_changed)
+        self._fwd_geom_gpbox.state_changed.connect(self._states_changed)
         # -------------------------------------------------- #
 
         # ------------- layout ------------- #
@@ -836,8 +1157,9 @@ class FwdSetupDialog(QDialog):
         main_layout.addWidget(self._compute_fwd_gpbox)
 
         outer_layout = QVBoxLayout()
-        self._dialog_buttons = QDialogButtonBox(QDialogButtonBox.Ok |
-                                                QDialogButtonBox.Cancel)
+        self._dialog_buttons = QDialogButtonBox(
+            QDialogButtonBox.Ok | QDialogButtonBox.Cancel
+        )
         self._dialog_buttons.accepted.connect(self._on_ok)
         self._dialog_buttons.rejected.connect(self.reject)
         outer_layout.addLayout(main_layout)
@@ -845,8 +1167,9 @@ class FwdSetupDialog(QDialog):
         self.setLayout(outer_layout)
         # ---------------------------------- #
 
-        self.subjects_dir = self._anat_gpbox.subjects_dir
-        self.subject = self._anat_gpbox.subject
+        self.subjects_dir = None
+        self.subject = None
+        self.fwd_path = None
 
         self.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
 
@@ -866,13 +1189,19 @@ class FwdSetupDialog(QDialog):
             self._compute_fwd_gpbox.is_active = False
             self._fwd_geom_gpbox.is_active = True
             self._fwd_geom_gpbox.get_available_forwards(
-                op.join(
-                    COGNIGRAPH_DATA, 'forwards', self._anat_gpbox.subject))
+                op.join(COGNIGRAPH_DATA, "forwards", self._anat_gpbox.subject)
+            )
             self._fwd_geom_gpbox.is_use_available = True
+            self._fwd_geom_gpbox._custom_montage_widget.checkbox.setCheckState(
+                False
+            )
         elif self._forward_gpbox.import_fwd_radio.isChecked():
             self._import_fwd_gpbox.is_active = True
             self._compute_fwd_gpbox.is_active = False
             self._fwd_geom_gpbox.is_active = False
+            self._fwd_geom_gpbox._custom_montage_widget.checkbox.setCheckState(
+                False
+            )
         elif self._forward_gpbox.compute_fwd_radio.isChecked():
             self._import_fwd_gpbox.is_active = False
             self._compute_fwd_gpbox.is_active = True
@@ -899,20 +1228,21 @@ class FwdSetupDialog(QDialog):
         """Called when OK button is clicked"""
         self.is_ok_to_close = True
         self.subjects_dir = self._anat_gpbox.subjects_dir
-        self._logger.debug(
-            'Subjects dir is set to "%s".' % self.subjects_dir)
+        self._logger.debug('Subjects dir is set to "%s".' % self.subjects_dir)
         self.subject = self._anat_gpbox.subject
         self._logger.debug('Subject is set to "%s"' % self.subject)
         if self._anat_gpbox.import_anat_radio.isChecked():
             self._copy_anat_to_folders_struct(self.subjects_dir, self.subject)
         self._cur_anat_fwds_path = op.join(
-            COGNIGRAPH_DATA, 'forwards', self.subject)
+            COGNIGRAPH_DATA, "forwards", self.subject
+        )
         if self._forward_gpbox.use_default_fwd_radio.isChecked():
             montage = self._fwd_geom_gpbox.montage
             spacing = self._fwd_geom_gpbox.spacing
             fwd_name = self._fwd_geom_gpbox.fwd_name
             self.fwd_path = op.join(
-                self._cur_anat_fwds_path, montage, spacing, fwd_name)
+                self._cur_anat_fwds_path, montage, spacing, fwd_name
+            )
 
         elif self._forward_gpbox.import_fwd_radio.isChecked():
             path = self._import_fwd_gpbox.select_fwd_dialog.path_ledit.text()
@@ -923,14 +1253,15 @@ class FwdSetupDialog(QDialog):
                     msg = QMessageBox(self)
                     msg.setIcon(QMessageBox.Warning)
                     msg.setText(
-                        'Failed to copy %s inside'
-                        ' cognigraph folders structure' % path)
+                        "Failed to copy %s inside"
+                        " cognigraph folders structure" % path
+                    )
                     msg.setDetailedText(str(e))
                     msg.show()
             else:
                 msg = QMessageBox(self)
                 msg.setIcon(QMessageBox.Warning)
-                msg.setText('%s is not a file' % path)
+                msg.setText("%s is not a file" % path)
 
         elif self._forward_gpbox.compute_fwd_radio.isChecked():
             # -------------------- gather parameters -------------------- #
@@ -941,78 +1272,94 @@ class FwdSetupDialog(QDialog):
             dest_dir = self._cur_anat_fwds_path
             # ----------------------------------------------------------- #
 
-            thread_run = ComputeFwdInThread(montage, self.subjects_dir,
-                                            self.subject, spacing,
-                                            conductivity, trans_file,
-                                            dest_dir, n_jobs=1,
-                                            verbose='ERROR', parent=self)
+            thread_run = ComputeFwdInThread(
+                montage,
+                self.subjects_dir,
+                self.subject,
+                spacing,
+                conductivity,
+                trans_file,
+                dest_dir,
+                n_jobs=1,
+                verbose="ERROR",
+                parent=self,
+            )
             self._is_ok_to_close = thread_run.no_blocking_execution()
             if self._is_ok_to_close:
                 self.fwd_path = thread_run.fwd_savename
 
         if self._is_ok_to_close:
             self._logger.debug(
-                'Forward model path is set to "%s"' % self.fwd_path)
+                'Forward model path is set to "%s"' % self.fwd_path
+            )
             self.accept()
 
-    def _copy_fwd_to_folders_struct(self, src_path, montage='imported',
-                                    spacing='imported'):
+    def _copy_fwd_to_folders_struct(
+        self, src_path, montage="imported", spacing="imported"
+    ):
         dest_dir = op.join(self._cur_anat_fwds_path, montage, spacing)
         fname = op.split(src_path)[1]
         dest_path = op.join(dest_dir, fname)
         try:
             os.makedirs(dest_dir)
         except OSError:
-            self._logger.warning('Destination folder %s exists.' % dest_dir)
-        self._logger.info('Copying to %s' % dest_dir)
+            self._logger.warning("Destination folder %s exists." % dest_dir)
+        self._logger.info("Copying to %s" % dest_dir)
         shutil.copyfile(src_path, dest_path)
         return dest_path
 
     def _copy_anat_to_folders_struct(self, src_subjects_dir, subject):
-        dest_subjects_dir = op.join(COGNIGRAPH_DATA, 'anatomy')
+        dest_subjects_dir = op.join(COGNIGRAPH_DATA, "anatomy")
         src_path = op.join(src_subjects_dir, subject)
         dest_path = op.join(dest_subjects_dir, subject)
         if not op.isdir(op.join(dest_subjects_dir, subject)):
-            self._logger.info('Copying anatomy to %s ' % dest_subjects_dir)
+            self._logger.info("Copying anatomy to %s " % dest_subjects_dir)
             shutil.copytree(src_path, dest_path)
         elif src_path != dest_path:
             answer = QMessageBox.question(
-                self, 'Destination folder exists',
+                self,
+                "Destination folder exists",
                 'Anatomy for subject "%s" exists. Overwrite?' % subject,
-                QMessageBox.Yes | QMessageBox.No)
+                QMessageBox.Yes | QMessageBox.No,
+            )
             if answer == QMessageBox.Yes:
                 self._logger.info(
-                    'Overwriting anatomy for subject %s.' % subject)
+                    "Overwriting anatomy for subject %s." % subject
+                )
                 shutil.rmtree(dest_path)
                 shutil.copytree(src_path, dest_path)
             else:
                 self._logger.info(
-                    'Keeping existing anatomy for subject %s.' % subject)
+                    "Keeping existing anatomy for subject %s." % subject
+                )
         else:
-            self._logger.info('Source and destination folders are the same.'
-                              ' Skipping.')
+            self._logger.info(
+                "Source and destination folders are the same." " Skipping."
+            )
         return dest_path
 
     def _reset_forward_groupbox(self):
-        if (self._anat_gpbox.is_use_available_anat and
-                self._forward_gpbox.use_default_fwd_radio.isChecked()):
+        if (
+            self._anat_gpbox.is_use_available_anat
+            and self._forward_gpbox.use_default_fwd_radio.isChecked()
+        ):
             self._fwd_geom_gpbox.get_available_forwards(
-                op.join(
-                    COGNIGRAPH_DATA, 'forwards', self._anat_gpbox.subject))
+                op.join(COGNIGRAPH_DATA, "forwards", self._anat_gpbox.subject)
+            )
             self._fwd_geom_gpbox.is_use_available = True
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     from PyQt5.QtWidgets import QApplication
     import sys
 
-    format = '%(asctime)s:%(name)-17s:%(levelname)s:%(message)s'
+    format = "%(asctime)s:%(name)-17s:%(levelname)s:%(message)s"
     logging.basicConfig(level=logging.DEBUG, filename=None, format=format)
 
     class MW(QMainWindow):
         def __init__(self, parent=None):
-            super().__init__(parent)
-            self.button = QPushButton('Push me')
+            QMainWindow.__init__(self, parent)
+            self.button = QPushButton("Push me")
             self.button.clicked.connect(self._on_clicked)
             self.dialog = FwdSetupDialog(parent=self)
             self.setCentralWidget(self.button)

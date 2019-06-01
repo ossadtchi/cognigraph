@@ -5,16 +5,20 @@ import nibabel as nib
 from ..gui.brain_visual import BrainMesh
 
 
-def get_mesh_data_from_surfaces_dir(surfaces_dir, translucent=False,
-                                    cortex_type='inflated'):
-    surfaces_dir = op.join(surfaces_dir, 'surf')
+def get_mesh_data_from_surfaces_dir(
+    surfaces_dir, translucent=False, cortex_type="inflated"
+):
+    surfaces_dir = op.join(surfaces_dir, "surf")
     if surfaces_dir:
-        surf_paths = [op.join(surfaces_dir, '{}.{}'.format(h, cortex_type))
-                      for h in ('lh', 'rh')]
+        surf_paths = [
+            op.join(surfaces_dir, "{}.{}".format(h, cortex_type))
+            for h in ("lh", "rh")
+        ]
     else:
-        raise NameError('surfaces_dir is not set')
-    lh_mesh, rh_mesh = [nib.freesurfer.read_geometry(surf_path)
-                        for surf_path in surf_paths]
+        raise NameError("surfaces_dir is not set")
+    lh_mesh, rh_mesh = [
+        nib.freesurfer.read_geometry(surf_path) for surf_path in surf_paths
+    ]
     lh_vertexes, lh_faces = lh_mesh
     rh_vertexes, rh_faces = rh_mesh
 

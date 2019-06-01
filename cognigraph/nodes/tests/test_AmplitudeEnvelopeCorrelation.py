@@ -31,6 +31,7 @@ def test_change_api_attributes(amp_correlator):
     amp_correlator.initialize()
     amp_correlator._envelope_extractor = None
     amp_correlator.factor = arbitrary_value_2
+    amp_correlator.update()
 
     assert amp_correlator._envelope_extractor is not None
 
@@ -44,6 +45,6 @@ def test_input_hist_invalidation_resets_filter_delays(amp_correlator):
     zi_ini = amp_correlator._envelope_extractor.zi
     amp_correlator._envelope_extractor.zi = arbitrary_value
 
-    amp_correlator.parent.source_name = 'new_name'  # triggers reset for source
+    amp_correlator._on_input_history_invalidation()
 
     assert np.array_equal(amp_correlator._envelope_extractor.zi, zi_ini)

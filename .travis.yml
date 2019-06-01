@@ -18,7 +18,7 @@ install:
 
 script:
     - pytest cognigraph/ --cov
-    - flake8 --count cognigraph
+    - flake8 --count cognigraph --ignore E203,W503
 
 after_success:
     - codecov

@@ -31,6 +31,7 @@ def test_change_api_attributes(env_extractor):
     env_extractor.initialize()
     env_extractor._envelope_extractor = None
     env_extractor.factor = arbitrary_value_2
+    env_extractor.update()
 
     assert env_extractor._envelope_extractor is not None
 
@@ -43,7 +44,6 @@ def test_input_hist_invalidation_resets_filter_delays(env_extractor):
 
     zi_ini = env_extractor._envelope_extractor.zi
     env_extractor._envelope_extractor.zi = arbitrary_value
-
-    env_extractor.parent.source_name = 'new_name'  # triggers reset for source
+    env_extractor._on_input_history_invalidation()
 
     assert np.array_equal(env_extractor._envelope_extractor.zi, zi_ini)

@@ -13,7 +13,7 @@ def inv_model(info, fwd_model_path, data_path):  # noqa
     snr = 1
     method = 'MNE'
     inv_model = MNE(
-        snr=snr, forward_model_path=fwd_model_path, method=method)
+        snr=snr, fwd_path=fwd_model_path, method=method)
     inv_model.mne_info = info
     N_SEN = len(info['ch_names'])
     inv_model.input = np.random.rand(N_SEN)
@@ -35,7 +35,7 @@ def inv_model_def(info):  # noqa
 
 
 def test_defaults(inv_model_def):
-    assert(inv_model_def.mne_forward_model_file_path is None)
+    assert(inv_model_def.fwd_path is None)
     assert(inv_model_def.mne_info is None)
 
 
@@ -50,6 +50,7 @@ def test_change_api_attributes(inv_model):
 
     arbitrary_value = 1
     inv_model.snr += arbitrary_value
+    inv_model.update()
 
     assert l2_old != inv_model._lambda2
     assert inv_model._lambda2 == 1 / (snr_old + arbitrary_value) ** 2

@@ -2,6 +2,9 @@
 import pytest
 from cognigraph.nodes.processors import Preprocessing
 from cognigraph.nodes.sources import FileSource
+from cognigraph.gui.async_pipeline_update import AsyncUpdater
+from PyQt5.QtCore import QCoreApplication
+import sys
 
 from cognigraph.nodes.tests.prepare_tests_data import info, data_path  # noqa
 import numpy as np
@@ -17,6 +20,9 @@ def preprocessor(info, data_path):  # noqa
     parent.output = np.random.rand(info['nchan'], 1)
     parent.mne_info = info
     preprocessor.parent = parent
+
+    app = QCoreApplication(sys.argv)
+    parent.updater = AsyncUpdater(app, parent)
     return preprocessor
 
 
@@ -28,7 +34,8 @@ def test_change_api_attributes(preprocessor):
     preprocessor.initialize()
     preprocessor._samples_collected = arbitrary_value
     preprocessor.collect_for_x_seconds = 20
-    assert preprocessor._samples_collected == 0
+    preprocessor.update()
+    assert preprocessor._samples_collected == 1  # since one update happened
 
     preprocessor._samples_collected = arbitrary_value
     preprocessor.dsamp_freq = 8
@@ -42,6 +49,10 @@ def test_input_hist_invalidation_resets_statistics(preprocessor):
     preprocessor.initialize()
 
     preprocessor._samples_collected = arbitrary_value
-    preprocessor.parent.source_name = 'new_name'  # triggers reset for source
+    preprocessor.on_input_history_invalidation()
 
     assert preprocessor._samples_collected == 0
+
+
+def test_pass(preprocessor):
+    pass

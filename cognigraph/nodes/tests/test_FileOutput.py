@@ -30,10 +30,11 @@ def test_change_api_attributes(file_outputter, tmp_path):
     arbitrary_name = op.join(tmp_path, 'somename.h5')
 
     file_outputter.initialize()
-    out_file_ini = file_outputter.out_file
+    out_file_ini = file_outputter._out_file
     file_outputter.output_fname = arbitrary_name
+    file_outputter.update()
 
-    assert file_outputter.out_file is not out_file_ini
+    assert file_outputter._out_file is not out_file_ini
 
 
 def test_input_hist_invalidation_resets_statistics(file_outputter):

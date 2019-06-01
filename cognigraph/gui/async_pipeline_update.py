@@ -1,11 +1,13 @@
-from PyQt5.QtCore import QThread, QObject, Qt, pyqtSignal, QEventLoop
+from PyQt5.QtCore import QThread, QObject, Qt, pyqtSignal, QEventLoop, pyqtSlot
 from PyQt5.QtWidgets import QProgressDialog, QApplication, QMessageBox
 import logging
 import time
+import traceback
 
 
 class _Communicate(QObject):
     """Pyqt signals sender"""
+
     sync_signal = pyqtSignal()
 
 
@@ -13,27 +15,27 @@ class AsyncUpdater(QThread):
     _stop_flag = False
 
     def __init__(self, app, pipeline):
-        super(AsyncUpdater, self).__init__()
-        self.sender = _Communicate()
-        self.sender.sync_signal.connect(
+        QThread.__init__(self)
+        self._sender = _Communicate()
+        self._sender.sync_signal.connect(
             self.process_events_on_main_thread,
-            type=Qt.BlockingQueuedConnection)
+            type=Qt.BlockingQueuedConnection,
+        )
         self.is_paused = True
         self.app = app
-        self.logger = logging.getLogger(type(self).__name__)
-        self.pipeline = pipeline
+        self._logger = logging.getLogger(type(self).__name__)
+        self._pipeline = pipeline
 
     def process_events_on_main_thread(self):
         self.app.processEvents()
 
     def run(self):
         self._stop_flag = False
-        self.logger.info('Start pipeline')
 
         is_first_iter = True
         while True:
             # start = time.time()
-            self.pipeline.update()
+            self._pipeline.update()
             # end = time.time()
             if is_first_iter:
                 # without this hack widgets are not updated unless
@@ -41,23 +43,29 @@ class AsyncUpdater(QThread):
                 time.sleep(0.05)
                 is_first_iter = False
 
-            self.sender.sync_signal.emit()
+            self._sender.sync_signal.emit()
             if self._stop_flag is True:
                 QApplication.processEvents()
                 break
 
+    def start(self):
+        if self.is_paused:
+            self.is_paused = False
+            self._stop_flag = False
+            self._logger.info("Start pipeline")
+            QThread.start(self)
+
     def stop(self):
-        self.logger.info('Stop pipeline')
-        self._stop_flag = True
+        if not self.is_paused:
+            self.is_paused = True
+            self._logger.info("Stop pipeline")
+            self._stop_flag = True
 
     def toggle(self):
         if self.is_paused:
-            self.is_paused = False
             self.start()
         else:
-            self.is_paused = True
             self.stop()
-            self.wait(1000)
 
 
 class ThreadToBeWaitedFor(QThread):
@@ -73,13 +81,18 @@ class ThreadToBeWaitedFor(QThread):
     To run the thread call no_blocking_execution method.
 
     """
-    exception_ocurred = pyqtSignal(Exception)
+
+    exception_ocurred = pyqtSignal(Exception, str)
     progress_updated = pyqtSignal(int)
 
-    def __init__(self, parent=None,
-                 progress_text='Operation is running... Please be patient',
-                 error_text='Operation failed', is_show_progress=False):
-        super().__init__(parent)
+    def __init__(
+        self,
+        parent=None,
+        progress_text="Operation is running... Please be patient",
+        error_text="Operation failed",
+        is_show_progress=False,
+    ):
+        QThread.__init__(self, parent)
         self.is_successful = True
         self.is_show_progress = is_show_progress
         self.progress_text = progress_text
@@ -87,15 +100,16 @@ class ThreadToBeWaitedFor(QThread):
 
         self.exception_ocurred.connect(self._on_run_exception)
 
-        self.logger = logging.getLogger(type(self).__name__)
+        self._logger = logging.getLogger(type(self).__name__)
 
     def run(self):
         try:
             self._run()
         except Exception as exc:
             self.is_successful = False
-            self.logger.exception(str(exc))
-            self.exception_ocurred.emit(exc)
+            self._logger.exception(exc)
+            tb = traceback.format_exc()
+            self.exception_ocurred.emit(exc, tb)
 
     def _run(self):
         raise NotImplementedError()
@@ -129,22 +143,65 @@ class ThreadToBeWaitedFor(QThread):
     # def _on_finished(self):
     #     print('Finished')
 
-    def _on_run_exception(self, exception):
+    def _on_run_exception(self, exception, tb):
         msg = QMessageBox(self.parent())
         msg.setText(self.error_text)
-        msg.setDetailedText(str(exception))
+        msg.setDetailedText(tb)
         msg.setIcon(QMessageBox.Warning)
         msg.show()
+        self._logger.exception(exception)
 
 
 class AsyncPipelineInitializer(ThreadToBeWaitedFor):
     def __init__(self, pipeline, parent=None):
-        super().__init__(parent)
+        ThreadToBeWaitedFor.__init__(self, parent)
         self.is_show_progress = False
-        self.progress_text = ('Initializing the data processing pipeline...'
-                              ' Please be patient')
-        self.error_text = 'Initialization failed. See log for details.'
-        self.pipeline = pipeline
+        self.progress_text = (
+            "Initializing the data processing pipeline... Please be patient"
+        )
+        self.error_text = "Initialization failed. See log for details."
+        self._pipeline = pipeline
 
     def _run(self):
-        self.pipeline.chain_initialize()
+        self._pipeline.chain_initialize()
+
+
+class AsyncPipelineResetter(ThreadToBeWaitedFor):
+    """Reset pipeline nodes asyncronously"""
+
+    def __init__(self, node, key, old_value, new_value, parent=None):
+        ThreadToBeWaitedFor.__init__(self, parent)
+        self._node = node
+        self._key = key
+        self._old_value = old_value
+        self._new_value = new_value
+
+    def _run(self):
+        with self._node.not_triggering_reset():
+            is_output_hist_invalid = self._node._on_critical_attr_change(
+                self._key, self._old_value, self._new_value
+            )
+        for child in self._node._children:
+            child.on_upstream_change(is_output_hist_invalid)
+
+
+class NodeInitWorker(QObject):
+    finished = pyqtSignal()
+    errored = pyqtSignal(str)
+    succeeded = pyqtSignal()
+
+    def __init__(self, node):
+        QObject.__init__(self)
+        self.node = node
+        self._logger = logging.getLogger(type(self).__name__)
+
+    @pyqtSlot()
+    def run(self):
+        try:
+            self.node.initialize()
+            self.succeeded.emit()
+        except Exception as exc:
+            self.errored.emit(str(exc))
+            self._logger.exception(exc)
+        finally:
+            self.finished.emit()

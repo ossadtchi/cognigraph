@@ -28,6 +28,7 @@ def test_change_api_attributes(ica_rejector):
     ica_rejector.initialize()
     ica_rejector._samples_collected = arbitrary_value
     ica_rejector.collect_for_x_seconds = 20
+    ica_rejector.reset()
     assert ica_rejector._samples_collected == 0
 
 
@@ -38,6 +39,6 @@ def test_input_hist_invalidation_resets_statistics(ica_rejector):
     ica_rejector.initialize()
 
     ica_rejector._samples_collected = arbitrary_value
-    ica_rejector.parent.source_name = 'new_name'  # triggers reset for source
+    ica_rejector.on_input_history_invalidation()
 
     assert ica_rejector._samples_collected == 0

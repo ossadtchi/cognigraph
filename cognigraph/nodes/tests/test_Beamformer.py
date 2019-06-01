@@ -10,7 +10,7 @@ import numpy as np
 @pytest.fixture(scope='function')  # noqa
 def beamformer(info, fwd_model_path, data_path):  # noqa
     is_adaptive = True
-    beamformer = Beamformer(forward_model_path=fwd_model_path,
+    beamformer = Beamformer(fwd_path=fwd_model_path,
                             is_adaptive=is_adaptive)
     beamformer.mne_info = info
     N_SEN = len(info['ch_names'])
@@ -33,7 +33,7 @@ def beamformer_default(info):  # noqa
 
 
 def test_defaults(beamformer_default):
-    assert beamformer_default.mne_forward_model_file_path is None
+    assert beamformer_default.fwd_path is None
     assert beamformer_default.mne_info is None
 
 
@@ -51,7 +51,7 @@ def test_reg_change(beamformer):
     """
     beamformer.initialize()
     # -------- modify covariance so it's not equal to inital -------- #
-    nchans = beamformer._mne_info['nchan']
+    nchans = beamformer._upstream_mne_info['nchan']
     ntimes = 100
     beamformer._update_covariance_matrix(np.random.rand(nchans, ntimes))
     # --------------------------------------------------------------- #
@@ -59,6 +59,7 @@ def test_reg_change(beamformer):
     filters_old = beamformer._filters.copy()
 
     beamformer.reg = 5
+    beamformer.reset()
 
     assert not np.array_equal(filters_old, beamformer._filters)
     assert np.array_equal(beamformer._data_cov.data, data_cov_old)
@@ -75,13 +76,14 @@ def test_adaptiveness_change(beamformer):
     data_cov_init = beamformer._data_cov.data
 
     # -------- modify covariance so it's not equal to inital -------- #
-    nchans = beamformer._mne_info['nchan']
+    nchans = beamformer._upstream_mne_info['nchan']
     ntimes = 100
     beamformer._update_covariance_matrix(np.random.rand(nchans, ntimes))
     # --------------------------------------------------------------- #
 
     filters = beamformer._filters.copy()
     beamformer.is_adaptive = False
+    beamformer.update()
     assert not np.array_equal(filters, beamformer._filters)
     assert np.array_equal(beamformer._data_cov.data, data_cov_init)
 
@@ -92,14 +94,14 @@ def test_input_hist_inval_triggers_reinit_for_adaptive_beamformer(beamformer):
 
     data_cov_init = beamformer._data_cov.data
     # -------- modify covariance so it's not equal to inital -------- #
-    nchans = beamformer._mne_info['nchan']
+    nchans = beamformer._upstream_mne_info['nchan']
     ntimes = 100
     beamformer._update_covariance_matrix(np.random.rand(nchans, ntimes))
     # --------------------------------------------------------------- #
     filters_old = beamformer._filters.copy()
     beamformer._filters = None  # mess up the filters
 
-    beamformer.parent.source_name = 'new_name'  # triggers reset for source
+    beamformer.on_input_history_invalidation()
     assert not np.array_equal(filters_old, beamformer._filters)
     assert np.array_equal(beamformer._data_cov.data, data_cov_init)
 

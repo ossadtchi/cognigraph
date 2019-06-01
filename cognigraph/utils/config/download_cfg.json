@@ -1,6 +1,6 @@
 {
     "API_ENDPOINT": "https://cloud-api.yandex.net/v1/disk/public/resources/download?public_key=%s",
-    "test_files": {
+    "files": {
         "Koleno_raw.fif":  {
             "href": "https://yadi.sk/d/kctCqYe6AQjL8g",
             "path": "tests/data/Koleno_raw.fif",
@@ -10,6 +10,16 @@
             "href": "https://yadi.sk/d/xvPAIZLJl7x7Ow",
             "path": "tests/data/dmalt_custom_lr-fwd.fif",
             "md5": "1e0a45f20c7c99c60879c767505e4cbb"
+        },
+        "fsaverage_forwards.zip":{
+            "href": "https://yadi.sk/d/h_lcGFR5Eqhk0w",
+            "path": "data/forwards/fsaverage_forwards.zip",
+            "md5": "ddd58ba4fb3f76603ed6b66a0f384eea"
+        },
+        "fsaverage.zip":{
+            "href": "https://yadi.sk/d/rFx78zr7xc_Anw",
+            "path": "data/anatomy/fsaverage.zip",
+            "md5": "ee039090faec71047fa4803b3b3a4868"
         }
     }
 }

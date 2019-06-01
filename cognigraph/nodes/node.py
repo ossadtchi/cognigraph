@@ -6,6 +6,7 @@ import numpy as np
 from mne.io.pick import channel_type
 
 from ..utils.misc import class_name_of
+from ..utils.pipeline_signals import Communicate
 import logging
 import re
 
@@ -15,6 +16,7 @@ class _ReprMeta(type):
     Node classes representation and printing logic for better look in GUI
 
     """
+
     def __repr__(cls):
         """
         Either use defined in class string or convert class name
@@ -24,12 +26,13 @@ class _ReprMeta(type):
         if cls._GUI_STRING:
             return cls._GUI_STRING
         else:
-            camel_to_spaces = re.sub(r'([A-Z]*)([A-Z])([a-z])',
-                                     r'\1 \2\3', cls.__name__)
+            camel_to_spaces = re.sub(
+                r"([A-Z]*)([A-Z])([a-z])", r"\1 \2\3", cls.__name__
+            )
             return camel_to_spaces.lstrip()
 
     def __str__(cls):
-        return '<' + _ReprMeta.__repr__(cls) + '>'
+        return "<" + _ReprMeta.__repr__(cls) + ">"
 
 
 class Node(object, metaclass=_ReprMeta):
@@ -39,6 +42,7 @@ class Node(object, metaclass=_ReprMeta):
     This is an abstract class.
 
     """
+
     # Some upstream properties are mutable and thus saving them would not work
     # since update in upstrem will update a local copy as well.  Keeping a
     # local copy would trigger unnecessary reinitializations when something
@@ -57,8 +61,10 @@ class Node(object, metaclass=_ReprMeta):
         which a reset should be scheduled.
 
         """
-        msg = ('Each subclass of Node must have a '
-               'CHANGES_IN_THESE_REQUIRE_RESET constant defined')
+        msg = (
+            "Each subclass of Node must have a "
+            "CHANGES_IN_THESE_REQUIRE_RESET constant defined"
+        )
         raise NotImplementedError(msg)
 
     @property
@@ -68,9 +74,11 @@ class Node(object, metaclass=_ReprMeta):
         Determines what gets into self._saved_from_upstream dictionary.
 
         """
-        msg = ('Each subclass of Node must have a '
-               'UPSTREAM_CHANGES_IN_THESE_REQUIRE_REINITIALIZATION'
-               ' constant defined')
+        msg = (
+            "Each subclass of Node must have a "
+            "UPSTREAM_CHANGES_IN_THESE_REQUIRE_REINITIALIZATION"
+            " constant defined"
+        )
         raise NotImplementedError(msg)
 
     @property
@@ -81,7 +89,7 @@ class Node(object, metaclass=_ReprMeta):
     SAVERS_FOR_UPSTREAM_MUTABLE_OBJECTS = dict()
 
     def __init__(self):
-        self.initialized = False  # see __setattr__
+        self._initialized = False  # see __setattr__
 
         self._parent = None  # type: Node
         self._children = []
@@ -91,13 +99,16 @@ class Node(object, metaclass=_ReprMeta):
 
         self._saved_from_upstream = None  # type: dict
         self._logger = logging.getLogger(self.__class__.__name__)
+        self._reset_buffer = []
+        self._signal_sender = Communicate()
+        self._disabled = False
 
     def __repr__(self):
-        return repr(self.__class__) + ' Node'
+        return repr(self.__class__) + " Node"
 
     def __str__(self):
         class_str = str(self.__class__)
-        return class_str[:-1] + ' Node' + class_str[-1]
+        return class_str[:-1] + " Node" + class_str[-1]
 
     def __iter__(self):
         yield self
@@ -109,18 +120,21 @@ class Node(object, metaclass=_ReprMeta):
             item: self.traverse_back_and_find(item)
             if item not in self.SAVERS_FOR_UPSTREAM_MUTABLE_OBJECTS
             else self.SAVERS_FOR_UPSTREAM_MUTABLE_OBJECTS[item](
-                self.traverse_back_and_find(item))
+                self.traverse_back_and_find(item)
+            )
             for item in self.UPSTREAM_CHANGES_IN_THESE_REQUIRE_REINITIALIZATION
         }
 
         with self.not_triggering_reset():
             t1 = time.time()
             self._logger.info(
-                'Initializing the {} node'.format(class_name_of(self)))
+                "Initializing the {} node".format(class_name_of(self))
+            )
             self._initialize()
             t2 = time.time()
             self._logger.info(
-                'Finish initialization in {:.1f} ms'.format((t2 - t1) * 1000))
+                "Finish initialization in {:.1f} ms".format((t2 - t1) * 1000)
+            )
             self.initialized = True
 
             # Set all the resetting flags to false
@@ -136,21 +150,40 @@ class Node(object, metaclass=_ReprMeta):
         If called again, should remove all the traces from the past
 
         """
-        raise NotImplementedError('_initialize should be implemented')
+        raise NotImplementedError("_initialize should be implemented")
 
     def update(self) -> None:
         t1 = time.time()
         self.output = None  # Reset output in case update does not succeed
+        if self._reset_buffer:
+            self.reset()
+        if not self.initialized:
+            self.root._signal_sender.long_operation_started.emit(
+                "Initalizing %s" % self
+            )
+            try:
+                self.initialize()
+            except Exception as e:
+                self.disabled = True
+                self.root._signal_sender.request_message.emit(
+                    "Initialization for node %s failed. Disabling..."
+                    % str(self),
+                    str(e),
+                    "warning",
+                )
+                return
+            finally:
+                self.root._signal_sender.long_operation_finished.emit()
         self._update()
 
         t2 = time.time()
-        self._logger.debug('Updated in {:.1f} ms'.format((t2 - t1) * 1000))
+        self._logger.debug("Updated in {:.1f} ms".format((t2 - t1) * 1000))
 
         for child in self._children:
             child.update()
 
     def _update(self):
-        raise NotImplementedError('_update should be implemented')
+        raise NotImplementedError("_update should be implemented")
 
     def _on_critical_attr_change(self, key, old_val, new_val) -> bool:
         """
@@ -162,7 +195,8 @@ class Node(object, metaclass=_ReprMeta):
 
         """
         raise NotImplementedError(
-            '_on_critical_attr_change should be implemented')
+            "_on_critical_attr_change should be implemented"
+        )
 
     def on_upstream_change(self, is_input_hist_invalid):
         is_output_hist_invalid = is_input_hist_invalid
@@ -171,8 +205,10 @@ class Node(object, metaclass=_ReprMeta):
             self.on_input_history_invalidation()
 
         if self._is_critical_upstream_change():
-            self._logger.info('Reinitializing %s' % str(self) +
-                              ' due to critical upstream attribute changes')
+            self._logger.info(
+                "Reinitializing %s" % str(self)
+                + " due to critical upstream attribute changes"
+            )
             self.initialize()
             is_output_hist_invalid = True
         for child in self._children:
@@ -207,9 +243,19 @@ class Node(object, metaclass=_ReprMeta):
         # Tell the new input node about the connection
         if new_parent is not None:
             new_parent._children.append(self)
-            self._root = new_parent._root
+            self.root = new_parent.root
         else:
-            self._root = self
+            self.root = self
+
+    @property
+    def root(self):
+        return self._root
+
+    @root.setter
+    def root(self, value):
+        self._root = value
+        for child in self._children:
+            child.root = value
 
     def on_input_history_invalidation(self):
         """
@@ -219,7 +265,8 @@ class Node(object, metaclass=_ReprMeta):
         """
         with self.not_triggering_reset():
             self._logger.info(
-                'Resetting history-dependent attributes for %s ' % str(self))
+                "Resetting history-dependent attributes for %s " % str(self)
+            )
             self._on_input_history_invalidation()
 
     def traverse_back_and_find(self, item: str):
@@ -234,9 +281,12 @@ class Node(object, metaclass=_ReprMeta):
             try:
                 return self.parent.traverse_back_and_find(item)
             except AttributeError:
-                msg = ('None of the predecessors of a '
-                       '{} node contains attribute {}'.format(
-                           class_name_of(self), item))
+                msg = (
+                    "None of the predecessors of a "
+                    "{} node contains attribute {}".format(
+                        class_name_of(self), item
+                    )
+                )
                 raise AttributeError(msg)
 
     # Trigger resetting chain if the change in the attribute needs it
@@ -249,24 +299,51 @@ class Node(object, metaclass=_ReprMeta):
         object.__setattr__(self, key, new_value)
         if self.initialized:
             if key in self.CHANGES_IN_THESE_REQUIRE_RESET:
-                self._logger.info('Resetting %s ' % str(self) +
-                                  'because of local attribute change.')
-                with self.not_triggering_reset():
+                self._logger.info(
+                    "Resetting %s " % str(self)
+                    + "because of local attribute change."
+                )
+                self._should_reset = True
+                self._reset_buffer.append((key, old_value, new_value))
+
+    def reset(self):
+        """
+        Set parameters from reset buffer and notiry children.
+
+        In case of error disable the node.
+
+        """
+        self.root._signal_sender.long_operation_started.emit(
+            "Updating pipeline parameters..."
+        )
+        try:
+            with self.not_triggering_reset():
+                while self._reset_buffer:
+                    key, old_value, new_value = self._reset_buffer.pop(0)
                     is_output_hist_invalid = self._on_critical_attr_change(
-                        key, old_value, new_value)
+                        key, old_value, new_value
+                    )
                 for child in self._children:
                     child.on_upstream_change(is_output_hist_invalid)
+        except Exception as e:
+            self.root._signal_sender.request_message.emit(
+                "Reset for node %s failed. Disabling..."
+                % str(self),
+                str(e),
+                "warning",
+            )
+            self.disabled = True
+        finally:
+            self.root._signal_sender.long_operation_finished.emit()
 
     @property
     def initialized(self):
-        try:
-            return self._initialized
-        except AttributeError:
-            return False
+        """Affects setting critical attributes; checked in update"""
+        return self._initialized
 
     @initialized.setter
     def initialized(self, value):
-        object.__setattr__(self, '_initialized', value)
+        object.__setattr__(self, "_initialized", value)
 
     @contextmanager
     def not_triggering_reset(self):
@@ -276,15 +353,17 @@ class Node(object, metaclass=_ReprMeta):
         Use this context manager to suspend reset() triggering.
 
         """
-        backup, self.CHANGES_IN_THESE_REQUIRE_RESET =\
-            self.CHANGES_IN_THESE_REQUIRE_RESET, ()
+        backup, self.CHANGES_IN_THESE_REQUIRE_RESET = (
+            self.CHANGES_IN_THESE_REQUIRE_RESET,
+            (),
+        )
         try:
             yield
         finally:
             self.CHANGES_IN_THESE_REQUIRE_RESET = backup
 
     def _check_value(self, key, value):
-        raise NotImplementedError('_check_value should be implemented')
+        raise NotImplementedError("_check_value should be implemented")
 
     def _is_critical_upstream_change(self):
         """
@@ -306,15 +385,18 @@ class Node(object, metaclass=_ReprMeta):
                     return True
             except ValueError as e:
                 exception_message = (
-                        'There was a problem comparing {item} '
-                        'property upstream from a {class_name} node.\n'
-                        'If {value_type} is a mutable type, '
-                        'then add a function to save smth immutable '
-                        'from it to the SAVERS_FOR_UPSTREAM_MUTABLE_OBJECTS '
-                        'dictionary property of '
-                        '{class_name}'.format(
-                            item=item, class_name=class_name_of(self),
-                            value_type=type(current_value)))
+                    "There was a problem comparing {item} "
+                    "property upstream from a {class_name} node.\n"
+                    "If {value_type} is a mutable type, "
+                    "then add a function to save smth immutable "
+                    "from it to the SAVERS_FOR_UPSTREAM_MUTABLE_OBJECTS "
+                    "dictionary property of "
+                    "{class_name}".format(
+                        item=item,
+                        class_name=class_name_of(self),
+                        value_type=type(current_value),
+                    )
+                )
                 raise Exception(exception_message) from e
 
         return False  # Nothing has changed
@@ -325,14 +407,37 @@ class Node(object, metaclass=_ReprMeta):
 
     @viz_type.setter
     def viz_type(self, value):
-        allowed_types = ('sensor time series', 'source time series',
-                         'connectivity', 'roi time series', None)
+        allowed_types = (
+            "sensor time series",
+            "source time series",
+            "connectivity",
+            "roi time series",
+            None,
+        )
         if value in allowed_types:
             self._viz_type = value
         else:
             raise AttributeError(
-                'viz_type should be one of %s; instead got %s'
-                % (allowed_types, value))
+                "viz_type should be one of %s; instead got %s"
+                % (allowed_types, value)
+            )
+
+    def _save_dict(self):
+        d = {"children": {}, "init_args": {}}
+        for key in self.CHANGES_IN_THESE_REQUIRE_RESET:
+            d["init_args"][key] = getattr(self, key)
+        for child in self._children:
+            d["children"][type(child).__name__] = child._save_dict()
+        return d
+
+    @property
+    def disabled(self):
+        return self._disabled
+
+    @disabled.setter
+    def disabled(self, value):
+        self._disabled = value
+        self._signal_sender.disabled_changed.emit(value)
 
 
 class SourceNode(Node):
@@ -340,15 +445,26 @@ class SourceNode(Node):
 
     # There is no 'upstream' for the sources
     UPSTREAM_CHANGES_IN_THESE_REQUIRE_REINITIALIZATION = ()
-    ALLOWED_CHILDREN = ('Preprocessing', 'LinearFilter', 'ICARejection',
-                        'MNE', 'MCE', 'Beamformer', 'LSLStreamOutput')
+    ALLOWED_CHILDREN = (
+        "Preprocessing",
+        "LinearFilter",
+        "ICARejection",
+        "MNE",
+        "MCE",
+        "Beamformer",
+        "LSLStreamOutput",
+    )
 
     def __init__(self):
         Node.__init__(self)
         self.mne_info = None
-        self.viz_type = 'sensor time series'
+        self.viz_type = "sensor time series"
+        self._is_first_update = None
+        self._start_time = None
+        self.time_stamp = None
 
     def initialize(self):
+        self._is_first_update = True
         self.mne_info = None
         Node.initialize(self)
         try:
@@ -357,31 +473,52 @@ class SourceNode(Node):
             self.initialized = False
             raise e
 
+    def update(self):
+        current_time = time.time()
+        if self._is_first_update:
+            self.start_time = current_time
+            self._is_first_update = False
+            self.time_stamp = 0
+        else:
+            self.time_stamp = current_time - self.start_time
+        Node.update(self)
+
     def _check_mne_info(self):
         class_name = class_name_of(self)
-        error_hint = ' Check the initialize() method'
+        error_hint = " Check the initialize() method"
 
         if self.mne_info is None:
-            raise ValueError('{} node has empty mne_info '
-                             'attribute.'.format(class_name) + error_hint)
+            raise ValueError(
+                "{} node has empty mne_info "
+                "attribute.".format(class_name) + error_hint
+            )
 
-        channel_count = len(self.mne_info['chs'])
-        if len(self.mne_info['chs']) == 0:
-            raise ValueError('{} node has 0 channels in its mne_info '
-                             'attribute.'.format(class_name) + error_hint)
+        channel_count = len(self.mne_info["chs"])
+        if len(self.mne_info["chs"]) == 0:
+            raise ValueError(
+                "{} node has 0 channels in its mne_info "
+                "attribute.".format(class_name) + error_hint
+            )
 
         channel_types = {
-            channel_type(self.mne_info, i) for i in np.arange(channel_count)}
-        required_channel_types = {'grad', 'mag', 'eeg'}
+            channel_type(self.mne_info, i) for i in np.arange(channel_count)
+        }
+        required_channel_types = {"grad", "mag", "eeg"}
         if len(channel_types.intersection(required_channel_types)) == 0:
-            raise ValueError('{} has no channels of types {}'.format(
-                class_name, required_channel_types) + error_hint)
+            raise ValueError(
+                "{} has no channels of types {}".format(
+                    class_name, required_channel_types
+                )
+                + error_hint
+            )
 
         try:
             self.mne_info._check_consistency()
         except RuntimeError as e:
-            exception_message = ('The mne_info attribute of {} node is not '
-                                 'self-consistent'.format(class_name_of(self)))
+            exception_message = (
+                "The mne_info attribute of {} node is not "
+                "self-consistent".format(class_name_of(self))
+            )
             raise Exception(exception_message) from e
 
     def _on_critical_attr_change(self, key, old_val, new_val):
@@ -412,8 +549,7 @@ class ProcessorNode(Node):
         if self.disabled is True:
             self.output = self.parent.output
             return
-        if (self.parent.output is None or
-                self.parent.output.size == 0):
+        if self.parent.output is None or self.parent.output.size == 0:
             self.output = None
             return
         else:
@@ -427,6 +563,7 @@ class OutputNode(Node):
     Now handles empty inputs.
 
     """
+
     def __init__(self):
         Node.__init__(self)
         self.viz_type = None
@@ -434,8 +571,11 @@ class OutputNode(Node):
             self.disabled = False
 
     def update(self):
-        if (self.parent.output is None or self.parent.output.size == 0
-                or self.disabled is True):
+        if (
+            self.parent.output is None
+            or self.parent.output.size == 0
+            or self.disabled is True
+        ):
             return
         else:
             Node.update(self)

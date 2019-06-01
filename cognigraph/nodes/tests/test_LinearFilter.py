@@ -31,6 +31,7 @@ def test_change_api_attributes(lin_filter):
     lin_filter.initialize()
     lin_filter._linear_filter = None
     lin_filter.upper_cutoff = arbitrary_value_2
+    lin_filter.update()
 
     assert lin_filter._linear_filter is not None
 
@@ -44,6 +45,6 @@ def test_input_hist_invalidation_resets_filter_delays(lin_filter):
     zi_ini = lin_filter._linear_filter.zi
     lin_filter._linear_filter.zi = arbitrary_value
 
-    lin_filter.parent.source_name = 'new_name'  # triggers reset for source
+    lin_filter.on_input_history_invalidation()
 
     assert np.array_equal(lin_filter._linear_filter.zi, zi_ini)

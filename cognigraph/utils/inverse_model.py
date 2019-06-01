@@ -5,17 +5,23 @@ import mne
 from mne.datasets import sample
 
 from ..utils.misc import all_upper
+import logging
 
-data_path = sample.data_path(verbose='ERROR')
-sample_dir = os.path.join(data_path, 'MEG', 'sample')
+data_path = sample.data_path(verbose="ERROR")
+sample_dir = os.path.join(data_path, "MEG", "sample")
 neuromag_forward_file_path = os.path.join(
-    sample_dir, 'sample_audvis-meg-oct-6-fwd.fif')
+    sample_dir, "sample_audvis-meg-oct-6-fwd.fif"
+)
 standard_1005_forward_file_path = os.path.join(
-    sample_dir, 'sample_1005-eeg-oct-6-fwd.fif')
+    sample_dir, "sample_1005-eeg-oct-6-fwd.fif"
+)
+
+_logger = logging.getLogger(__name__)
 
 
-def _pick_columns_from_matrix(matrix: np.ndarray, output_column_labels: list,
-                              input_column_labels: list) -> np.ndarray:
+def _pick_columns_from_matrix(
+    matrix: np.ndarray, output_column_labels: list, input_column_labels: list
+) -> np.ndarray:
     """
     From matrix take only the columns that correspond to
     output_column_labels - in the order of the latter.
@@ -33,36 +39,44 @@ def _pick_columns_from_matrix(matrix: np.ndarray, output_column_labels: list,
 
     # List of length-two arrays to two tuples
     indices_in_input, indices_in_output = zip(
-        *[(input_column_labels.index(label), idx)
-          for idx, label in enumerate(output_column_labels)
-          if label in input_column_labels])
+        *[
+            (input_column_labels.index(label), idx)
+            for idx, label in enumerate(output_column_labels)
+            if label in input_column_labels
+        ]
+    )
 
     output_matrix[:, indices_in_output] = matrix[:, indices_in_input]
     return output_matrix
 
 
 def matrix_from_inverse_operator(
-        inverse_operator, mne_info, snr, method) -> np.ndarray:
+    inverse_operator, mne_info, snr, method
+) -> np.ndarray:
     # Create a dummy mne.Raw object
-    picks = mne.pick_types(mne_info, eeg=True, meg=False, exclude='bads')
+    picks = mne.pick_types(mne_info, eeg=True, meg=False, exclude="bads")
     info_goods = mne.pick_info(mne_info, sel=picks)
-    channel_count = info_goods['nchan']
+    channel_count = info_goods["nchan"]
     dummy_eye = np.identity(channel_count)
 
     dummy_raw = mne.io.RawArray(
-        data=dummy_eye, info=info_goods, verbose='ERROR')
+        data=dummy_eye, info=info_goods, verbose="ERROR"
+    )
 
-    contains_eeg_channels = len(
-        mne.pick_types(mne_info, meg=False, eeg=True)) > 0
+    contains_eeg_channels = (
+        len(mne.pick_types(mne_info, meg=False, eeg=True)) > 0
+    )
 
     if contains_eeg_channels:
-        dummy_raw.set_eeg_reference(ref_channels='average',
-                                    verbose='ERROR', projection=True)
+        dummy_raw.set_eeg_reference(
+            ref_channels="average", verbose="ERROR", projection=True
+        )
 
     # Applying inverse operator to identity matrix gives inverse model matrix
     lambda2 = 1.0 / snr ** 2
-    stc = mne.minimum_norm.apply_inverse_raw(dummy_raw, inverse_operator,
-                                             lambda2, method, verbose='ERROR')
+    stc = mne.minimum_norm.apply_inverse_raw(
+        dummy_raw, inverse_operator, lambda2, method, verbose="ERROR"
+    )
 
     return stc.data
 
@@ -70,14 +84,16 @@ def matrix_from_inverse_operator(
 def get_mesh_data_from_forward_solution(forward_solution):
     """Get reduced source space for which the forward was computed"""
 
-    left_hemi, right_hemi = forward_solution['src']
+    left_hemi, right_hemi = forward_solution["src"]
 
-    vertices = np.r_[left_hemi['rr'], right_hemi['rr']]
-    lh_vertex_cnt = left_hemi['rr'].shape[0]
-    faces = np.r_[left_hemi['use_tris'],
-                  lh_vertex_cnt + right_hemi['use_tris']]
-    sources_idx = np.r_[left_hemi['vertno'],
-                        lh_vertex_cnt + right_hemi['vertno']]
+    vertices = np.r_[left_hemi["rr"], right_hemi["rr"]]
+    lh_vertex_cnt = left_hemi["rr"].shape[0]
+    faces = np.r_[
+        left_hemi["use_tris"], lh_vertex_cnt + right_hemi["use_tris"]
+    ]
+    sources_idx = np.r_[
+        left_hemi["vertno"], lh_vertex_cnt + right_hemi["vertno"]
+    ]
 
     return sources_idx, vertices, faces, lh_vertex_cnt
 
@@ -91,16 +107,20 @@ def get_default_forward_file(mne_info: mne.Info):
 
     """
 
-    channel_labels_upper = all_upper(mne_info['ch_names'])
+    channel_labels_upper = all_upper(mne_info["ch_names"])
 
-    if max(label.startswith('MEG ') for label in channel_labels_upper) is True:
+    if max(label.startswith("MEG ") for label in channel_labels_upper) is True:
         return neuromag_forward_file_path
 
     else:
-        montage_1005 = mne.channels.read_montage(kind='standard_1005')
+        montage_1005 = mne.channels.read_montage(kind="standard_1005")
         montage_labels_upper = all_upper(montage_1005.ch_names)
-        if any([label_upper in montage_labels_upper
-                for label_upper in channel_labels_upper]):
+        if any(
+            [
+                label_upper in montage_labels_upper
+                for label_upper in channel_labels_upper
+            ]
+        ):
             return standard_1005_forward_file_path
 
 
@@ -123,28 +143,37 @@ def get_clean_forward(forward_model_path: str, mne_info: mne.Info):
     channels that are both in the forward solution and mne_info
 
     """
+    _logger.debug("Matching data channels with forward model.")
+    _logger.debug("Loading forward model from %s" % forward_model_path)
 
     # Get the gain matrix from the forward solution
-    forward = mne.read_forward_solution(forward_model_path, verbose='ERROR')
+    forward = mne.read_forward_solution(forward_model_path, verbose="ERROR")
 
     # Take only the channels present in mne_info
-    ch_names = mne_info['ch_names']
-    goods = mne.pick_types(mne_info, eeg=True, stim=False, eog=False,
-                           ecg=False, exclude='bads')
+    ch_names = mne_info["ch_names"]
+    goods = mne.pick_types(
+        mne_info, eeg=True, stim=False, eog=False, ecg=False, exclude="bads"
+    )
     ch_names_data = [ch_names[i] for i in goods]
-    ch_names_fwd = forward['info']['ch_names']
+    ch_names_fwd = forward["info"]["ch_names"]
     # Take only channels from both mne_info and the forward solution
-    ch_names_intersect = [n for n in ch_names_fwd if
-                          n.upper() in all_upper(ch_names_data)]
-    missing_ch_names = [n for n in ch_names_data if
-                        n.upper() not in all_upper(ch_names_fwd)]
+    ch_names_intersect = [
+        n for n in ch_names_fwd if n.upper() in all_upper(ch_names_data)
+    ]
+    missing_ch_names = [
+        n for n in ch_names_data if n.upper() not in all_upper(ch_names_fwd)
+    ]
+    _logger.debug("Channel names found in forward: %s" % ch_names_fwd)
+    _logger.debug("Channel names found in data: %s" % ch_names_data)
 
-    fwd = mne.pick_channels_forward(forward, include=ch_names_intersect)
-    return fwd, missing_ch_names
+    if ch_names_intersect:
+        fwd = mne.pick_channels_forward(forward, include=ch_names_intersect)
+        return fwd, missing_ch_names
+    else:
+        raise ValueError("No channels from data match current montage")
 
 
-def make_inverse_operator(fwd, mne_info, depth=None,
-                          loose=1, fixed=False):
+def make_inverse_operator(fwd, mne_info, depth=None, loose=1, fixed=False):
     """
     Make noise covariance matrix and create inverse operator using only
     good channels
@@ -153,15 +182,22 @@ def make_inverse_operator(fwd, mne_info, depth=None,
     # The inverse operator will use channels common to
     # forward_model_file_path and mne_info.
 
-    picks = mne.pick_types(mne_info, eeg=True, meg=False, exclude='bads')
+    picks = mne.pick_types(mne_info, eeg=True, meg=False, exclude="bads")
     info_goods = mne.pick_info(mne_info, sel=picks)
 
-    N_SEN = fwd['nchan']
-    ch_names = info_goods['ch_names']
+    N_SEN = fwd["nchan"]
+    ch_names = info_goods["ch_names"]
     cov_data = np.identity(N_SEN)
-    cov = mne.Covariance(cov_data, ch_names, mne_info['bads'],
-                         mne_info['projs'], nfree=1)
-    inv = mne.minimum_norm.make_inverse_operator(info_goods, fwd, cov,
-                                                 depth=depth, loose=loose,
-                                                 fixed=fixed, verbose='ERROR')
+    cov = mne.Covariance(
+        cov_data, ch_names, mne_info["bads"], mne_info["projs"], nfree=1
+    )
+    inv = mne.minimum_norm.make_inverse_operator(
+        info_goods,
+        fwd,
+        cov,
+        depth=depth,
+        loose=loose,
+        fixed=fixed,
+        verbose="ERROR",
+    )
     return inv

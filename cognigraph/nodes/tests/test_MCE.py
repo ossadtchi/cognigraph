@@ -33,7 +33,7 @@ def mce_def(info):  # noqa
 
 
 def test_defaults(mce_def):
-    assert(mce_def.mne_forward_model_file_path is None)
+    assert(mce_def.fwd_path is None)
     assert(mce_def.mne_info is None)
 
 
@@ -46,6 +46,7 @@ def test_change_api_attributes(mce):
     mce.initialize()
     mce.mne_inv = None
     mce.snr += 1
+    mce.update()
     assert mce.mne_inv is not None
 
 

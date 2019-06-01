@@ -3,13 +3,15 @@ import pytest
 from cognigraph.nodes.pipeline import Pipeline
 import numpy as np
 from numpy.testing import assert_array_equal
-from cognigraph.tests.prepare_pipeline_tests import (create_dummy_info,
-                                                     ConcreteSource,
-                                                     ConcreteProcessor,
-                                                     ConcreteOutput)
+from cognigraph.tests.prepare_pipeline_tests import (
+    create_dummy_info,
+    ConcreteSource,
+    ConcreteProcessor,
+    ConcreteOutput,
+)
 
 
-@pytest.fixture(scope='function')
+@pytest.fixture(scope="function")
 def pipeline():
     source = ConcreteSource()
     processor = ConcreteProcessor()
@@ -26,11 +28,11 @@ def test_pipeline_initialization(pipeline):
     source = pipeline._children[0]
     processor = source._children[0]
     output = processor._children[0]
-    assert(source._initialized)
-    assert(source.mne_info is not None)
-    assert(source.mne_info['nchan'] == source.nchan)
-    assert(processor._initialized)
-    assert(output._initialized)
+    assert source._initialized
+    assert source.mne_info is not None
+    assert source.mne_info["nchan"] == source.nchan
+    assert processor._initialized
+    assert output._initialized
 
 
 def test_pipeline_update(pipeline):
@@ -76,18 +78,19 @@ def test_reset_mechanics(pipeline):
     new_nchan = 43
     new_info = create_dummy_info(nchan=new_nchan)
 
-    assert(src.n_resets == 0)
-    assert(proc.n_initializations == 1)
-    assert(proc.n_hist_invalidations == 0)
+    assert src.n_resets == 0
+    assert proc.n_initializations == 1
+    assert proc.n_hist_invalidations == 0
     src._mne_info = new_info
-    assert(src.n_resets == 1)
+    pipeline.update()
+    assert src.n_resets == 1
     for i in range(3):
         pipeline.update()
     pipeline.update()
-    assert(np.all(out.output))
-    assert(out.output.shape[0] == new_nchan)
-    assert(proc.n_initializations == 2)
-    assert(proc.n_hist_invalidations == 1)
+    assert np.all(out.output)
+    assert out.output.shape[0] == new_nchan
+    assert proc.n_initializations == 2
+    assert proc.n_hist_invalidations == 1
 
 
 def test_add_child_on_the_fly(pipeline):
@@ -100,9 +103,10 @@ def test_add_child_on_the_fly(pipeline):
 
     nch = src.nchan
     nsamp = src.nsamp
-    assert_array_equal(new_processor.output, np.ones([nch, nsamp]) +
-                       new_processor.increment)
-    assert(new_processor._root is pipeline)
+    assert_array_equal(
+        new_processor.output, np.ones([nch, nsamp]) + new_processor.increment
+    )
+    assert new_processor._root is pipeline
 
 
 # def test_critical_upstream_change_happened(pipeline):
