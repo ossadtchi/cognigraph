@@ -103,7 +103,7 @@ ENV/
 .mypy_cache/
 tags
 docsrc/_build
-docs/_static
+# docs/_static
 docs/_templates
 *.npz
 *.fif
