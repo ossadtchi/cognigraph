@@ -3,8 +3,9 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-Welcome to cognigraph's documentation!
-======================================
+Когниграф
+=========
+Визуализация и обработка ЭЭГ-сигналов в реальном времени.
 
 .. toctree::
    :maxdepth: 2
