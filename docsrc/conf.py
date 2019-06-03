@@ -20,8 +20,8 @@
 # -- Project information -----------------------------------------------------
 
 project = 'cognigraph'
-copyright = '2018, Eugene Kalenkovich, Dmitrii Altukhov, Maria Kaglinskaya, Nikolay Smetanin, Aleksandra Kuznetsova and Alex Ossadtchii'
-author = 'Eugene Kalenkovich, Dmitrii Altukhov, Maria Kaglinskaya, Nikolay Smetanin, Aleksandra Kuznetsova and Alex Ossadtchii'
+# copyright = '2019, Dmitrii Altukhov, Eugene Kalenkovich, Nikolay Smetanin, Kuznetsova and Alex Ossadtchii'
+author = 'Dmitrii Altukhov, Eugene Kalenkovich, Nikolay Smetanin and Alex Ossadtchii'
 
 # The short X.Y version
 version = ''
@@ -79,7 +79,7 @@ pygments_style = 'sphinx'
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
 #
-html_theme = 'alabaster'
+html_theme = 'default'
 
 # Theme options are theme-specific and customize the look and feel of a theme
 # further.  For a list of options available for each theme, see the
