@@ -20,8 +20,8 @@
 # -- Project information -----------------------------------------------------
 
 project = 'cognigraph'
-# copyright = '2019, Dmitrii Altukhov, Eugene Kalenkovich, Nikolay Smetanin, Kuznetsova and Alex Ossadtchii'
-author = 'Dmitrii Altukhov, Eugene Kalenkovich, Nikolay Smetanin and Alex Ossadtchii'
+# copyright = '2019, Dmitrii Altukhov and Eugene Kalenkovich'
+author = 'Dmitrii Altukhov and Eugene Kalenkovich'
 
 # The short X.Y version
 version = ''
@@ -79,7 +79,7 @@ pygments_style = 'sphinx'
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
 #
-html_theme = 'default'
+html_theme = 'sphinx_rtd_theme'
 
 # Theme options are theme-specific and customize the look and feel of a theme
 # further.  For a list of options available for each theme, see the
@@ -134,7 +134,7 @@ latex_elements = {
 #  author, documentclass [howto, manual, or own class]).
 latex_documents = [
     (master_doc, 'cognigraph.tex', 'cognigraph Documentation',
-     'Eugene Kalenkovich, Dmitrii Altukhov, Maria Kaglinskaya, Nikolay Smetanin, Aleksandra Kuznetsova and Alex Ossadtchii', 'manual'),
+     'Dmitrii Altukhov, Eugene Kalenkovich and Alex Ossadtchii', 'manual'),
 ]
 
 
