@@ -76,7 +76,10 @@ class GUIWindow(QMainWindow):
 
     def init_controls(self):
         self.controls_dock.setWidget(self._controls)
+        self.run_toggle_action.triggered.disconnect()
         self.run_toggle_action.triggered.connect(self._updater.toggle)
+        self._updater._sender.run_toggled.connect(self._on_run_button_toggled)
+        self._updater._sender.errored.connect(self._show_message)
         self.is_initialized = False
 
     def init_ui(self):
@@ -321,8 +324,8 @@ class GUIWindow(QMainWindow):
     def moveEvent(self, event):
         return super(GUIWindow, self).moveEvent(event)
 
-    def _on_run_button_toggled(self):
-        if self.run_toggle_action.text() == "Pause":
+    def _on_run_button_toggled(self, is_paused=True):
+        if is_paused:
             self.run_toggle_action.setText("Start")
         else:
             self.run_toggle_action.setText("Pause")
