@@ -460,7 +460,7 @@ class SourceNode(Node):
         self.mne_info = None
         self.viz_type = "sensor time series"
         self._is_first_update = None
-        self._start_time = None
+        self.start_time = None
         self.time_stamp = None
 
     def initialize(self):

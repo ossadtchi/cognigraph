@@ -131,6 +131,7 @@ class SourceControls(MyGroupParameter):
                         source_node=new_source_node,
                         name=self.SOURCE_CONTROLS_NAME,
                     )
+                    self.removeChild(self.source_controls)
                     self.source_controls = self.addChild(controls)
                     for child in self._source_node._children:
                         child.parent = new_source_node
