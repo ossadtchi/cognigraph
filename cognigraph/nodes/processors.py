@@ -99,6 +99,7 @@ class Preprocessing(ProcessorNode):
         "LinearFilter",
         "LSLStreamOutput",
         "Coherence",
+        "FileOutput"
     )
 
     def __init__(self, collect_for_x_seconds=60, dsamp_freq=None):
@@ -207,6 +208,7 @@ class _InverseSolverNode(ProcessorNode):
         "BrainViewer",
         "AtlasViewer",
         "LSLStreamOutput",
+        "FileOutput",
     )
 
     def __init__(self, fwd_path=None, subject=None, subjects_dir=None):
@@ -388,6 +390,7 @@ class LinearFilter(ProcessorNode):
         "SignalViewer",
         "EnvelopeExtractor",
         "LSLStreamOutput",
+        "FileOutput",
     )
 
     def __init__(self, lower_cutoff: float = 1, upper_cutoff: float = 50):
@@ -468,7 +471,7 @@ class EnvelopeExtractor(ProcessorNode):
     SAVERS_FOR_UPSTREAM_MUTABLE_OBJECTS = {
         "mne_info": lambda info: (info["nchan"],)
     }
-    ALLOWED_CHILDREN = ("SignalViewer", "LSLStreamOutput")
+    ALLOWED_CHILDREN = ("SignalViewer", "LSLStreamOutput", "FileOutput")
 
     def __init__(self, factor=0.9, method="Exponential smoothing"):
         ProcessorNode.__init__(self)
@@ -488,9 +491,17 @@ class EnvelopeExtractor(ProcessorNode):
 
         self.viz_type = self.parent.viz_type
         if self.parent.viz_type == "source time series":
-            self.ALLOWED_CHILDREN = ("BrainViewer", "LSLStreamOutput")
+            self.ALLOWED_CHILDREN = (
+                "BrainViewer",
+                "LSLStreamOutput",
+                "FileOutput",
+            )
         elif self.parent.viz_type == "connectivity":
-            self.ALLOWED_CHILDREN = ("ConnectivityViewer", "LSLStreamOutput")
+            self.ALLOWED_CHILDREN = (
+                "ConnectivityViewer",
+                "LSLStreamOutput",
+                "FileOutput",
+            )
 
     def _update(self):
         input_data = self.parent.output
@@ -996,6 +1007,7 @@ class ICARejection(ProcessorNode):
         "Beamformer",
         "EnvelopeExtractor",
         "LSLStreamOutput",
+        "FileOutput"
     )
 
     CHANGES_IN_THESE_REQUIRE_RESET = ("collect_for_x_seconds",)
@@ -1122,6 +1134,7 @@ class AtlasViewer(ProcessorNode):
         "SignalViewer",
         "LSLStreamOutput",
         "Coherence",
+        "FileOutput"
     )
 
     def __init__(self, parc="aparc", active_label_names=[]):

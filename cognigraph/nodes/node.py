@@ -453,6 +453,7 @@ class SourceNode(Node):
         "MCE",
         "Beamformer",
         "LSLStreamOutput",
+        "FileOutput"
     )
 
     def __init__(self):

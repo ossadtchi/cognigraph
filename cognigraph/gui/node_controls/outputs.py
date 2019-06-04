@@ -7,6 +7,7 @@ import logging
 
 from PyQt5 import QtWidgets
 
+
 __all__ = (
     "OutputNodeControls",
     "BrainViewerControls",
@@ -286,9 +287,51 @@ class SignalViewerControls(OutputNodeControls):
 class FileOutputControls(OutputNodeControls):
     OUTPUT_CLASS = outputs.FileOutput
     CONTROLS_LABEL = "File Output"
+    FILE_PATH_STR_NAME = "Output path: "
 
     def _create_parameters(self):
-        pass
+        file_path = self._output_node.output_path
+        file_path_str = parameterTypes.SimpleParameter(
+            type="str", name=self.FILE_PATH_STR_NAME, value=file_path
+        )
+
+        file_path_str.sigValueChanged.connect(self._on_file_path_changed)
+
+        self.file_path_str = self.addChild(file_path_str)
+
+        # Add PushButton for choosing file
+        file_path_button = parameterTypes.ActionParameter(
+            type="action", name="Change output file"
+        )
+
+        file_path_button.sigActivated.connect(self._choose_file)
+
+        self.file_path_button = self.addChild(file_path_button)
+
+        start_stop_button = parameterTypes.ActionParameter(
+            type="action", name="Stop"
+        )
+
+        start_stop_button.sigActivated.connect(self._on_start_stop_toggled)
+        self.start_stop_button = self.addChild(start_stop_button)
+
+    def _choose_file(self):
+        file_path = QtWidgets.QFileDialog.getSaveFileName(
+            caption="Save output", filter="HDF5 files (*.h5)"
+        )
+
+        if file_path != "":
+            self.file_path_str.setValue(file_path[0])
+
+    def _on_file_path_changed(self, param, value):
+        self._output_node.output_path = value
+
+    def _on_start_stop_toggled(self):
+        self._output_node.toggle()
+        if self._output_node.disabled:
+            self.start_stop_button.setName("Start")
+        else:
+            self.start_stop_button.setName("Stop")
 
 
 class TorchOutputControls(OutputNodeControls):
