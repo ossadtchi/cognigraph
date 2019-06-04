@@ -49,7 +49,6 @@ from vispy import scene
 
 
 # -------- gif recorder -------- #
-from vispy.gloo.util import _screenshot
 from PIL import Image as im
 
 # ------------------------------ #
@@ -389,12 +388,7 @@ class BrainViewer(_WidgetOutput):
     def _append_screenshot(self):
         last_sample_time = self.traverse_back_and_find('timestamps')[-1]
         self._gif_times.append(last_sample_time)
-        if self.sector is None:
-            # self._images.append(ImageGrab.grab())
-            self._images.append(im.fromarray(_screenshot()))
-        else:
-            # self._images.append(ImageGrab.grab(bbox=self.sector))
-            self._images.append(im.fromarray(_screenshot()))
+        self._images.append(im.fromarray(self.canvas.render()))
 
 
 class SignalViewer(_WidgetOutput):
