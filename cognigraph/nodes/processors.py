@@ -201,8 +201,19 @@ class Preprocessing(ProcessorNode):
 
 
 class _InverseSolverNode(ProcessorNode):
+    ALLOWED_CHILDREN = (
+        "EnvelopeExtractor",
+        "SignalViewer",
+        "BrainViewer",
+        "AtlasViewer",
+        "LSLStreamOutput",
+    )
+
     def __init__(self, fwd_path=None, subject=None, subjects_dir=None):
         ProcessorNode.__init__(self)
+        self.ALLOWED_CHILDREN = (
+            _InverseSolverNode.ALLOWED_CHILDREN + self.ALLOWED_CHILDREN
+        )
         self.fwd_path = fwd_path
         self.subjects_dir = subjects_dir
         self.subject = subject
@@ -223,13 +234,6 @@ class MNE(_InverseSolverNode):
         "subject",
     )
     SAVERS_FOR_UPSTREAM_MUTABLE_OBJECTS = {"mne_info": channel_labels_saver}
-    ALLOWED_CHILDREN = (
-        "EnvelopeExtractor",
-        "SignalViewer",
-        "BrainViewer",
-        "AtlasViewer",
-        "LSLStreamOutput",
-    )
 
     def __init__(
         self,
@@ -528,15 +532,6 @@ class Beamformer(_InverseSolverNode):
         "subject",
         "subjects_dir",
     )
-    ALLOWED_CHILDREN = (
-        "EnvelopeExtractor",
-        "SignalViewer",
-        "BrainViewer",
-        "AtlasViewer",
-        "LSLStreamOutput",
-        "FileOutput",
-    )
-
     SAVERS_FOR_UPSTREAM_MUTABLE_OBJECTS = {"mne_info": channel_labels_saver}
 
     def __init__(
@@ -836,12 +831,6 @@ class MCE(_InverseSolverNode):
         "n_comp",
         "subjects_dir",
         "subject",
-    )
-    ALLOWED_CHILDREN = (
-        "BrainViewer",
-        "EnvelopeExtractor",
-        "AtlasViewer",
-        "LSLStreamOutput",
     )
 
     def __init__(
