@@ -356,14 +356,11 @@ class BrainViewer(_WidgetOutput):
         self._images = []
         self._gif_times = []
         self._gif_start_time = time.time()
-        self._run_start_time = self.traverse_back_and_find("start_time")
-        self._gif_times.append(self._gif_start_time - self._run_start_time)
 
         self.is_recording = True
 
     def _stop_gif(self):
         self.is_recording = False
-        # self._timer.stop()
 
         duration = time.time() - self._gif_start_time
         self._display_time = (duration * 1000) / len(self._images)
@@ -390,7 +387,8 @@ class BrainViewer(_WidgetOutput):
             )
 
     def _append_screenshot(self):
-        self._gif_times.append(time.time() - self._run_start_time)
+        last_sample_time = self.traverse_back_and_find('timestamps')[-1]
+        self._gif_times.append(last_sample_time)
         if self.sector is None:
             # self._images.append(ImageGrab.grab())
             self._images.append(im.fromarray(_screenshot()))

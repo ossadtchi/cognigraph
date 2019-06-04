@@ -47,13 +47,14 @@ def read_brain_vision_data(file_path, time_axis, start_s=0, stop_s=None):
     stop = min(raw.n_times if stop_s is None else raw.time_as_index(stop_s)[0],
                raw.n_times)
     data = raw.get_data(start=start, stop=stop)
+    times = raw.times
 
     mne_info = raw.info.copy()
 
     if time_axis != BRAINVISION_TIME_AXIS:
         data = data.T
 
-    return data, mne_info
+    return data, mne_info, times
 
 
 def read_fif_data(file_path, time_axis, start_s=0, stop_s=None):
@@ -66,13 +67,14 @@ def read_fif_data(file_path, time_axis, start_s=0, stop_s=None):
     stop = min(raw.n_times if stop_s is None else raw.time_as_index(stop_s)[0],
                raw.n_times)
     data = raw.get_data(start=start, stop=stop)
+    times = raw.times
 
     mne_info = raw.info.copy()
 
     if time_axis != BRAINVISION_TIME_AXIS:
         data = data.T
 
-    return data, mne_info
+    return data, mne_info, times
 
 
 def read_edf_data(file_path, time_axis, start_s=0, stop_s=None):
@@ -91,10 +93,11 @@ def read_edf_data(file_path, time_axis, start_s=0, stop_s=None):
     stop = min(raw.n_times if stop_s is None else raw.time_as_index(stop_s)[0],
                raw.n_times)
     data = raw.get_data(start=start, stop=stop)
+    times = raw.times
 
     mne_info = raw.info.copy()
 
     if time_axis != BRAINVISION_TIME_AXIS:
         data = data.T
 
-    return data, mne_info
+    return data, mne_info, times
