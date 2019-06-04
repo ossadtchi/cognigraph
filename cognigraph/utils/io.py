@@ -70,8 +70,13 @@ class DataDownloader:
 
     """
 
-    def __init__(self, cfg_path=op.join(_cur_dir, "config/download_cfg.json")):
+    def __init__(
+        self,
+        cfg_path=op.join(_cur_dir, "config/download_cfg.json"),
+        n_fails_max=3,
+    ):
         self._config_path = cfg_path
+        self.n_fails_max = n_fails_max
         with open(self._config_path, "r") as f:
             download_config = json.load(f)
             self._API_ENDPOINT = download_config["API_ENDPOINT"]
@@ -187,10 +192,39 @@ class DataDownloader:
             return None
 
         if not op.isfile(path):
-            downloadable_url = self._get_download_url(url_pub)
+            retrieve_succeeded = False
+            n_fails = 0
+            while not retrieve_succeeded and n_fails < self.n_fails_max:
+                try:
+                    downloadable_url = self._get_download_url(url_pub)
+                    retrieve_succeeded = True
+                except HTTPError:
+                    self._logger.warning(
+                        "Url retrieving failed. Retrying... (%d out of %d)"
+                        % (n_fails + 1, self.n_fails_max)
+                    )
+                    n_fails += 1
+            if not retrieve_succeeded:
+                raise HTTPError(
+                    "Failed to get downloadable_url for %s" % fname
+                )
             if downloadable_url:
-                self._logger.info('Downloading "%s"', fname)
-                self._download(downloadable_url, path, md5_hash)
+                dl_succeeded = False
+                n_fails = 0
+                while not dl_succeeded and n_fails < self.n_fails_max:
+                    try:
+                        self._logger.info('Downloading "%s"', fname)
+                        self._download(downloadable_url, path, md5_hash)
+                        dl_succeeded = True
+                        raise Exception
+                    except Exception:
+                        self._logger.warning(
+                            "Download failed. Retrying... (%d out of %d)"
+                            % (n_fails + 1, self.n_fails_max)
+                        )
+                        n_fails += 1
+                if not dl_succeeded:
+                    raise HTTPError("Download failed for %s" % fname)
 
         else:
             self._logger.info('Getting "%s" from "%s"', fname, path)
@@ -199,13 +233,14 @@ class DataDownloader:
 
 def download_anatomy_and_forwards():
     import zipfile
+
     dloader = DataDownloader()
-    default_anat_archive = dloader.get_file('fsaverage.zip')
-    default_forwards_archive = dloader.get_file('fsaverage_forwards.zip')
-    with zipfile.ZipFile(default_anat_archive, 'r') as z:
+    default_anat_archive = dloader.get_file("fsaverage.zip")
+    default_forwards_archive = dloader.get_file("fsaverage_forwards.zip")
+    with zipfile.ZipFile(default_anat_archive, "r") as z:
         z.extractall(ANATOMY_DIR)
     os.remove(default_anat_archive)
-    with zipfile.ZipFile(default_forwards_archive, 'r') as z:
+    with zipfile.ZipFile(default_forwards_archive, "r") as z:
         z.extractall(FORWARDS_DIR)
     os.remove(default_forwards_archive)
 

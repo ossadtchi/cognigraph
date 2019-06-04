@@ -99,6 +99,7 @@ class Preprocessing(ProcessorNode):
         "LinearFilter",
         "LSLStreamOutput",
         "Coherence",
+        "FileOutput",
     )
 
     def __init__(self, collect_for_x_seconds=60, dsamp_freq=None):
@@ -201,6 +202,15 @@ class Preprocessing(ProcessorNode):
 
 
 class _InverseSolverNode(ProcessorNode):
+    ALLOWED_CHILDREN = (
+        "EnvelopeExtractor",
+        "SignalViewer",
+        "BrainViewer",
+        "AtlasViewer",
+        "LSLStreamOutput",
+        "FileOutput",
+    )
+
     def __init__(self, fwd_path=None, subject=None, subjects_dir=None):
         ProcessorNode.__init__(self)
         self.fwd_path = fwd_path
@@ -210,6 +220,25 @@ class _InverseSolverNode(ProcessorNode):
     def _get_forward_subject_and_subjects_dir(self):
         if not (self.fwd_path and self.subject and self.subjects_dir):
             self._signal_sender.open_fwd_dialog.emit()
+
+    def _initialize(self):
+        mne_info = self.traverse_back_and_find("mne_info")
+        self._upstream_mne_info = mne_info
+        self._get_forward_subject_and_subjects_dir()
+
+        # -------------- setup forward -------------- #
+        try:
+            self._fwd, self._missing_ch_names = get_clean_forward(
+                self.fwd_path, mne_info
+            )
+        except ValueError:
+            self.fwd_path = None
+            self.subject = None
+            self.subjects_dir = None
+            self._get_forward_subject_and_subjects_dir()
+            self._fwd, self._missing_ch_names = get_clean_forward(
+                self.fwd_path, mne_info
+            )
 
 
 class MNE(_InverseSolverNode):
@@ -223,13 +252,6 @@ class MNE(_InverseSolverNode):
         "subject",
     )
     SAVERS_FOR_UPSTREAM_MUTABLE_OBJECTS = {"mne_info": channel_labels_saver}
-    ALLOWED_CHILDREN = (
-        "EnvelopeExtractor",
-        "SignalViewer",
-        "BrainViewer",
-        "AtlasViewer",
-        "LSLStreamOutput",
-    )
 
     def __init__(
         self,
@@ -260,24 +282,15 @@ class MNE(_InverseSolverNode):
         self.viz_type = "source time series"
 
     def _initialize(self):
-        self._logger.debug("Enter _initialize")
-        # self.fwd_dialog_signal_sender.open_dialog.emit()
-        mne_info = self.traverse_back_and_find("mne_info")
-        self._upstream_mne_info = mne_info
-        self._get_forward_subject_and_subjects_dir()
-        self._logger.debug("Passed _get_forward ...")
-        self._bad_channels = mne_info["bads"]
-
-        try:
-            fwd, missing_ch_names = get_clean_forward(self.fwd_path, mne_info)
-        except ValueError:
-            raise Exception("BAD FORWARD + DATA COMBINATION!")
-        mne_info["bads"] = list(set(mne_info["bads"] + missing_ch_names))
-        self._fwd = fwd
+        _InverseSolverNode._initialize(self)
+        self._upstream_mne_info["bads"] = list(
+            set(self._upstream_mne_info["bads"] + self._missing_ch_names)
+        )
+        self._bad_channels = self._upstream_mne_info["bads"]
 
         self.inverse_operator = make_inverse_operator(
             self._fwd,
-            mne_info,
+            self._upstream_mne_info,
             depth=self.depth,
             loose=self.loose,
             fixed=self.fixed,
@@ -291,18 +304,17 @@ class MNE(_InverseSolverNode):
         )
         self._inverse_model_matrix = matrix_from_inverse_operator(
             inverse_operator=self.inverse_operator,
-            mne_info=mne_info,
+            mne_info=self._upstream_mne_info,
             snr=self.snr,
             method=self.method,
         )
 
-        frequency = mne_info["sfreq"]
+        frequency = self._upstream_mne_info["sfreq"]
         # channel_count = self._inverse_model_matrix.shape[0]
         channel_count = self._fwd["nsource"]
         channel_labels = [
             "vertex #{}".format(i + 1) for i in range(channel_count)
         ]
-        self._upstream_mne_info = mne_info
         self.mne_info = mne.create_info(channel_labels, frequency)
 
     def _update(self):
@@ -384,6 +396,7 @@ class LinearFilter(ProcessorNode):
         "SignalViewer",
         "EnvelopeExtractor",
         "LSLStreamOutput",
+        "FileOutput",
     )
 
     def __init__(self, lower_cutoff: float = 1, upper_cutoff: float = 50):
@@ -464,7 +477,7 @@ class EnvelopeExtractor(ProcessorNode):
     SAVERS_FOR_UPSTREAM_MUTABLE_OBJECTS = {
         "mne_info": lambda info: (info["nchan"],)
     }
-    ALLOWED_CHILDREN = ("SignalViewer", "LSLStreamOutput")
+    ALLOWED_CHILDREN = ("SignalViewer", "LSLStreamOutput", "FileOutput")
 
     def __init__(self, factor=0.9, method="Exponential smoothing"):
         ProcessorNode.__init__(self)
@@ -484,9 +497,17 @@ class EnvelopeExtractor(ProcessorNode):
 
         self.viz_type = self.parent.viz_type
         if self.parent.viz_type == "source time series":
-            self.ALLOWED_CHILDREN = ("BrainViewer", "LSLStreamOutput")
+            self.ALLOWED_CHILDREN = (
+                "BrainViewer",
+                "LSLStreamOutput",
+                "FileOutput",
+            )
         elif self.parent.viz_type == "connectivity":
-            self.ALLOWED_CHILDREN = ("ConnectivityViewer", "LSLStreamOutput")
+            self.ALLOWED_CHILDREN = (
+                "ConnectivityViewer",
+                "LSLStreamOutput",
+                "FileOutput",
+            )
 
     def _update(self):
         input_data = self.parent.output
@@ -528,15 +549,6 @@ class Beamformer(_InverseSolverNode):
         "subject",
         "subjects_dir",
     )
-    ALLOWED_CHILDREN = (
-        "EnvelopeExtractor",
-        "SignalViewer",
-        "BrainViewer",
-        "AtlasViewer",
-        "LSLStreamOutput",
-        "FileOutput",
-    )
-
     SAVERS_FOR_UPSTREAM_MUTABLE_OBJECTS = {"mne_info": channel_labels_saver}
 
     def __init__(
@@ -574,49 +586,46 @@ class Beamformer(_InverseSolverNode):
 
     def _initialize(self):
         # self.fwd_dialog_signal_sender.open_dialog.emit()
-        mne_info = self.traverse_back_and_find("mne_info")
-        self._upstream_mne_info = mne_info
-        self._get_forward_subject_and_subjects_dir()
-
-        # -------------- setup forward -------------- #
-        assert self.fwd_path is not None, "Please provide forward model file."
-
-        try:
-            fwd, missing_ch_names = get_clean_forward(self.fwd_path, mne_info)
-        except ValueError:
-            raise Exception("BAD FORWARD + DATA COMBINATION!")
+        # raise Exception("BAD FORWARD + DATA COMBINATION!")
         # raise Exception
-        self._gain_matrix = fwd["sol"]["data"]
+        _InverseSolverNode._initialize(self)
+        self._gain_matrix = self._fwd["sol"]["data"]
         G = self._gain_matrix
         # ------------------------------------------- #
 
-        mne_info["bads"] = list(set(mne_info["bads"] + missing_ch_names))
+        self._upstream_mne_info["bads"] = list(
+            set(self._upstream_mne_info["bads"] + self._missing_ch_names)
+        )
         Rxx = G.dot(G.T) / 1e22
 
-        goods = mne.pick_types(mne_info, eeg=True, meg=False, exclude="bads")
-        ch_names = [mne_info["ch_names"][i] for i in goods]
+        goods = mne.pick_types(
+            self._upstream_mne_info, eeg=True, meg=False, exclude="bads"
+        )
+        ch_names = [self._upstream_mne_info["ch_names"][i] for i in goods]
 
         self._data_cov = mne.Covariance(
-            Rxx, ch_names, mne_info["bads"], mne_info["projs"], nfree=1
+            Rxx,
+            ch_names,
+            self._upstream_mne_info["bads"],
+            self._upstream_mne_info["projs"],
+            nfree=1,
         )
 
         if self.whiten:
             self._noise_cov = mne.Covariance(
                 G.dot(G.T),
                 ch_names,
-                mne_info["bads"],
-                mne_info["projs"],
+                self._upstream_mne_info["bads"],
+                self._upstream_mne_info["projs"],
                 nfree=1,
             )
 
-        self._upstream_mne_info = mne_info  # upstream info
-
-        frequency = mne_info["sfreq"]
+        frequency = self._upstream_mne_info["sfreq"]
         self._forgetting_factor_per_sample = np.power(
             self.forgetting_factor_per_second, 1 / frequency
         )
 
-        n_vert = fwd["nsource"]
+        n_vert = self._fwd["nsource"]
         channel_labels = ["vertex #{}".format(i + 1) for i in range(n_vert)]
 
         # downstream info
@@ -626,7 +635,7 @@ class Beamformer(_InverseSolverNode):
         self._initialized_as_fixed = self.fixed_orientation
 
         self.fwd_surf = mne.convert_forward_solution(
-            fwd, surf_ori=True, force_fixed=False
+            self._fwd, surf_ori=True, force_fixed=False
         )
         self._compute_filters()
 
@@ -640,7 +649,7 @@ class Beamformer(_InverseSolverNode):
         raw_array.pick_types(eeg=True, meg=False, stim=False, exclude="bads")
         raw_array.set_eeg_reference(ref_channels="average", projection=True)
         t2 = time.time()
-        self._logger.debug(
+        self._logger.timing(
             "Prepare arrays in {:.1f} ms".format((t2 - t1) * 1000)
         )
 
@@ -649,7 +658,7 @@ class Beamformer(_InverseSolverNode):
             t1 = time.time()
             self._compute_filters()
             t2 = time.time()
-            self._logger.debug(
+            self._logger.timing(
                 "Assembled lcmv instance in {:.1f} ms".format((t2 - t1) * 1000)
             )
 
@@ -659,7 +668,7 @@ class Beamformer(_InverseSolverNode):
             raw=raw_array, filters=self._filters, max_ori_out="signed"
         )
         t2 = time.time()
-        self._logger.debug(
+        self._logger.timing(
             "Applied lcmv inverse in {:.1f} ms".format((t2 - t1) * 1000)
         )
 
@@ -678,7 +687,7 @@ class Beamformer(_InverseSolverNode):
 
         self.output = output
         t2 = time.time()
-        self._logger.debug("Finalized in {:.1f} ms".format((t2 - t1) * 1000))
+        self._logger.timing("Finalized in {:.1f} ms".format((t2 - t1) * 1000))
 
     def _compute_filters(self):
         self._filters = make_lcmv(
@@ -737,7 +746,7 @@ class Beamformer(_InverseSolverNode):
         t1 = time.time()
         alpha = self._forgetting_factor_per_sample
         sample_count = input_array.shape[TIME_AXIS]
-        self._logger.debug("Number of samples: {}".format(sample_count))
+        self._logger.timing("Number of samples: {}".format(sample_count))
         new_Rxx_data = self._data_cov.data
 
         raw_array = mne.io.RawArray(
@@ -748,7 +757,7 @@ class Beamformer(_InverseSolverNode):
         input_array_nobads = raw_array.get_data()
 
         t2 = time.time()
-        self._logger.debug(
+        self._logger.timing(
             "Prepared covariance update in {:.2f} ms".format((t2 - t1) * 1000)
         )
         samples = make_time_dimension_second(input_array_nobads).T
@@ -756,7 +765,7 @@ class Beamformer(_InverseSolverNode):
             samples
         )
         t3 = time.time()
-        self._logger.debug(
+        self._logger.timing(
             "Updated matrix data in {:.2f} ms".format((t3 - t2) * 1000)
         )
 
@@ -768,7 +777,7 @@ class Beamformer(_InverseSolverNode):
             nfree=1,
         )
         t4 = time.time()
-        self._logger.debug(
+        self._logger.timing(
             "Created instance of covariance"
             + " in {:.2f} ms".format((t4 - t4) * 1000)
         )
@@ -837,12 +846,6 @@ class MCE(_InverseSolverNode):
         "subjects_dir",
         "subject",
     )
-    ALLOWED_CHILDREN = (
-        "BrainViewer",
-        "EnvelopeExtractor",
-        "AtlasViewer",
-        "LSLStreamOutput",
-    )
 
     def __init__(
         self,
@@ -867,19 +870,12 @@ class MCE(_InverseSolverNode):
 
     def _initialize(self):
         # self.fwd_dialog_signal_sender.open_dialog.emit()
-        mne_info = self.traverse_back_and_find("mne_info")
-        self._upstream_mne_info = mne_info
-        self._get_forward_subject_and_subjects_dir()
-        self._bad_channels = mne_info["bads"]
-        # mne_info['custom_ref_applied'] = True
-        # -------- truncated svd for fwd_opr operator -------- #
-        try:
-            fwd, missing_ch_names = get_clean_forward(self.fwd_path, mne_info)
-        except ValueError:
-            raise Exception("BAD FORWARD + DATA COMBINATION!")
-        mne_info["bads"] = list(set(mne_info["bads"] + missing_ch_names))
+        _InverseSolverNode._initialize(self)
+        self._upstream_mne_info["bads"] = list(
+            set(self._upstream_mne_info["bads"] + self._missing_ch_names)
+        )
         fwd_fix = mne.convert_forward_solution(
-            fwd, surf_ori=True, force_fixed=False
+            self._fwd, surf_ori=True, force_fixed=False
         )
 
         self._gain_matrix = fwd_fix["sol"]["data"]
@@ -900,17 +896,21 @@ class MCE(_InverseSolverNode):
 
         # ------------------------ noise-covariance ------------------------ #
         cov_data = np.identity(N_SEN)
-        ch_names = np.array(mne_info["ch_names"])[
-            mne.pick_types(mne_info, eeg=True, meg=False)
+        ch_names = np.array(self._upstream_mne_info["ch_names"])[
+            mne.pick_types(self._upstream_mne_info, eeg=True, meg=False)
         ]
         ch_names = list(ch_names)
         noise_cov = mne.Covariance(
-            cov_data, ch_names, mne_info["bads"], mne_info["projs"], nfree=1
+            cov_data,
+            ch_names,
+            self._upstream_mne_info["bads"],
+            self._upstream_mne_info["projs"],
+            nfree=1,
         )
         # ------------------------------------------------------------------ #
 
         self.mne_inv = mne_make_inverse_operator(
-            mne_info,
+            self._upstream_mne_info,
             fwd_fix,
             noise_cov,
             depth=0.8,
@@ -918,15 +918,16 @@ class MCE(_InverseSolverNode):
             fixed=False,
             verbose="ERROR",
         )
-        self._upstream_mne_info = mne_info
         self.Sn = Sn
         self.V = V
-        channel_count = fwd["nsource"]
+        channel_count = self._fwd["nsource"]
         channel_labels = [
             "vertex #{}".format(i + 1) for i in range(channel_count)
         ]
-        self.mne_info = mne.create_info(channel_labels, mne_info["sfreq"])
-        self._upstream_mne_info = mne_info
+        self.mne_info = mne.create_info(
+            channel_labels, self._upstream_mne_info["sfreq"]
+        )
+        self._upstream_mne_info = self._upstream_mne_info
 
     def _update(self):
         input_array = self.parent.output
@@ -1007,6 +1008,7 @@ class ICARejection(ProcessorNode):
         "Beamformer",
         "EnvelopeExtractor",
         "LSLStreamOutput",
+        "FileOutput",
     )
 
     CHANGES_IN_THESE_REQUIRE_RESET = ("collect_for_x_seconds",)
@@ -1133,6 +1135,7 @@ class AtlasViewer(ProcessorNode):
         "SignalViewer",
         "LSLStreamOutput",
         "Coherence",
+        "FileOutput",
     )
 
     def __init__(self, parc="aparc", active_label_names=[]):
@@ -1205,7 +1208,7 @@ class AtlasViewer(ProcessorNode):
                 )
                 if l.hemi == "rh":
                     l.vertices += rh_offset
-                    # l.mass_center += rh_offset
+                    l.mass_center += rh_offset
                 l.forward_vertices = np.where(
                     np.isin(sources_idx, l.vertices)
                 )[0]
@@ -1231,7 +1234,7 @@ class AtlasViewer(ProcessorNode):
             # label_mask = self.source_labels == label['id']
             data_label[i, :] = np.mean(data[l.forward_vertices, :], axis=0)
         self.output = data_label
-        self._logger.debug("Output data shape is %s" % str(data.shape))
+        # self._logger.debug("Output data shape is %s" % str(data.shape))
 
     def _check_value(self, key, value):
         ...

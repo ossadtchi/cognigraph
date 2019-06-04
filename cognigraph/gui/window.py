@@ -76,7 +76,10 @@ class GUIWindow(QMainWindow):
 
     def init_controls(self):
         self.controls_dock.setWidget(self._controls)
+        self.run_toggle_action.triggered.disconnect()
         self.run_toggle_action.triggered.connect(self._updater.toggle)
+        self._updater._sender.run_toggled.connect(self._on_run_button_toggled)
+        self._updater._sender.errored.connect(self._show_message)
         self.is_initialized = False
 
     def init_ui(self):
@@ -89,6 +92,9 @@ class GUIWindow(QMainWindow):
         self.controls_dock.setAllowedAreas(
             Qt.LeftDockWidgetArea | Qt.RightDockWidgetArea
         )
+        self.controls_dock.visibilityChanged.connect(
+            self._update_pipeline_tree_widget_action_text
+        )
 
         self.addDockWidget(Qt.LeftDockWidgetArea, self.controls_dock)
 
@@ -96,17 +102,17 @@ class GUIWindow(QMainWindow):
         # --------------------------------- #
 
         file_menu = self.menuBar().addMenu("&File")  # file menu
-        load_pipeline_action = self.createAction(
+        load_pipeline_action = self._createAction(
             "&Load pipeline", self._load_pipeline
         )
-        save_pipeline_action = self.createAction(
+        save_pipeline_action = self._createAction(
             "&Save pipeline", self._save_pipeline
         )
         file_menu.addAction(load_pipeline_action)
         file_menu.addAction(save_pipeline_action)
 
         # -------- view menu & toolbar -------- #
-        tile_windows_action = self.createAction(
+        tile_windows_action = self._createAction(
             "&Tile windows", self.central_widget.tileSubWindows
         )
         view_menu = self.menuBar().addMenu("&View")
@@ -115,12 +121,21 @@ class GUIWindow(QMainWindow):
         view_toolbar.addAction(tile_windows_action)
         # ------------------------------------- #
 
+        edit_menu = self.menuBar().addMenu("&Edit")
+        self._toggle_pipeline_tree_widget_action = self._createAction(
+            "&Hide pipeline settings", self._toggle_pipeline_tree_widget
+        )
+        edit_menu.addAction(self._toggle_pipeline_tree_widget_action)
+        edit_toolbar = self.addToolBar("Edit")
+        edit_toolbar.setObjectName("edit_toolbar")
+        edit_toolbar.addAction(self._toggle_pipeline_tree_widget_action)
+
         # -------- run menu & toolbar -------- #
-        self.run_toggle_action = self.createAction(
+        self.run_toggle_action = self._createAction(
             "&Start", self._on_run_button_toggled
         )
         run_menu = self.menuBar().addMenu("&Run")
-        self.initialize_pipeline = self.createAction(
+        self.initialize_pipeline = self._createAction(
             "&Initialize pipeline", self.initialize
         )
         run_menu.addAction(self.run_toggle_action)
@@ -130,6 +145,22 @@ class GUIWindow(QMainWindow):
         run_toolbar.addAction(self.run_toggle_action)
         run_toolbar.addAction(self.initialize_pipeline)
         # ------------------------------------ #
+
+    def _toggle_pipeline_tree_widget(self):
+        if self.controls_dock.isHidden():
+            self.controls_dock.show()
+        else:
+            self.controls_dock.hide()
+
+    def _update_pipeline_tree_widget_action_text(self, is_visible):
+        if is_visible:
+            self._toggle_pipeline_tree_widget_action.setText(
+                "&Hide pipelne settings"
+            )
+        else:
+            self._toggle_pipeline_tree_widget_action.setText(
+                "&Show pipelne settings"
+            )
 
     def _load_pipeline(self):
         file_dialog = QFileDialog(
@@ -267,7 +298,7 @@ class GUIWindow(QMainWindow):
         msg.setDetailedText(detailed_text)
         msg.show()
 
-    def createAction(
+    def _createAction(
         self,
         text,
         slot=None,
@@ -293,8 +324,8 @@ class GUIWindow(QMainWindow):
     def moveEvent(self, event):
         return super(GUIWindow, self).moveEvent(event)
 
-    def _on_run_button_toggled(self):
-        if self.run_toggle_action.text() == "Pause":
+    def _on_run_button_toggled(self, is_paused=True):
+        if is_paused:
             self.run_toggle_action.setText("Start")
         else:
             self.run_toggle_action.setText("Pause")

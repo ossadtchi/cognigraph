@@ -177,7 +177,7 @@ class Node(object, metaclass=_ReprMeta):
         self._update()
 
         t2 = time.time()
-        self._logger.debug("Updated in {:.1f} ms".format((t2 - t1) * 1000))
+        self._logger.timing("Updated in {:.1f} ms".format((t2 - t1) * 1000))
 
         for child in self._children:
             child.update()
@@ -453,6 +453,7 @@ class SourceNode(Node):
         "MCE",
         "Beamformer",
         "LSLStreamOutput",
+        "FileOutput"
     )
 
     def __init__(self):
@@ -460,13 +461,17 @@ class SourceNode(Node):
         self.mne_info = None
         self.viz_type = "sensor time series"
         self._is_first_update = None
-        self._start_time = None
+        self.start_time = None
         self.time_stamp = None
 
     def initialize(self):
         self._is_first_update = True
         self.mne_info = None
         Node.initialize(self)
+        for child in self._children:
+            # In case source type was changed dynamically
+            if child.initialized and not self.initialized:
+                child.on_upstream_change(is_input_hist_invalid=True)
         try:
             self._check_mne_info()
         except ValueError as e:
@@ -475,13 +480,18 @@ class SourceNode(Node):
 
     def update(self):
         current_time = time.time()
+        if self.disabled is True:
+            self.output = None
+            self.timestamps = None
+            return
+        else:
+            Node.update(self)
         if self._is_first_update:
             self.start_time = current_time
             self._is_first_update = False
             self.time_stamp = 0
         else:
             self.time_stamp = current_time - self.start_time
-        Node.update(self)
 
     def _check_mne_info(self):
         class_name = class_name_of(self)

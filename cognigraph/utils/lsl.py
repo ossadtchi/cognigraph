@@ -110,5 +110,4 @@ def read_channel_labels_from_info(info: lsl.StreamInfo):
     types = []
     for l in labels:
         types.append("eeg")
-    labels = [l[:-3] for l in labels]
     return labels, types

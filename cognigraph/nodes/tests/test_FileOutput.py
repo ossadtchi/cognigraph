@@ -24,14 +24,14 @@ def file_outputter(info, data_path, tmp_path):  # noqa
 
 def test_change_api_attributes(file_outputter, tmp_path):
     """
-    Change output_fname and check if initialize resets out_file.
+    Change output_path and check if initialize resets out_file.
 
     """
     arbitrary_name = op.join(tmp_path, 'somename.h5')
 
     file_outputter.initialize()
     out_file_ini = file_outputter._out_file
-    file_outputter.output_fname = arbitrary_name
+    file_outputter.output_path = arbitrary_name
     file_outputter.update()
 
     assert file_outputter._out_file is not out_file_ini

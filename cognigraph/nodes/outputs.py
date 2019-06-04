@@ -356,14 +356,11 @@ class BrainViewer(_WidgetOutput):
         self._images = []
         self._gif_times = []
         self._gif_start_time = time.time()
-        self._run_start_time = self.traverse_back_and_find("start_time")
-        self._gif_times.append(self._gif_start_time - self._run_start_time)
 
         self.is_recording = True
 
     def _stop_gif(self):
         self.is_recording = False
-        # self._timer.stop()
 
         duration = time.time() - self._gif_start_time
         self._display_time = (duration * 1000) / len(self._images)
@@ -390,7 +387,8 @@ class BrainViewer(_WidgetOutput):
             )
 
     def _append_screenshot(self):
-        self._gif_times.append(time.time() - self._run_start_time)
+        last_sample_time = self.traverse_back_and_find('timestamps')[-1]
+        self._gif_times.append(last_sample_time)
         if self.sector is None:
             # self._images.append(ImageGrab.grab())
             self._images.append(im.fromarray(_screenshot()))
@@ -452,7 +450,7 @@ class SignalViewer(_WidgetOutput):
 
 class FileOutput(OutputNode):
 
-    CHANGES_IN_THESE_REQUIRE_RESET = ("output_fname",)
+    CHANGES_IN_THESE_REQUIRE_RESET = ("output_path",)
 
     UPSTREAM_CHANGES_IN_THESE_REQUIRE_REINITIALIZATION = ("mne_info",)
     SAVERS_FOR_UPSTREAM_MUTABLE_OBJECTS = {
@@ -468,9 +466,9 @@ class FileOutput(OutputNode):
     def _on_critical_attr_change(self, key, old_val, new_val):
         self.initialize()
 
-    def __init__(self, output_fname="output.h5"):
-        super().__init__()
-        self.output_fname = output_fname
+    def __init__(self, output_path="cognigraph_output.h5"):
+        OutputNode.__init__(self)
+        self.output_path = output_path
         self._out_file = None
 
     def _initialize(self):
@@ -479,12 +477,26 @@ class FileOutput(OutputNode):
 
         info = self.traverse_back_and_find("mne_info")
         col_size = info["nchan"]
-        self._out_file = tables.open_file(self.output_fname, mode="w")
+        self._out_file = tables.open_file(self.output_path, mode="w")
         atom = tables.Float64Atom()
 
         self.output_array = self._out_file.create_earray(
             self._out_file.root, "data", atom, (col_size, 0)
         )
+
+    def toggle(self):
+        if self.disabled:
+            self._start()
+        else:
+            self._stop()
+
+    def _stop(self):
+        self._out_file.close()
+        self.disabled = True
+
+    def _start(self):
+        self.disabled = False
+        self._initialize()
 
     def _update(self):
         chunk = self.parent.output

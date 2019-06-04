@@ -9,6 +9,8 @@ class _Communicate(QObject):
     """Pyqt signals sender"""
 
     sync_signal = pyqtSignal()
+    run_toggled = pyqtSignal(bool)
+    errored = pyqtSignal(str, str, str)
 
 
 class AsyncUpdater(QThread):
@@ -35,7 +37,16 @@ class AsyncUpdater(QThread):
         is_first_iter = True
         while True:
             # start = time.time()
-            self._pipeline.update()
+            try:
+                self._pipeline.update()
+            except Exception as exc:
+                self.stop()
+                self._logger.exception(exc)
+                self._sender.errored.emit(
+                    "Can't update pipeline!",
+                    str(exc),
+                    "error",
+                )
             # end = time.time()
             if is_first_iter:
                 # without this hack widgets are not updated unless
@@ -54,12 +65,14 @@ class AsyncUpdater(QThread):
             self._stop_flag = False
             self._logger.info("Start pipeline")
             QThread.start(self)
+            self._sender.run_toggled.emit(self.is_paused)
 
     def stop(self):
         if not self.is_paused:
             self.is_paused = True
             self._logger.info("Stop pipeline")
             self._stop_flag = True
+            self._sender.run_toggled.emit(self.is_paused)
 
     def toggle(self):
         if self.is_paused:
