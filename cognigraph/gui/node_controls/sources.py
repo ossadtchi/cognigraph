@@ -9,6 +9,8 @@ __all__ = ("LSLStreamSourceControls", "FileSourceControls")
 
 
 class _SourceControls(MyGroupParameter):
+    DISABLED_NAME = "Disable: "
+
     @property
     def SOURCE_CLASS(self):
         raise NotImplementedError
@@ -16,10 +18,28 @@ class _SourceControls(MyGroupParameter):
     def __init__(self, source_node, **kwargs):
         self._source_node = source_node  # type: self.SOURCE_CLASS
         super().__init__(**kwargs)
+        self._add_disable_parameter()
 
     def create_node(self):
         self._source_node = self.SOURCE_CLASS()
         return self._source_node
+
+    def _add_disable_parameter(self):
+        disabled_value = False  # TODO: change once disabling is implemented
+        disabled = parameterTypes.SimpleParameter(
+            type="bool",
+            name=self.DISABLED_NAME,
+            value=disabled_value,
+            readonly=False,
+        )
+        disabled.sigValueChanged.connect(self._on_disabled_changed)
+        self.disabled = self.addChild(disabled)
+        self._source_node._signal_sender.disabled_changed.connect(
+            self.disabled.setValue
+        )
+
+    def _on_disabled_changed(self, param, value):
+        self._source_node.disabled = value
 
 
 class LSLStreamSourceControls(_SourceControls):

@@ -122,8 +122,8 @@ class SourceControls(MyGroupParameter):
                 )
                 create_node_dialog.adjustSize()
                 create_node_dialog.node.disabled = True
-                parent.add_child(create_node_dialog.node)
                 create_node_dialog.exec()
+                parent.add_child(create_node_dialog.node)
                 # self.create_node_dialog.node.initialize()
                 if create_node_dialog.result():
                     new_source_node = create_node_dialog.node
