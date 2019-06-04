@@ -13,6 +13,18 @@ from cognigraph.nodes import sources, processors, outputs
 from cognigraph.gui.window import GUIWindow
 
 
+TIMING_LEVEL_NUM = 9
+logging.addLevelName(TIMING_LEVEL_NUM, "TIMING")
+
+
+def timing(self, message, *args, **kws):
+    if self.isEnabledFor(TIMING_LEVEL_NUM):
+        # Yes, logger takes its '*args' as 'args'.
+        self._log(TIMING_LEVEL_NUM, message, args, **kws)
+
+
+logging.Logger.timing = timing
+
 np.warnings.filterwarnings("ignore")  # noqa
 
 # ----------------------------- setup argparse ----------------------------- #
@@ -35,7 +47,7 @@ if args.logfile:
 else:
     logfile = None
 format = "%(asctime)s:%(name)-17s:%(levelname)s:%(message)s"
-logging.basicConfig(level=logging.INFO, filename=logfile, format=format)
+logging.basicConfig(level=logging.DEBUG, filename=logfile, format=format)
 logger = logging.getLogger(__name__)
 mne.set_log_level("ERROR")
 mne.set_log_file(fname=logfile, output_format=format)

@@ -177,7 +177,7 @@ class Node(object, metaclass=_ReprMeta):
         self._update()
 
         t2 = time.time()
-        self._logger.debug("Updated in {:.1f} ms".format((t2 - t1) * 1000))
+        self._logger.timing("Updated in {:.1f} ms".format((t2 - t1) * 1000))
 
         for child in self._children:
             child.update()

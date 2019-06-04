@@ -640,7 +640,7 @@ class Beamformer(_InverseSolverNode):
         raw_array.pick_types(eeg=True, meg=False, stim=False, exclude="bads")
         raw_array.set_eeg_reference(ref_channels="average", projection=True)
         t2 = time.time()
-        self._logger.debug(
+        self._logger.timing(
             "Prepare arrays in {:.1f} ms".format((t2 - t1) * 1000)
         )
 
@@ -649,7 +649,7 @@ class Beamformer(_InverseSolverNode):
             t1 = time.time()
             self._compute_filters()
             t2 = time.time()
-            self._logger.debug(
+            self._logger.timing(
                 "Assembled lcmv instance in {:.1f} ms".format((t2 - t1) * 1000)
             )
 
@@ -659,7 +659,7 @@ class Beamformer(_InverseSolverNode):
             raw=raw_array, filters=self._filters, max_ori_out="signed"
         )
         t2 = time.time()
-        self._logger.debug(
+        self._logger.timing(
             "Applied lcmv inverse in {:.1f} ms".format((t2 - t1) * 1000)
         )
 
@@ -678,7 +678,7 @@ class Beamformer(_InverseSolverNode):
 
         self.output = output
         t2 = time.time()
-        self._logger.debug("Finalized in {:.1f} ms".format((t2 - t1) * 1000))
+        self._logger.timing("Finalized in {:.1f} ms".format((t2 - t1) * 1000))
 
     def _compute_filters(self):
         self._filters = make_lcmv(
@@ -737,7 +737,7 @@ class Beamformer(_InverseSolverNode):
         t1 = time.time()
         alpha = self._forgetting_factor_per_sample
         sample_count = input_array.shape[TIME_AXIS]
-        self._logger.debug("Number of samples: {}".format(sample_count))
+        self._logger.timing("Number of samples: {}".format(sample_count))
         new_Rxx_data = self._data_cov.data
 
         raw_array = mne.io.RawArray(
@@ -748,7 +748,7 @@ class Beamformer(_InverseSolverNode):
         input_array_nobads = raw_array.get_data()
 
         t2 = time.time()
-        self._logger.debug(
+        self._logger.timing(
             "Prepared covariance update in {:.2f} ms".format((t2 - t1) * 1000)
         )
         samples = make_time_dimension_second(input_array_nobads).T
@@ -756,7 +756,7 @@ class Beamformer(_InverseSolverNode):
             samples
         )
         t3 = time.time()
-        self._logger.debug(
+        self._logger.timing(
             "Updated matrix data in {:.2f} ms".format((t3 - t2) * 1000)
         )
 
@@ -768,7 +768,7 @@ class Beamformer(_InverseSolverNode):
             nfree=1,
         )
         t4 = time.time()
-        self._logger.debug(
+        self._logger.timing(
             "Created instance of covariance"
             + " in {:.2f} ms".format((t4 - t4) * 1000)
         )

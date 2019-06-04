@@ -66,11 +66,11 @@ class Pipeline(Node):
         )
 
     def update(self):
-        self._logger.debug("Start update " + ">" * 6)
+        self._logger.timing("Start update " + ">" * 6)
         t1 = time.time()
         Node.update(self)
         t2 = time.time()
-        self._logger.debug("Finish in {:.1f} ms".format((t2 - t1) * 1000))
+        self._logger.timing("Finish in {:.1f} ms".format((t2 - t1) * 1000))
 
     def save_pipeline(self, db_name):
         save_dict = self._save_dict()
