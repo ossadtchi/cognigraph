@@ -1194,7 +1194,7 @@ class AtlasViewer(ProcessorNode):
                 )
                 if l.hemi == "rh":
                     l.vertices += rh_offset
-                    # l.mass_center += rh_offset
+                    l.mass_center += rh_offset
                 l.forward_vertices = np.where(
                     np.isin(sources_idx, l.vertices)
                 )[0]
