@@ -306,4 +306,14 @@ class ConnectivityViewerControls(OutputNodeControls):
     PROCESSOR_CLASS = outputs.ConnectivityViewer
 
     def _create_parameters(self):
-        ...
+        n_lines = parameterTypes.SimpleParameter(
+            type="int",
+            name="Number of connections",
+            value=self._output_node.n_lines,
+            readonly=False,
+        )
+        self.n_lines = self.addChild(n_lines)
+        self.n_lines.sigValueChanged.connect(self._on_n_lines_changed)
+
+    def _on_n_lines_changed(self, param, value):
+        self._output_node.n_lines = value

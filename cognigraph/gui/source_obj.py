@@ -14,7 +14,7 @@ from ..utils.vispy_utils import (color2vb, normalize, vispy_array,
                                  wrap_properties, array2colormap)
 
 
-logger = logging.getLogger('visbrain')
+logger = logging.getLogger(__name__)
 PROJ_STR = "%i sources visibles and not masked used for the %s"
 
 
@@ -225,7 +225,6 @@ class SourceObj():
 
     def _update_radius(self):
         """Update marker's radius."""
-        logger.debug("Weird edge arround markers (source_obj.py)")
         if np.unique(self._data).size == 1:
             radius = self._radius_min * np.ones((len(self,)))
         else:
