@@ -13,17 +13,6 @@ from cognigraph.nodes import sources, processors, outputs
 from cognigraph.gui.window import GUIWindow
 
 
-TIMING_LEVEL_NUM = 9
-logging.addLevelName(TIMING_LEVEL_NUM, "TIMING")
-
-
-def timing(self, message, *args, **kws):
-    if self.isEnabledFor(TIMING_LEVEL_NUM):
-        # Yes, logger takes its '*args' as 'args'.
-        self._log(TIMING_LEVEL_NUM, message, args, **kws)
-
-
-logging.Logger.timing = timing
 
 np.warnings.filterwarnings("ignore")  # noqa
 

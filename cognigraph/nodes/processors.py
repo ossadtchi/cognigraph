@@ -1220,7 +1220,7 @@ class AtlasViewer(ProcessorNode):
             # label_mask = self.source_labels == label['id']
             data_label[i, :] = np.mean(data[l.forward_vertices, :], axis=0)
         self.output = data_label
-        self._logger.debug("Output data shape is %s" % str(data.shape))
+        # self._logger.debug("Output data shape is %s" % str(data.shape))
 
     def _check_value(self, key, value):
         ...
