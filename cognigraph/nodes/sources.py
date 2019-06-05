@@ -63,6 +63,7 @@ class LSLStreamSource(SourceNode):
         super().__init__()
         self.source_name = source_name
         self._inlet = None  # type: lsl.StreamInlet
+        self.timestamps = None
 
     @property
     def stream_name(self):
@@ -105,6 +106,7 @@ class LSLStreamSource(SourceNode):
             self.mne_info = mne.create_info(
                 channel_labels, frequency, ch_types=channel_types
             )
+            self.timestamps = []
 
     def _update(self):
         lsl_chunk, timestamps = self._inlet.pull_chunk()
@@ -135,6 +137,7 @@ class FileSource(SourceNode):
         self._file_path = None
         self.file_path = file_path  # This will also populate self.source_name
         self.data = None  # type: np.ndarray
+        self.timestamps = None
         self.loop_the_file = loop_the_file
         self.is_alive = True
 
@@ -200,6 +203,7 @@ class FileSource(SourceNode):
 
             self.dtype = DTYPE
             self.data = self.data.astype(self.dtype)
+            self.timestamps = []
         else:
             raise ValueError("File path is not set.")
 

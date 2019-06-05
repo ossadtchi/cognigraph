@@ -386,7 +386,7 @@ class BrainViewer(_WidgetOutput):
             )
 
     def _append_screenshot(self):
-        last_sample_time = self.traverse_back_and_find('timestamps')[-1]
+        last_sample_time = self.traverse_back_and_find("timestamps")[-1]
         self._gif_times.append(last_sample_time)
         self._images.append(im.fromarray(self.canvas.render()))
 
@@ -477,6 +477,16 @@ class FileOutput(OutputNode):
         self.output_array = self._out_file.create_earray(
             self._out_file.root, "data", atom, (col_size, 0)
         )
+        self.timestamps_array = self._out_file.create_earray(
+            self._out_file.root, "timestamps", atom, (1, 0)
+        )
+        self.ch_names = self._out_file.create_array(
+            self._out_file.root,
+            "ch_names",
+            np.array(info["ch_names"]),
+            "Channel names in data",
+        )
+        self._out_file.root.data.attrs.sfreq = info['sfreq']
 
     def toggle(self):
         if self.disabled:
@@ -493,8 +503,14 @@ class FileOutput(OutputNode):
         self._initialize()
 
     def _update(self):
-        chunk = self.parent.output
-        self.output_array.append(chunk)
+        data_chunk = self.parent.output
+        timestamps = np.array(self.traverse_back_and_find("timestamps"))[
+            np.newaxis, :
+        ]
+        print(data_chunk.shape)
+        print(timestamps.shape)
+        self.output_array.append(data_chunk)
+        self.timestamps_array.append(timestamps)
 
 
 class TorchOutput(OutputNode):

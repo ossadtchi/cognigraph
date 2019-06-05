@@ -30,6 +30,7 @@ def test_change_api_attributes(file_outputter, tmp_path):
     arbitrary_name = op.join(tmp_path, 'somename.h5')
 
     file_outputter.initialize()
+    file_outputter.parent.initialize()
     out_file_ini = file_outputter._out_file
     file_outputter.output_path = arbitrary_name
     file_outputter.update()
