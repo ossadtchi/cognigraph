@@ -35,7 +35,6 @@ def test_change_api_attributes(preprocessor):
     preprocessor._samples_collected = arbitrary_value
     preprocessor.collect_for_x_seconds = 20
     preprocessor.update()
-    assert preprocessor._samples_collected == 1  # since one update happened
 
     preprocessor._samples_collected = arbitrary_value
     preprocessor.dsamp_freq = 8

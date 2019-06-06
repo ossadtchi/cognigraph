@@ -18,3 +18,4 @@ class Communicate(QObject):
     node_widget_added = pyqtSignal(QWidget, str)
     initialized = pyqtSignal()
     fps_updated = pyqtSignal(float)
+    enough_collected = pyqtSignal()

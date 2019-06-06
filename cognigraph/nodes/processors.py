@@ -29,6 +29,7 @@ MneGcs: ProcessorNode
 """
 import time
 import scipy as sc
+from copy import deepcopy
 
 import math
 
@@ -85,7 +86,11 @@ __all__ = (
 
 
 class Preprocessing(ProcessorNode):
-    CHANGES_IN_THESE_REQUIRE_RESET = ("collect_for_x_seconds", "dsamp_freq")
+    CHANGES_IN_THESE_REQUIRE_RESET = (
+        "collect_for_x_seconds",
+        "dsamp_factor",
+        "bad_channels",
+    )
     UPSTREAM_CHANGES_IN_THESE_REQUIRE_REINITIALIZATION = ("mne_info",)
     SAVERS_FOR_UPSTREAM_MUTABLE_OBJECTS = {"mne_info": channel_labels_saver}
 
@@ -102,70 +107,122 @@ class Preprocessing(ProcessorNode):
         "FileOutput",
     )
 
-    def __init__(self, collect_for_x_seconds=60, dsamp_freq=None):
+    def __init__(
+        self, collect_for_x_seconds=60, dsamp_factor=1, bad_channels=[]
+    ):
         ProcessorNode.__init__(self)
         self.collect_for_x_seconds = collect_for_x_seconds  # type: int
 
         self._samples_collected = None  # type: int
-        self._samples_to_be_collected = None  # type: int
         self._enough_collected = None  # type: bool
         self._means = None  # type: np.ndarray
         self._mean_sums_of_squares = None  # type: np.ndarray
         self._bad_channel_indices = None  # type: list[int]
         self._interpolation_matrix = None  # type: np.ndarray
-        self.dsamp_freq = dsamp_freq
+        self.dsamp_factor = dsamp_factor
         self.viz_type = "sensor time series"
+        self.is_collecting_samples = False
+        self.bad_channels = bad_channels
 
         self._reset_statistics()
 
     def _initialize(self):
-        self.mne_info = self.traverse_back_and_find("mne_info")
-        frequency = self.mne_info["sfreq"]
-        self._samples_to_be_collected = int(
-            math.ceil(self.collect_for_x_seconds * frequency)
-        )
+        self._upstream_mne_info = self.traverse_back_and_find("mne_info")
+        self.mne_info = deepcopy(self._upstream_mne_info)
+        self.mne_info["bads"] += self.bad_channels
+        self._signal_sender.initialized.emit()
+        if self.dsamp_factor and self.dsamp_factor > 1:
+            filt_freq = self.mne_info["sfreq"] / self.dsamp_factor / 2
+            if self.mne_info["lowpass"] > filt_freq:
+                self.mne_info["lowpass"] = filt_freq
+            self._antialias_filter = filters.ButterFilter(
+                band=(None, filt_freq),
+                fs=self.mne_info["sfreq"],
+                n_channels=self.mne_info["nchan"],
+            )
+            self._antialias_filter.apply = pynfb_ndarray_function_wrapper(
+                self._antialias_filter.apply
+            )
+            self._left_n_pad = 0  # initial skip to keep decimation right
+            self.mne_info["sfreq"] /= self.dsamp_factor
 
     def _update(self):
         # Have we collected enough samples without the new input?
-        enough_collected = (
-            self._samples_collected >= self._samples_to_be_collected
-        )
-        if not enough_collected:
-            if (
-                self.parent.output is not None
-                and self.parent.output.shape[TIME_AXIS] > 0
-            ):
-                self._update_statistics()
+        if self.is_collecting_samples:
+            enough_collected = (
+                self._samples_collected >= self._samples_to_be_collected
+            )
+            if not enough_collected:
+                if (
+                    self.parent.output is not None
+                    and self.parent.output.shape[TIME_AXIS] > 0
+                ):
+                    self._update_statistics()
 
-        elif not self._enough_collected:  # We just got enough samples
-            self._enough_collected = True
-            standard_deviations = self._calculate_standard_deviations()
-            self._bad_channel_indices = find_outliers(standard_deviations)
-            if any(self._bad_channel_indices):
-                # message = Message(there_has_been_a_change=True,
-                #                   output_history_is_no_longer_valid=True)
-                # self._deliver_a_message_to_receivers(message)
-                # self.mne_info['bads'].append(self._bad_channel_indices)
-                # self.mne_info['bads'] = self._bad_channel_indices
+            elif not self._enough_collected:  # We just got enough samples
+                self._enough_collected = True
+                standard_deviations = self._calculate_standard_deviations()
+                self._bad_channel_indices = find_outliers(standard_deviations)
+                if any(self._bad_channel_indices):
+                    self.mne_info["bads"] = self._upstream_mne_info["bads"] + [
+                        self.mne_info["ch_names"][i]
+                        for i in self._bad_channel_indices
+                    ]
+                    self.bad_channels = [
+                        self.mne_info["ch_names"][i]
+                        for i in self._bad_channel_indices
+                    ]
 
-                # TODO: handle emergent bad channels on the go
-                pass
-        if self.dsamp_freq and self.dsamp_freq < self.mne_info["sfreq"]:
-            raw = mne.io.RawArray(self.parent.output, self.mne_info)
-            raw.resample(self.dsamp_freq)
-            self.output = raw.get_data()
-            self.mne_info = raw.mne_info
+                self._reset_statistics()
+                self._signal_sender.enough_collected.emit()
+
+        if self.dsamp_factor and self.dsamp_factor > 1:
+            in_data = self.parent.output
+            in_antialiased = self._antialias_filter.apply(in_data)
+            self.output = in_antialiased[
+                :, self._left_n_pad :: self.dsamp_factor
+            ]
+
+            timestamps = self.traverse_back_and_find("timestamps")
+            self.timestamps = timestamps[self._left_n_pad :: self.dsamp_factor]
+            n_samp = in_data.shape[1]
+            self._left_n_pad = (n_samp - self._left_n_pad) % self.dsamp_factor
+            if self.output.size == 0:
+                # Empty output disables processing for children which
+                # decreases update time, so the next chunk will be small
+                # again and downsampled output will be zero again.
+                # Wait for at leas dsamp_factor samples to avoid this
+                wait_time = (
+                    self.dsamp_factor / self._upstream_mne_info["sfreq"]
+                )
+                time.sleep(wait_time)
 
         else:
             self.output = self.parent.output
 
+    def reset_bads(self):
+        self.mne_info["bads"] = self._upstream_mne_info["bads"]
+        self._bad_channel_indices = []
+        self.bad_channels = []
+
+    @property
+    def _samples_to_be_collected(self):
+        frequency = self._upstream_mne_info["sfreq"]
+        return int(math.ceil(self.collect_for_x_seconds * frequency))
+
     def _on_critical_attr_change(self, key, old_val, new_val) -> bool:
         if key == "collect_for_x_seconds":
             self._reset_statistics()
-        self._input_history_is_no_longer_valid = True
-        return self._input_history_is_no_longer_valid
+            output_history_is_no_longer_valid = False
+        elif key == "dsamp_factor":
+            self._initialize()
+            output_history_is_no_longer_valid = True
+        elif key == "bad_channels":
+            output_history_is_no_longer_valid = True
+        return output_history_is_no_longer_valid
 
     def _reset_statistics(self):
+        self.is_collecting_samples = False
         self._samples_collected = 0
         self._enough_collected = False
         self._means = 0

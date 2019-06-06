@@ -75,22 +75,91 @@ class PreprocessingControls(_ProcessorNodeControls):
     CONTROLS_LABEL = "Preprocessing"
 
     DURATION_NAME = "Baseline duration: "
+    DSAMP_FREQ_NAME = "Downsample factor: "
+
+    BUTTON_START_STR = "Find bad channels"
+    BUTTON_ABORT_STR = "Abort data collection"
+    RESET_BADS_BUTTON_NAME = "Reset bad channels"
 
     def _create_parameters(self):
 
         duration_value = self._processor_node.collect_for_x_seconds
         duration = parameterTypes.SimpleParameter(
-            type="int",
+            type="float",
             name=self.DURATION_NAME,
             suffix="s",
-            limits=(30, 180),
+            limits=(5, 180),
             value=duration_value,
         )
         self.duration = self.addChild(duration)
         self.duration.sigValueChanged.connect(self._on_duration_changed)
 
+        # max_sfreq = self._processor_node.traverse_back_and_find("info")
+        dsamp_factor_combo = parameterTypes.SimpleParameter(
+            type="int",
+            name=self.DSAMP_FREQ_NAME,
+            suffix="Hz",
+            limits=(1, 4),
+            value=1,
+        )
+        self.dsamp_factor_combo = self.addChild(dsamp_factor_combo)
+        self.dsamp_factor_combo.sigValueChanged.connect(
+            self._on_dsamp_factor_changed
+        )
+        self._processor_node._signal_sender.initialized.connect(
+            self._reset_combo
+        )
+
+        find_bads_button = parameterTypes.ActionParameter(
+            type="action", name=self.BUTTON_START_STR
+        )
+        self.find_bads_button = self.addChild(find_bads_button)
+        self.find_bads_button.sigActivated.connect(self._on_find_bads_clicked)
+
+        bads = parameterTypes.ListParameter(
+            name="Bad channels",
+            values=["Waiting for initialization"],
+            value=None,
+        )
+        self.bads = self.addChild(bads)
+        self._processor_node._signal_sender.enough_collected.connect(
+            self._on_enough_collected
+        )
+
+        reset_bads_button = parameterTypes.ActionParameter(
+            type="action", name=self.RESET_BADS_BUTTON_NAME
+        )
+        reset_bads_button.sigActivated.connect(self._processor_node.reset_bads)
+        reset_bads_button.sigActivated.connect(self._reset_combo)
+        self._reset_bads_button = self.addChild(reset_bads_button)
+
     def _on_duration_changed(self, param, value):
         self._processor_node.collect_for_x_seconds = value
+
+    def _on_dsamp_factor_changed(self, param, value):
+        self._processor_node.dsamp_factor = value
+
+    def _on_find_bads_clicked(self):
+        self.find_bads_button.setName(self.BUTTON_ABORT_STR)
+        self.find_bads_button.setReadonly()
+        self._processor_node.is_collecting_samples = True
+
+    def _reset_combo(self):
+        if not self._processor_node._enough_collected:
+            self.removeChild(self.bads)
+            bads = parameterTypes.ListParameter(
+                name="Bad channels",
+                values=self._processor_node.bad_channels,
+            )
+            self.bads = self.addChild(bads)
+
+    def _on_enough_collected(self):
+        self.removeChild(self.bads)
+        bads = parameterTypes.ListParameter(
+            name="Bad channels", values=self._processor_node.mne_info["bads"]
+        )
+        self.bads = self.addChild(bads)
+        self.find_bads_button.setName(self.BUTTON_START_STR)
 
 
 class LinearFilterControls(_ProcessorNodeControls):

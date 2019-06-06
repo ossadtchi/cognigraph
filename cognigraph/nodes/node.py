@@ -175,6 +175,9 @@ class Node(object, metaclass=_ReprMeta):
             finally:
                 self.root._signal_sender.long_operation_finished.emit()
         self._update()
+        # in case of critical changes during update
+        if self._reset_buffer:
+            self.reset()
 
         t2 = time.time()
         self._logger.timing("Updated in {:.1f} ms".format((t2 - t1) * 1000))
