@@ -21,7 +21,7 @@
     и скопировать в него следующие команды:
 
     ```bash
-    git clone --recursive git@github.com:dmalt/cognigraph.git
+    git clone --recursive git@github.com:Cognigraph/cognigraph.git
     cd cognigraph
     conda env create -f environment.yml
     conda activate cogni
@@ -42,25 +42,3 @@
     ```bash
     cognigraph
     ```
-
-
-
-3. **Необходимые файлы.**
-
-    Программа использует файлы из датасета _sample_, 
-    распространяемого с пакетом _mne-python_. Чтобы не качать все файлы (датасет
-    лежит на osf.io, загрузка с которого  происходит крайне медленно), можно скачать
-    урезанную версию 
-    [отсюда](https://drive.google.com/open?id=1D0jI_Z5EycI8JwJbYOAYdSycNGoarmP-). 
-    Папку _MNE-sample-data_ из архива надо скопировать в то же место, куда бы ее 
-    загрузил _mne-python_. Чтобы узнать, что это за место, не скачивая датасет, 
-    нужно сделать следующее: 
-
-    ```
-    from mne.datasets import sample
-    print(sample.data_path(download=False, verbose=False))
-    ```
-    Папку _MNE-sample-data_ из архива копируем в выведенный путь.
-
-
-
