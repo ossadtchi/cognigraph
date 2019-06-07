@@ -3,7 +3,7 @@ from PyQt5.QtCore import Qt
 import logging
 from ...nodes import processors
 from ...utils.pyqtgraph import MyGroupParameter, parameterTypes
-from ..widgets import RoiSelectionDialog
+from ..widgets import RoiSelectionDialog, SeedSelectionDialog
 from ...utils.brain_visualization import get_mesh_data_from_surfaces_dir
 from ..forward_dialog import FwdSetupDialog
 
@@ -18,6 +18,7 @@ __all__ = (
     "AtlasViewerControls",
     "AmplitudeEnvelopeCorrelationsControls",
     "CoherenceControls",
+    "SeedCoherenceControls",
 )
 
 
@@ -75,22 +76,96 @@ class PreprocessingControls(_ProcessorNodeControls):
     CONTROLS_LABEL = "Preprocessing"
 
     DURATION_NAME = "Baseline duration: "
+    DSAMP_FREQ_NAME = "Downsample factor: "
+
+    BUTTON_START_STR = "Find bad channels"
+    BUTTON_ABORT_STR = "Abort data collection"
+    RESET_BADS_BUTTON_NAME = "Reset bad channels"
 
     def _create_parameters(self):
 
         duration_value = self._processor_node.collect_for_x_seconds
         duration = parameterTypes.SimpleParameter(
-            type="int",
+            type="float",
             name=self.DURATION_NAME,
             suffix="s",
-            limits=(30, 180),
+            limits=(5, 180),
             value=duration_value,
         )
         self.duration = self.addChild(duration)
         self.duration.sigValueChanged.connect(self._on_duration_changed)
 
+        # max_sfreq = self._processor_node.traverse_back_and_find("info")
+        dsamp_factor_combo = parameterTypes.SimpleParameter(
+            type="int",
+            name=self.DSAMP_FREQ_NAME,
+            suffix="Hz",
+            limits=(1, 4),
+            value=1,
+        )
+        self.dsamp_factor_combo = self.addChild(dsamp_factor_combo)
+        self.dsamp_factor_combo.sigValueChanged.connect(
+            self._on_dsamp_factor_changed
+        )
+        self._processor_node._signal_sender.initialized.connect(
+            self._reset_combo
+        )
+
+        find_bads_button = parameterTypes.ActionParameter(
+            type="action", name=self.BUTTON_START_STR
+        )
+        self.find_bads_button = self.addChild(find_bads_button)
+        self.find_bads_button.sigActivated.connect(self._on_find_bads_clicked)
+
+        bads = parameterTypes.ListParameter(
+            name="Bad channels",
+            values=["Waiting for initialization"],
+            value=None,
+        )
+        self.bads = self.addChild(bads)
+        self._processor_node._signal_sender.enough_collected.connect(
+            self._on_enough_collected
+        )
+
+        reset_bads_button = parameterTypes.ActionParameter(
+            type="action", name=self.RESET_BADS_BUTTON_NAME
+        )
+        reset_bads_button.sigActivated.connect(self._processor_node.reset_bads)
+        reset_bads_button.sigActivated.connect(self._reset_combo)
+        self._reset_bads_button = self.addChild(reset_bads_button)
+
     def _on_duration_changed(self, param, value):
+        if self._processor_node.is_collecting_samples:
+            self.collect_data_button.setName(self.BUTTON_START_STR)
+            self._processor_node._reset_statistics()
         self._processor_node.collect_for_x_seconds = value
+
+    def _on_dsamp_factor_changed(self, param, value):
+        self._processor_node.dsamp_factor = value
+
+    def _on_find_bads_clicked(self):
+        if self._processor_node.is_collecting_samples:
+            self.find_bads_button.setName(self.BUTTON_START_STR)
+            self._processor_node._reset_statistics()
+        else:
+            self.find_bads_button.setName(self.BUTTON_ABORT_STR)
+            self._processor_node.is_collecting_samples = True
+
+    def _reset_combo(self):
+        if not self._processor_node._enough_collected:
+            self.removeChild(self.bads)
+            bads = parameterTypes.ListParameter(
+                name="Bad channels", values=self._processor_node.bad_channels
+            )
+            self.bads = self.addChild(bads)
+
+    def _on_enough_collected(self):
+        self.removeChild(self.bads)
+        bads = parameterTypes.ListParameter(
+            name="Bad channels", values=self._processor_node.mne_info["bads"]
+        )
+        self.bads = self.addChild(bads)
+        self.find_bads_button.setName(self.BUTTON_START_STR)
 
 
 class LinearFilterControls(_ProcessorNodeControls):
@@ -365,27 +440,96 @@ class ICARejectionControls(_ProcessorNodeControls):
     CONTROLS_LABEL = "ICA rejection"
     PROCESSOR_CLASS = processors.MCE
 
+    DURATION_NAME = "ICA duration: "
     METHODS_COMBO_NAME = "Method: "
+    BUTTON_START_STR = "Collect data"
+    BUTTON_ABORT_STR = "Abort data collection"
+    RESET_BUTTON_NAME = "Reset ICA decomposition"
+    SHOW_DIALOG_BUTTON_NAME = "Select ICA components"
 
     def _create_parameters(self):
+        duration_value = self._processor_node.collect_for_x_seconds
+        duration = parameterTypes.SimpleParameter(
+            type="float",
+            name=self.DURATION_NAME,
+            suffix="s",
+            limits=(5, 180),
+            value=duration_value,
+        )
 
-        # method_values = self.PROCESSOR_CLASS.SUPPORTED_METHODS
-        # method_value = self._processor_node.method
-        # methods_combo = parameterTypes.ListParameter(
-        # name=self.METHODS_COMBO_NAME, values=method_values,
-        # value=method_value)
-        # methods_combo.sigValueChanged.connect(self._on_method_changed)
-        # self.methods_combo = self.addChild(methods_combo)
-        pass
+        self._processor_node._signal_sender.enough_collected.connect(
+            self._on_enough_collected
+        )
+        self.duration = self.addChild(duration)
+        self.duration.sigValueChanged.connect(self._on_duration_changed)
+
+        collect_data_button = parameterTypes.ActionParameter(
+            type="action", name=self.BUTTON_START_STR
+        )
+        self.collect_data_button = self.addChild(collect_data_button)
+        self.collect_data_button.sigActivated.connect(self._on_collect_clicked)
+
+        reset_button = parameterTypes.ActionParameter(
+            type="action", name=self.RESET_BUTTON_NAME
+        )
+        reset_button.sigActivated.connect(self._processor_node.reset_rejector)
+        self._reset_bads_button = self.addChild(reset_button)
+
+        show_dialog_button = parameterTypes.ActionParameter(
+            type="action", name=self.SHOW_DIALOG_BUTTON_NAME
+        )
+        self.show_dialog_button = self.addChild(show_dialog_button)
+        self.show_dialog_button.sigActivated.connect(
+            self._on_show_dialog_clicked
+        )
 
     def _on_method_changed(self, param, value):
         # self._processor_node.method = value
         pass
 
+    def _on_duration_changed(self, param, value):
+        if self._processor_node.is_collecting_samples:
+            self.collect_data_button.setName(self.BUTTON_START_STR)
+            self._processor_node._reset_statistics()
+        self._processor_node.collect_for_x_seconds = value
+
+    def _on_collect_clicked(self):
+        if self._processor_node.is_collecting_samples:
+            self.collect_data_button.setName(self.BUTTON_START_STR)
+            self._processor_node._reset_statistics()
+        else:
+            self.collect_data_button.setName(self.BUTTON_ABORT_STR)
+            self._processor_node.is_collecting_samples = True
+
+    def _on_enough_collected(self):
+        self.collect_data_button.setName(self.BUTTON_START_STR)
+
+    def _on_show_dialog_clicked(self):
+        if (
+            hasattr(self._processor_node, "ica_dialog")
+            and self._processor_node.ica_dialog is not None
+        ):
+            self._processor_node.ica_dialog.exec()
+            if self._processor_node.ica_dialog.result():
+                self._processor_node._ica_rejector = (
+                    self._processor_node.ica_dialog.rejection.val.T
+                )
+            # Hack to trigger reset after since we start to apply ica rejector
+            self._processor_node._reset_buffer.append(
+                ("dummy", "dummy", "dummy")
+            )
+        else:
+            self._processor_node.root._signal_sender.request_message.emit(
+                "ICA decomposition is missing.",
+                "Click %s to compute" % self.BUTTON_START_STR,
+                "warning",
+            )
+
 
 class AtlasViewerControls(_ProcessorNodeControls):
-    OUTPUT_CLASS = processors.AtlasViewer
+    PROCESSOR_CLASS = processors.AtlasViewer
     CONTROLS_LABEL = "Atlas Viewer"
+    BUTTON_NAME = "Select ROI"
 
     def __init__(self, processor_node, **kwargs):
         _ProcessorNodeControls.__init__(self, processor_node, **kwargs)
@@ -395,7 +539,7 @@ class AtlasViewerControls(_ProcessorNodeControls):
 
     def _create_parameters(self):
         roi_selection_button = parameterTypes.ActionParameter(
-            type="action", name="Select ROI"
+            type="action", name=self.BUTTON_NAME
         )
         roi_selection_button.sigActivated.connect(self._choose_roi)
         self.roi_selection_button = self.addChild(roi_selection_button)
@@ -419,11 +563,8 @@ class AtlasViewerControls(_ProcessorNodeControls):
             self._processor_node.active_label_names = [
                 l.name for l in self.dialog.table.labels if l.is_active
             ]
+        self._processor_node.seed = self._processor_node.active_label_names[0]
         self._logger.debug("ROI selection button was clicked")
-
-    def _on_label_state_changed(self, i, val):
-        self._processor_node.labels_info[i]["state"] = val.value()
-        self._processor_node.labels_info = self._processor_node.labels_info
 
 
 class AmplitudeEnvelopeCorrelationsControls(_ProcessorNodeControls):
@@ -444,3 +585,22 @@ class CoherenceControls(_ProcessorNodeControls):
 
     def _create_parameters(self):
         ...
+
+
+class SeedCoherenceControls(AtlasViewerControls):
+    """Coherence node controls"""
+
+    OUTPUT_CLASS = processors.SeedCoherence
+    CONTROLS_LABEL = "Seed Coherence controls"
+    BUTTON_NAME = "Select seed"
+
+    def _on_initialize(self):
+        self._logger.info("Initializing mesh for seed selection widget")
+        self._mesh = get_mesh_data_from_surfaces_dir(
+            op.join(
+                self._processor_node.subjects_dir, self._processor_node.subject
+            )
+        )
+        self.dialog = SeedSelectionDialog(
+            self._processor_node.labels, self._mesh
+        )

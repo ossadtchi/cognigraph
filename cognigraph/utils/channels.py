@@ -63,7 +63,7 @@ def read_channel_types(info: mne.Info):
 
 
 def channel_labels_saver(mne_info: mne.Info):
-    return tuple(mne_info["ch_names"])
+    return tuple(mne_info["ch_names"]), tuple(mne_info["bads"])
 
 
 def get_average_reference_projection(channel_count: int):

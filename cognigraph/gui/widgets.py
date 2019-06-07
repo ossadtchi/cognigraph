@@ -6,7 +6,7 @@ from PyQt5.QtWidgets import (
     QVBoxLayout,
     QDialogButtonBox,
 )
-from PyQt5.QtCore import Qt, QSize
+from PyQt5.QtCore import Qt, QSize, QSignalBlocker
 
 from vispy import scene
 import numpy as np
@@ -16,7 +16,7 @@ import logging
 _logger = logging.getLogger(__name__)
 
 
-class RoiSelectionTable(QTableWidget):
+class _RoiSelectionTable(QTableWidget):
     def __init__(self, labels, parent=None):
         super().__init__(len(labels), 3)
 
@@ -87,7 +87,7 @@ class RoiSelectionDialog(QDialog):
         button_widgets_layout = QVBoxLayout()
         widgets_layout = QHBoxLayout()
         button_widgets_layout.addLayout(widgets_layout)
-        self.table = RoiSelectionTable(labels)
+        self._set_table(labels)
         self.table.cellChanged.connect(self.plot_atlas)
         widgets_layout.addWidget(self.table)
         button_box = QDialogButtonBox(
@@ -106,6 +106,9 @@ class RoiSelectionDialog(QDialog):
 
         self.setLayout(button_widgets_layout)
         self.plot_atlas()
+
+    def _set_table(self, labels):
+        self.table = _RoiSelectionTable(labels)
 
     def create_brain_widget(self):
         canvas = scene.SceneCanvas(keys="interactive", show=True)
@@ -165,6 +168,25 @@ class RoiSelectionDialog(QDialog):
     def _on_cancel(self):
         _logger.debug("Cancel")
         QDialog.reject(self)
+
+
+class _SeedSelectionTable(_RoiSelectionTable):
+
+    def _on_checked(self, i):
+        block_signals = QSignalBlocker(self)  # noqa
+        _logger.debug("clicked --> %d " % (i + 1))
+        for l in self.labels:
+            l.is_active = False
+        self.labels[i].is_active = not self.labels[i].is_active
+        for j in range(self.rowCount()):
+            self.item(j, 2).setCheckState(Qt.Unchecked)
+        self.item(i, 2).setCheckState(Qt.Checked)
+
+
+class SeedSelectionDialog(RoiSelectionDialog):
+
+    def _set_table(self, labels):
+        self.table = _SeedSelectionTable(labels)
 
 
 if __name__ == "__main__":

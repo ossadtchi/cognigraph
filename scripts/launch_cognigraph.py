@@ -55,11 +55,11 @@ def assemble_pipeline(
     pipeline = Pipeline()
     source = sources.FileSource(file_path=file_path)
     source.loop_the_file = True
-    source.MAX_SAMPLES_IN_CHUNK = 10000
+    source.MAX_SAMPLES_IN_CHUNK = 1000
     pipeline.add_child(source)
 
     # ----------------------------- processors ----------------------------- #
-    preprocessing = processors.Preprocessing(collect_for_x_seconds=120)
+    preprocessing = processors.Preprocessing(collect_for_x_seconds=10)
     source.add_child(preprocessing)
 
     linear_filter = processors.LinearFilter(
