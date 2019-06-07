@@ -81,6 +81,7 @@ __all__ = (
     "AtlasViewer",
     "AmplitudeEnvelopeCorrelations",
     "Coherence",
+    "SeedCoherence",
     "MneGcs",
 )
 
@@ -266,6 +267,7 @@ class _InverseSolverNode(ProcessorNode):
         "AtlasViewer",
         "LSLStreamOutput",
         "FileOutput",
+        "SeedCoherence"
     )
 
     def __init__(self, fwd_path=None, subject=None, subjects_dir=None):
@@ -605,6 +607,7 @@ class Beamformer(_InverseSolverNode):
         "whiten",
         "subject",
         "subjects_dir",
+        "forgetting_factor_per_second",
     )
     SAVERS_FOR_UPSTREAM_MUTABLE_OBJECTS = {"mne_info": channel_labels_saver}
 
@@ -1070,18 +1073,21 @@ class ICARejection(ProcessorNode):
 
     CHANGES_IN_THESE_REQUIRE_RESET = ("collect_for_x_seconds",)
 
-    def __init__(self, collect_for_x_seconds: int = 60):
+    def __init__(self, collect_for_x_seconds: int = 10):
         ProcessorNode.__init__(self)
         self.collect_for_x_seconds = collect_for_x_seconds  # type: int
 
         self._samples_collected = None  # type: int
-        self._samples_to_be_collected = None  # type: int
         self._enough_collected = None  # type: bool
 
         self._reset_statistics()
         self._ica_rejector = None
+        self._ica_hfreq = 50
+        self._ica_lfreq = 1
         self._signal_sender = Communicate()
         self._signal_sender.open_dialog.connect(self._on_ica_finished)
+        self.is_collecting_samples = False
+        self.ica_dialog = None
 
         self.viz_type = "sensor time series"
 
@@ -1101,59 +1107,96 @@ class ICARejection(ProcessorNode):
             stim=False,
             exclude="bads",
         )
+        print(len(self._good_ch_inds))
 
         channels = self._upstream_mne_info["chs"]
         self._ch_locs = np.array([ch["loc"] for ch in channels])
 
         n_ch = len(self._good_ch_inds)
-        self._ica_rejector = np.eye(n_ch)
-        self._samples_to_be_collected = int(
-            math.ceil(self.collect_for_x_seconds * self._frequency)
-        )
         self._collected_timeseries = np.zeros(
             [n_ch, self._samples_to_be_collected]
         )
-        self._linear_filter = filters.ButterFilter(
-            [1, 50], fs=self._frequency, n_channels=len(self._good_ch_inds)
-        )
-        self._linear_filter.apply = pynfb_ndarray_function_wrapper(
-            self._linear_filter.apply
-        )
+        mne_info = self.traverse_back_and_find("mne_info")
+
+        lowpass = mne_info["lowpass"]
+        if lowpass and lowpass < self._ica_hfreq:
+            self._ica_hfreq = None
+            self._logger.debug("Setting lowpass for ICA filter to None")
+        highpass = mne_info["highpass"]
+        if highpass and highpass > self._ica_lfreq:
+            self._logger.debug("Setting highpass for ICA filter to None")
+            self._ica_lfreq = None
+
+    @property
+    def _samples_to_be_collected(self):
+        return int(math.ceil(self.collect_for_x_seconds * self._frequency))
+
+    def reset_rejector(self):
+        if self._ica_rejector is not None:
+            self._logger.info("ICA artefacts rejection is stopped.")
+            self._ica_rejector = None
+            # trigger reset
+            self._reset_buffer.append(("dummy", "dummy", "dummy"))
+        else:
+            self._logger.info("ICA artefacts rejection is already inactive")
+            self.root._signal_sender.request_message.emit(
+                "ICA artefacts rejection is already inactive", "", "info"
+            )
+        if hasattr(self, "ica_dialog") and self.ica_dialog is not None:
+            self.ica_dialog.deleteLater()
+            self.ica_dialog = None
 
     def _on_critical_attr_change(self, key, old_val, new_val) -> bool:
         self._reset_statistics()
-        self._input_history_is_no_longer_valid = True
-        return self._input_history_is_no_longer_valid
+        if self.has_ica:
+            output_history_is_no_longer_valid = True
+        else:
+            output_history_is_no_longer_valid = False
+        if key == "collect_for_x_seconds":
+            n_ch = len(self._good_ch_inds)
+            self._collected_timeseries = np.zeros(
+                [n_ch, self._samples_to_be_collected]
+            )
+        return output_history_is_no_longer_valid
 
     def _reset_statistics(self):
         self._samples_collected = 0
         self._enough_collected = False
+        self.is_collecting_samples = False
 
     def _update(self):
-        # Have we collected enough samples without the new input?
-        self.output = self.parent.output
+        input_array = self.parent.output
+        if self.is_collecting_samples:
+            self.output = input_array
 
-        enough_collected = (
-            self._samples_collected >= self._samples_to_be_collected
-        )
-        if not enough_collected:
-            if (
-                self.parent.output is not None
-                and self.parent.output.shape[TIME_AXIS] > 0
-            ):
-                self._update_statistics()
-
-        elif not self._enough_collected:  # We just got enough samples
-            self._enough_collected = True
-            self._logger.info("Collected enough samples")
-            self._signal_sender.open_dialog.emit()
-        else:
-            self.output[self._good_ch_inds, :] = np.dot(
-                self._ica_rejector, self.parent.output[self._good_ch_inds, :]
+            # Have we collected enough samples without the new input?
+            enough_collected = (
+                self._samples_collected >= self._samples_to_be_collected
             )
+            if not enough_collected:
+                if (
+                    self.parent.output is not None
+                    and self.parent.output.shape[TIME_AXIS] > 0
+                ):
+                    self._update_statistics()
+
+            elif not self._enough_collected:  # We just got enough samples
+                self._enough_collected = True
+                self._logger.info("Collected enough samples")
+                self._signal_sender.open_dialog.emit()
+                self._reset_statistics()
+                self._signal_sender.enough_collected.emit()
+        else:
+            if self.has_ica:
+                self.output = np.dot(
+                    self._ica_rejector, input_array[self._good_ch_inds, :]
+                )
+            else:
+                self.output = self.parent.output
 
     def _on_ica_finished(self):
-        ica = ICADialog(
+        # executed on the main thread
+        self.ica_dialog = ICADialog(
             self._collected_timeseries.T,
             list(
                 np.array(self._upstream_mne_info["ch_names"])[
@@ -1162,18 +1205,37 @@ class ICARejection(ProcessorNode):
             ),
             self._ch_locs[self._good_ch_inds, :],
             self._frequency,
+            band=(self._ica_lfreq, self._ica_hfreq),
         )
-        ica.exec_()
-        self._ica_rejector = ica.rejection.val.T
+        self.ica_dialog.spatial_button.hide()
+        self.ica_dialog.sliders.hide()
+        self.ica_dialog.add_to_all_checkbox.hide()
+        self.ica_dialog.update_band_checkbox.hide()
+        self.ica_dialog.exec_()
+        if self.ica_dialog.result():
+            self._ica_rejector = self.ica_dialog.rejection.val.T
+            # Hack to trigger reset after since we start to apply ica rejector
+            self._reset_buffer.append(("dummy", "dummy", "dummy"))
+
+    @property
+    def has_ica(self):
+        return (
+            hasattr(self, "_ica_rejector") and self._ica_rejector is not None
+        )
 
     def _update_statistics(self):
         input_array = self.parent.output.astype(np.dtype("float64"))
         n = self._samples_collected
         m = input_array.shape[TIME_AXIS]  # number of new samples
+        n_samp_remain = self._collected_timeseries.shape[1] - n
+        if n_samp_remain < m:
+            m = n_samp_remain
+        print("sample stats:", n, m, input_array.shape, n_samp_remain)
         self._samples_collected += m
-        self._collected_timeseries[:, n : n + m] = self._linear_filter.apply(
-            input_array[self._good_ch_inds, :]
-        )
+        self._collected_timeseries[:, n : n + m] = input_array[
+            self._good_ch_inds, :m
+        ]
+        print(self._collected_timeseries.shape)
         # Using float64 is necessary because otherwise rounding error
         # in recursive formula accumulate
 
@@ -1228,6 +1290,7 @@ class AtlasViewer(ProcessorNode):
             "ch_names": self.active_label_names,
             "nchan": len(self.active_label_names),
             "sfreq": self.sfreq,
+            "bads": []
         }
 
     def _read_annotation(self):
@@ -1240,9 +1303,10 @@ class AtlasViewer(ProcessorNode):
         """
         fwd_path = self.traverse_back_and_find("fwd_path")
         forward_solution = mne.read_forward_solution(fwd_path, verbose="ERROR")
-        sources_idx, _, _, rh_offset = get_mesh_data_from_forward_solution(
+        sources_idx, vert, _, rh_offset = get_mesh_data_from_forward_solution(
             forward_solution
         )
+        self._fwd_vertices = vert
         # rh_offset = number of vertices in left hemisphere;
         # used for indexing the right hemisphere sources when both
         # hemispheres are stored together intead of being split in lh and rh as
@@ -1423,15 +1487,8 @@ class Coherence(ProcessorNode):
     def __init__(self, method="coh", seed=None):
         ProcessorNode.__init__(self)
         self.method = method
-        self.seed = seed
-        if seed:
-            self.viz_type = "source time series"
-            self.ALLOWED_CHILDREN = self.ALLOWED_CHILDREN + ("BrainViewer",)
-        else:
-            self.viz_type = "connectivity"
-            self.ALLOWED_CHILDREN = self.ALLOWED_CHILDREN + (
-                "ConnectivityViewer",
-            )
+        self.viz_type = "connectivity"
+        self.ALLOWED_CHILDREN = self.ALLOWED_CHILDREN + ("ConnectivityViewer",)
 
     def _initialize(self):
         pass
@@ -1439,21 +1496,18 @@ class Coherence(ProcessorNode):
     def _update(self):
         input_data = self.parent.output
         hilbert = sc.signal.hilbert(input_data, axis=1)
-        if self.seed is None:
-            Cp = hilbert.dot(hilbert.conj().T)
-            D = np.sqrt(np.diag(Cp))
-            coh = Cp / np.outer(D, D)
-        else:
-            seed_Cp = hilbert[self.seed, :].dot(hilbert.conj().T)
-            D = np.sqrt(np.mean(hilbert * hilbert.conj(), axis=1))
-            seed_outer_D = D[self.seed] * D  # coherence denominator
-            coh = seed_Cp[:, np.newaxis] / seed_outer_D[:, np.newaxis]
-            # coh = seed_Cp[:, np.newaxis] * 1e16
+
+        Cp = hilbert.dot(hilbert.conj().T)
+        D = np.sqrt(np.diag(Cp))
+        coh = Cp / np.outer(D, D)
 
         if self.method == "imcoh":
             self.output = coh.imag
         elif self.method == "coh":
             self.output = np.abs(coh)
+
+        timestamps = self.traverse_back_and_find("timestamps")
+        self.timestamps = timestamps[-2:-1]  # we want to get an array
 
         # self.output = np.zeros_like(self.output)
         # self.output[:, 6] = 0.5
@@ -1467,6 +1521,71 @@ class Coherence(ProcessorNode):
 
     def _check_value(self, key, value):
         pass
+
+
+class SeedCoherence(AtlasViewer):
+    CHANGES_IN_THESE_REQUIRE_RESET = ("seed", "parc")
+    ALLOWED_CHILDREN = ("EnvelopeExtractor", "BrainViewer", "FileOutput")
+
+    def __init__(self, seed=None, parc="aparc", method="coh"):
+        if seed:
+            active_label_names = [seed]
+        else:
+            active_label_names = []
+        AtlasViewer.__init__(
+            self, parc=parc, active_label_names=active_label_names
+        )
+        self.seed = seed
+        self.method = method
+        self.viz_type = "source time series"
+        self._seed_ind = None
+
+    def _initialize(self):
+        self.subject = self.traverse_back_and_find("subject")
+        self.subjects_dir = self.traverse_back_and_find("subjects_dir")
+        self._read_annotation()
+        self.sfreq = self.traverse_back_and_find("mne_info")["sfreq"]
+        self._signal_sender.initialized.emit()
+        self._get_seed_ind()
+
+    @property
+    def mne_info(self):
+        return self.traverse_back_and_find("mne_info")
+
+    def _update(self):
+        input_data = self.parent.output
+        self._get_seed_ind()
+
+        if self._seed_ind is not None:
+            hilbert = sc.signal.hilbert(input_data, axis=1)
+            seed_Cp = hilbert[self._seed_ind, :].dot(hilbert.conj().T)
+            D = np.sqrt(np.mean(hilbert * hilbert.conj(), axis=1))
+            seed_outer_D = D[self._seed_ind] * D  # coherence denominator
+            coh = seed_Cp[:, np.newaxis] / seed_outer_D[:, np.newaxis]
+            if self.method == "imcoh":
+                self.output = coh.imag
+            elif self.method == "coh":
+                self.output = np.abs(coh)
+        else:
+            self.output = input_data[:, -1, np.newaxis]
+        timestamps = self.traverse_back_and_find("timestamps")
+        self.timestamps = timestamps[-2:-1]  # we want to get an array
+
+    def _get_seed_ind(self):
+        seed_label = None
+        for l in self.labels:
+            if l.is_active and l.name == self.seed:
+                seed_label = l
+                break
+        if seed_label:
+            seed_fwd_vert = self._fwd_vertices[seed_label.forward_vertices, :]
+            seed_label_center_xyz = seed_fwd_vert.mean(axis=0)
+            cent_fwd_ind = np.argmin(
+                ((seed_fwd_vert - seed_label_center_xyz) ** 2).sum(axis=1)
+            )
+            self._seed_ind = l.forward_vertices[cent_fwd_ind]
+        else:
+            self._seed_ind = None
 
 
 class MneGcs(MNE):

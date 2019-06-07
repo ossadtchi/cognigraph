@@ -486,7 +486,7 @@ class FileOutput(OutputNode):
             np.array(info["ch_names"]),
             "Channel names in data",
         )
-        self._out_file.root.data.attrs.sfreq = info['sfreq']
+        self._out_file.root.data.attrs.sfreq = info["sfreq"]
 
     def toggle(self):
         if self.disabled:
@@ -507,8 +507,6 @@ class FileOutput(OutputNode):
         timestamps = np.array(self.traverse_back_and_find("timestamps"))[
             np.newaxis, :
         ]
-        print(data_chunk.shape)
-        print(timestamps.shape)
         self.output_array.append(data_chunk)
         self.timestamps_array.append(timestamps)
 
@@ -568,13 +566,20 @@ class ConnectivityViewer(_WidgetOutput):
         # get only off-diagonal elements
         l_triang = np.tril(input_data, k=-1)
         nl = self.n_lines
+        n_ch = input_data.shape[0]
+        nl_max = int(n_ch * (n_ch - 1) / 2)
+        if nl > nl_max:
+            nl = nl_max
         ii, jj = np.unravel_index(
             np.argpartition(-l_triang, nl, axis=None)[:nl], l_triang.shape
         )
         # 2. Get corresponding vertices indices
         nodes_inds = np.unique(np.r_[ii, jj])
         labels = self.traverse_back_and_find("labels")
-        nodes_inds_surf = np.array([labels[i].mass_center for i in nodes_inds])
+        active_labels = [l for l in labels if l.is_active]
+        nodes_inds_surf = np.array(
+            [active_labels[i].mass_center for i in nodes_inds]
+        )
         # 3. Get nodes = xyz of these vertices
         nodes = self._mesh._vertices[nodes_inds_surf]
         # 4. Edges are input data restricted to best n_lines nodes

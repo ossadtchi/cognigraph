@@ -157,6 +157,7 @@ node_to_controls_map = {
     "AtlasViewer": node_controls.AtlasViewerControls,
     "AmplitudeEnvelopeCorrelations": node_controls.AmplitudeEnvelopeCorrelationsControls,  # noqa
     "Coherence": node_controls.CoherenceControls,
+    "SeedCoherence": node_controls.SeedCoherenceControls,
     "LSLStreamOutput": node_controls.LSLStreamOutputControls,
     "BrainViewer": node_controls.BrainViewerControls,
     "SignalViewer": node_controls.SignalViewerControls,

@@ -171,6 +171,7 @@ class Node(object, metaclass=_ReprMeta):
                     str(e),
                     "warning",
                 )
+                self._logger.exception(e)
                 return
             finally:
                 self.root._signal_sender.long_operation_finished.emit()
@@ -321,6 +322,7 @@ class Node(object, metaclass=_ReprMeta):
         )
         try:
             with self.not_triggering_reset():
+                is_output_hist_invalid = True
                 while self._reset_buffer:
                     key, old_value, new_value = self._reset_buffer.pop(0)
                     is_output_hist_invalid = self._on_critical_attr_change(
