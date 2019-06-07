@@ -472,10 +472,13 @@ class SourceNode(Node):
     def initialize(self):
         self._is_first_update = True
         self.mne_info = None
+        was_initialized = self.initialized
         Node.initialize(self)
         for child in self._children:
             # In case source type was changed dynamically
-            if child.initialized and not self.initialized:
+            print('here', self.initialized)
+            if child.initialized and not was_initialized:
+                print(child)
                 child.on_upstream_change(is_input_hist_invalid=True)
         try:
             self._check_mne_info()
