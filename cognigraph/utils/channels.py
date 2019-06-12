@@ -135,6 +135,8 @@ def capitalize_chnames(info):
     for i, c in enumerate(info['ch_names']):
         info['ch_names'][i] = c.upper()
         info['chs'][i]['ch_name'] = c.upper()
+    for i, c in enumerate(info['bads']):
+        info['bads'][i] = c.upper()
 
 
 def capitalize_chnames_fwd(fwd):
