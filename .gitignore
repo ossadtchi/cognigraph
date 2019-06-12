@@ -114,3 +114,5 @@ docs/_templates
 tests/data
 data/anatomy
 data/forwards
+data/custom_montages
+data/pipelines

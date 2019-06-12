@@ -153,9 +153,6 @@ class ThreadToBeWaitedFor(QThread):
             self.parent().setDisabled(False)
         return self.is_successful
 
-    # def _on_finished(self):
-    #     print('Finished')
-
     def _on_run_exception(self, exception, tb):
         msg = QMessageBox(self.parent())
         msg.setText(self.error_text)

@@ -5,6 +5,7 @@ import mne
 from mne.datasets import sample
 
 from ..utils.misc import all_upper
+from ..utils.channels import capitalize_chnames_fwd
 import logging
 
 data_path = sample.data_path(verbose="ERROR")
@@ -148,6 +149,7 @@ def get_clean_forward(forward_model_path: str, mne_info: mne.Info):
 
     # Get the gain matrix from the forward solution
     forward = mne.read_forward_solution(forward_model_path, verbose="ERROR")
+    capitalize_chnames_fwd(forward)
 
     # Take only the channels present in mne_info
     ch_names = mne_info["ch_names"]
@@ -165,6 +167,7 @@ def get_clean_forward(forward_model_path: str, mne_info: mne.Info):
     ]
     _logger.debug("Channel names found in forward: %s" % ch_names_fwd)
     _logger.debug("Channel names found in data: %s" % ch_names_data)
+    _logger.debug("Missing channel names: %s" % missing_ch_names)
 
     if ch_names_intersect:
         fwd = mne.pick_channels_forward(forward, include=ch_names_intersect)

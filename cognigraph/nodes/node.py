@@ -476,9 +476,7 @@ class SourceNode(Node):
         Node.initialize(self)
         for child in self._children:
             # In case source type was changed dynamically
-            print('here', self.initialized)
             if child.initialized and not was_initialized:
-                print(child)
                 child.on_upstream_change(is_input_hist_invalid=True)
         try:
             self._check_mne_info()
