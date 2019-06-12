@@ -280,8 +280,29 @@ class _InverseSolverNode(ProcessorNode):
         if not (self.fwd_path and self.subject and self.subjects_dir):
             self._signal_sender.open_fwd_dialog.emit()
 
+    def _set_channel_locations_in_root_data_info(self):
+        # bads should be set up and should include channels missing from fwd
+        data_info = deepcopy(self._upstream_mne_info)
+        fwd_info = self._fwd["info"]
+
+        DATA_CHNAMES = [c.upper() for c in data_info["ch_names"]]
+        DATA_BADS = [c.upper() for c in data_info["bads"]]
+        FWD_CHNAMES = [c.upper() for c in fwd_info["ch_names"]]
+
+        for i, c in enumerate(DATA_CHNAMES):
+            if c not in DATA_BADS:
+                try:
+                    i_fwd_ch = FWD_CHNAMES.index(c)
+                    data_info["chs"][i]["loc"] = fwd_info["chs"][i_fwd_ch][
+                        "loc"
+                    ]
+                except Exception as exc:
+                    self._logger.exception(exc)
+
+        self.root.montage_info = data_info
+
     def _initialize(self):
-        mne_info = self.traverse_back_and_find("mne_info")
+        mne_info = deepcopy(self.traverse_back_and_find("mne_info"))
         self._upstream_mne_info = mne_info
         self._get_forward_subject_and_subjects_dir()
 
@@ -298,6 +319,12 @@ class _InverseSolverNode(ProcessorNode):
             self._fwd, self._missing_ch_names = get_clean_forward(
                 self.fwd_path, mne_info
             )
+
+        self._upstream_mne_info["bads"] = list(
+            set(self._upstream_mne_info["bads"] + self._missing_ch_names)
+        )
+        self._bad_channels = self._upstream_mne_info["bads"]
+        self._set_channel_locations_in_root_data_info()
 
 
 class MNE(_InverseSolverNode):
@@ -342,10 +369,6 @@ class MNE(_InverseSolverNode):
 
     def _initialize(self):
         _InverseSolverNode._initialize(self)
-        self._upstream_mne_info["bads"] = list(
-            set(self._upstream_mne_info["bads"] + self._missing_ch_names)
-        )
-        self._bad_channels = self._upstream_mne_info["bads"]
 
         self.inverse_operator = make_inverse_operator(
             self._fwd,
@@ -618,7 +641,7 @@ class Beamformer(_InverseSolverNode):
         fixed_orientation=True,
         forgetting_factor_per_second=0.99,
         reg=0.05,
-        whiten=True,
+        whiten=False,
         fwd_path=None,
         subject=None,
         subjects_dir=None,
@@ -653,9 +676,6 @@ class Beamformer(_InverseSolverNode):
         G = self._gain_matrix
         # ------------------------------------------- #
 
-        self._upstream_mne_info["bads"] = list(
-            set(self._upstream_mne_info["bads"] + self._missing_ch_names)
-        )
         Rxx = G.dot(G.T) / 1e22
 
         goods = mne.pick_types(
@@ -931,9 +951,7 @@ class MCE(_InverseSolverNode):
     def _initialize(self):
         # self.fwd_dialog_signal_sender.open_dialog.emit()
         _InverseSolverNode._initialize(self)
-        self._upstream_mne_info["bads"] = list(
-            set(self._upstream_mne_info["bads"] + self._missing_ch_names)
-        )
+
         fwd_fix = mne.convert_forward_solution(
             self._fwd, surf_ori=True, force_fixed=False
         )
@@ -1180,11 +1198,26 @@ class ICARejection(ProcessorNode):
                     self._update_statistics()
 
             elif not self._enough_collected:  # We just got enough samples
-                self._enough_collected = True
-                self._logger.info("Collected enough samples")
-                self._signal_sender.open_dialog.emit()
-                self._reset_statistics()
-                self._signal_sender.enough_collected.emit()
+                try:
+                    self._upstream_mne_info = self.root.montage_info
+                    self._good_ch_inds = mne.pick_types(
+                        self._upstream_mne_info,
+                        eeg=True,
+                        meg=False,
+                        stim=False,
+                        exclude="bads",
+                    )
+                    channels = self._upstream_mne_info["chs"]
+                    self._ch_locs = np.array([ch["loc"] for ch in channels])
+
+                    self._enough_collected = True
+                    self._logger.info("Collected enough samples")
+                    self._signal_sender.open_dialog.emit()
+                    self._reset_statistics()
+                    self._signal_sender.enough_collected.emit()
+                except AttributeError as exc:
+                    self._logger.exception(exc)
+
         else:
             if self.has_ica:
                 self.output = np.dot(
