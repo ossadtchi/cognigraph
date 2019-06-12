@@ -128,3 +128,16 @@ def save_montage(montage, save_dir, save_units="mm", overwrite=False):
     else:
         raise FileExistsError("Montage file '%s' already exists!" % save_path)
     return save_path
+
+
+def capitalize_chnames(info):
+    """Convert channel names in info to upper case; operates inplace"""
+    for i, c in enumerate(info['ch_names']):
+        info['ch_names'][i] = c.upper()
+        info['chs'][i]['ch_name'] = c.upper()
+
+
+def capitalize_chnames_fwd(fwd):
+    capitalize_chnames(fwd['info'])
+    for i, c in enumerate(fwd['sol']['row_names']):
+        fwd['sol']['row_names'][i] = c.upper()

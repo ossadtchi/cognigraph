@@ -17,6 +17,7 @@ import numpy as np
 import mne
 
 from cognigraph.utils.matrix_functions import get_a_time_slice
+from cognigraph.utils.channels import capitalize_chnames
 from .. import TIME_AXIS, DTYPE
 from .node import SourceNode
 from ..utils.lsl import (
@@ -106,6 +107,7 @@ class LSLStreamSource(SourceNode):
             self.mne_info = mne.create_info(
                 channel_labels, frequency, ch_types=channel_types
             )
+            capitalize_chnames(self.mne_info)
             self.timestamps = []
 
     def _update(self):
@@ -204,8 +206,11 @@ class FileSource(SourceNode):
             self.dtype = DTYPE
             self.data = self.data.astype(self.dtype)
             self.timestamps = []
+            capitalize_chnames(self.mne_info)
         else:
-            raise ValueError("File path is not set.")
+            exc = ValueError("File path is not set.")
+            self._logger.exception(exc)
+            raise exc
 
     def _update(self):
         if self.data is None:
