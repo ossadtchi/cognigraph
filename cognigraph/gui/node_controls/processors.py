@@ -242,24 +242,33 @@ class _InverseSolverNodeControls(_ProcessorNodeControls):
     def _choose_file(self):
         subject = self._processor_node.subject
         subjects_dir = self._processor_node.subjects_dir
-        data_chnames = self._processor_node._upstream_mne_info["ch_names"]
-        fwd_dialog = FwdSetupDialog(
-            subjects_dir=subjects_dir,
-            subject=subject,
-            data_chnames=data_chnames,
-        )
-        fwd_dialog.exec()
+        try:
+            data_chnames = self._processor_node._upstream_mne_info["ch_names"]
+            fwd_dialog = FwdSetupDialog(
+                subjects_dir=subjects_dir,
+                subject=subject,
+                data_chnames=data_chnames,
+            )
+            fwd_dialog.exec()
+            if fwd_dialog.result():
+                fwd_path = fwd_dialog.fwd_path
+                subject = fwd_dialog.subject
+                subjects_dir = fwd_dialog.subjects_dir
+                self._processor_node.fwd_path = fwd_path
+                self._logger.info("Forward path is set to %s" % fwd_path)
+                self._processor_node.subject = subject
+                self._logger.info("Subject is set to %s" % subject)
+                self._processor_node.subjects_dir = subjects_dir
+                self._logger.info(
+                    "Subjects directory is set to %s" % subjects_dir
+                )
 
-        if fwd_dialog.result():
-            fwd_path = fwd_dialog.fwd_path
-            subject = fwd_dialog.subject
-            subjects_dir = fwd_dialog.subjects_dir
-            self._processor_node.fwd_path = fwd_path
-            self._logger.info("Forward path is set to %s" % fwd_path)
-            self._processor_node.subject = subject
-            self._logger.info("Subject is set to %s" % subject)
-            self._processor_node.subjects_dir = subjects_dir
-            self._logger.info("Subjects directory is set to %s" % subjects_dir)
+        except AttributeError:
+            self._processor_node.root._signal_sender.request_message.emit(
+                "Please initialize the pipeline first.",
+                "Data channel names information is missing.",
+                "info",
+            )
 
 
 class MNEControls(_InverseSolverNodeControls):
@@ -331,6 +340,7 @@ class BeamformerControls(_InverseSolverNodeControls):
     CONTROLS_LABEL = "Beamformer"
 
     ADAPTIVENESS_NAME = "Use adaptive version: "
+    WHITEN_NAME = "Prewhiten: "
     SNR_NAME = "Regularization: "
     OUTPUT_TYPE_COMBO_NAME = "Output type: "
     FORGETTING_FACTOR_NAME = "Forgetting factor (per second): "
@@ -356,6 +366,15 @@ class BeamformerControls(_InverseSolverNodeControls):
             self._on_adaptiveness_changed
         )
         self.adaptiveness_check = self.addChild(adaptiveness_check)
+
+        whiten_check = parameterTypes.SimpleParameter(
+            type="bool",
+            name=self.WHITEN_NAME,
+            value=self._processor_node.whiten,
+            readonly=False,
+        )
+        whiten_check.sigValueChanged.connect(self._on_whiten_changed)
+        self.whiten_check = self.addChild(whiten_check)
 
         reg_value = self._processor_node.reg
         snr_spin_box = parameterTypes.SimpleParameter(
@@ -410,6 +429,9 @@ class BeamformerControls(_InverseSolverNodeControls):
 
     def _on_file_path_changed(self, param, value):
         self._processor_node.fwd_path = value
+
+    def _on_whiten_changed(self, value):
+        self._processor_node.whiten = value
 
 
 class MCEControls(_InverseSolverNodeControls):
@@ -536,6 +558,7 @@ class AtlasViewerControls(_ProcessorNodeControls):
         self._processor_node._signal_sender.initialized.connect(
             self._on_initialize
         )
+        self.dialog = None
 
     def _create_parameters(self):
         roi_selection_button = parameterTypes.ActionParameter(
@@ -556,15 +579,21 @@ class AtlasViewerControls(_ProcessorNodeControls):
         )
 
     def _choose_roi(self):
-        self.dialog.exec_()
+        if self.dialog:
+            self.dialog.exec_()
 
-        if self.dialog.result():
-            self._processor_node.labels = self.dialog.table.labels
-            self._processor_node.active_label_names = [
-                l.name for l in self.dialog.table.labels if l.is_active
-            ]
-        self._processor_node.seed = self._processor_node.active_label_names[0]
-        self._logger.debug("ROI selection button was clicked")
+            if self.dialog.result():
+                self._processor_node.labels = self.dialog.table.labels
+                self._processor_node.active_label_names = [
+                    l.name for l in self.dialog.table.labels if l.is_active
+                ]
+            seed = self._processor_node.active_label_names[0]
+            self._processor_node.seed = seed
+            self._logger.debug("Seed is set to %s" % seed)
+        else:
+            self._processor_node.root._signal_sender.request_message.emit(
+                "Please initialize the pipeline first", "", "info"
+            )
 
 
 class AmplitudeEnvelopeCorrelationsControls(_ProcessorNodeControls):
