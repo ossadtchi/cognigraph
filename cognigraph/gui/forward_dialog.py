@@ -637,17 +637,9 @@ class _FwdGeomGroupbox(_StateAwareGroupbox):
         if self._use_default_montage_radio.isChecked():
             self._select_montage_dialog.setDisabled(True)
             self._montages_combo_widget.setDisabled(False)
-            # if self._forwards_combo.currentText():
-            #     self.is_valid = True
-            # else:
-            #     self.is_valid = False
         else:  # 'compute forward' case
             self._select_montage_dialog.setDisabled(False)
             self._montages_combo_widget.setDisabled(True)
-            # if self._select_montage_dialog.path_ledit.text():
-            #     self.is_valid = True
-            # else:
-            #     self.is_valid = False
             self._select_montage_dialog.browse_button.setFocus()
         QTimer.singleShot(0, self._check_if_valid)
 
@@ -662,10 +654,7 @@ class _FwdGeomGroupbox(_StateAwareGroupbox):
 
     def _check_if_valid(self):
         is_montage_valid = self._check_montage()
-        if (
-            self._use_default_montage_radio.isChecked()
-            and not self._forwards_combo.currentText()
-        ):
+        if self.is_use_available and not self.fwd_name:
             is_forward_ok = False
         else:
             is_forward_ok = True

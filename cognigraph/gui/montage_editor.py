@@ -41,6 +41,7 @@ import matplotlib
 from cognigraph.utils.channels import save_montage
 from cognigraph import MONTAGES_DIR
 
+
 font = {"weight": "bold", "size": 16}
 matplotlib.rc("font", **font)
 
@@ -244,7 +245,6 @@ class MontageEditor(QDialog):
             else:
                 colors[i] = np.array(self._RED)[:3]
         colors /= 255
-        # print(colors.shape)
 
         fig = mne.viz.utils._plot_sensors(
             self._fwd_montage_all.get_pos2d(),

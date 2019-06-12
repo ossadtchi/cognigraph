@@ -267,7 +267,7 @@ class _InverseSolverNode(ProcessorNode):
         "AtlasViewer",
         "LSLStreamOutput",
         "FileOutput",
-        "SeedCoherence"
+        "SeedCoherence",
     )
 
     def __init__(self, fwd_path=None, subject=None, subjects_dir=None):
@@ -1107,7 +1107,6 @@ class ICARejection(ProcessorNode):
             stim=False,
             exclude="bads",
         )
-        print(len(self._good_ch_inds))
 
         channels = self._upstream_mne_info["chs"]
         self._ch_locs = np.array([ch["loc"] for ch in channels])
@@ -1230,12 +1229,10 @@ class ICARejection(ProcessorNode):
         n_samp_remain = self._collected_timeseries.shape[1] - n
         if n_samp_remain < m:
             m = n_samp_remain
-        print("sample stats:", n, m, input_array.shape, n_samp_remain)
         self._samples_collected += m
         self._collected_timeseries[:, n : n + m] = input_array[
             self._good_ch_inds, :m
         ]
-        print(self._collected_timeseries.shape)
         # Using float64 is necessary because otherwise rounding error
         # in recursive formula accumulate
 
@@ -1290,7 +1287,7 @@ class AtlasViewer(ProcessorNode):
             "ch_names": self.active_label_names,
             "nchan": len(self.active_label_names),
             "sfreq": self.sfreq,
-            "bads": []
+            "bads": [],
         }
 
     def _read_annotation(self):
