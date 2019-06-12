@@ -1,11 +1,13 @@
 import numpy as np
 from cognigraph.nodes.node import SourceNode, ProcessorNode, OutputNode
 from mne import create_info
+from cognigraph.utils.channels import capitalize_chnames
 
 
 def create_dummy_info(nchan=32, sfreq=500):
     ch_names = [str(i).zfill(2) for i in range(nchan)]
     info = create_info(ch_names, sfreq, ch_types="eeg")
+    capitalize_chnames(info)
     return info
 
 
@@ -67,6 +69,7 @@ class ConcreteSource(SourceNode):
     def _initialize(self):
         self.nchan = self._mne_info["nchan"]
         self.mne_info = self._mne_info
+        capitalize_chnames(self.mne_info)
 
     def _update(self):
         self.output = np.ones([self.nchan, self.nsamp]) * self.n_updates
