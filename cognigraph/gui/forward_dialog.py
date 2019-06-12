@@ -1294,7 +1294,11 @@ class FwdSetupDialog(QDialog):
         except OSError:
             self._logger.warning("Destination folder %s exists." % dest_dir)
         self._logger.info("Copying to %s" % dest_dir)
-        shutil.copyfile(src_path, dest_path)
+        try:
+            shutil.copyfile(src_path, dest_path)
+        except shutil.SameFileError:
+            self._logger.warning("File is already there. Skipping..")
+
         return dest_path
 
     def _copy_anat_to_folders_struct(self, src_subjects_dir, subject):
