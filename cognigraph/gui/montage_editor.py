@@ -105,6 +105,16 @@ class _DragAndDroppableList(QListWidget):
             item.setFlags(item.flags() | QtCore.Qt.ItemIsEditable)
             self.addItem(item)
 
+    def add_empty_items(self, n_items):
+        """
+        Add placeholder items to forward chnames list
+        when there's more data chnames then in forward
+
+        """
+        for i in range(n_items):
+            item = QListWidgetItem("")
+            self.addItem(item)
+
     def _clear(self):
         for i in range(self.count()):
             self.takeItem(0)
@@ -143,8 +153,14 @@ class MontageEditor(QDialog):
         self._fwd_chnames_list = _DragAndDroppableList()
         block_signals = QtCore.QSignalBlocker(self._fwd_chnames_list)  # noqa
         self._fwd_chnames_list.populate_with_montage(fwd_montage)
+        if len(self._data_chnames) > len(fwd_montage.ch_names):
+            self._fwd_chnames_list.add_empty_items(
+                len(self._data_chnames) - len(fwd_montage.ch_names)
+            )
         self._fwd_chnames_list.itemChanged.connect(self._mark_goods)
+        self._fwd_chnames_list.itemChanged.connect(self._update_canvas)
         self._fwd_chnames_list.item_dropped.connect(self._mark_goods)
+        self._fwd_chnames_list.item_dropped.connect(self._update_canvas)
         fwd_chnames_list_label = QLabel("Forward montage")
         fwd_chnames_list_label.setBuddy(self._fwd_chnames_list)
         fwd_chnames_layout = QVBoxLayout()
@@ -217,6 +233,9 @@ class MontageEditor(QDialog):
         self._ledit_widget = _ButtonLineEdit(init_text="<suffix>", parent=self)
         layout.addWidget(self._ledit_widget)
         self._ledit_widget.hide()
+        self._ledit_widget._lineedit.editingFinished.connect(
+            self._update_canvas
+        )
 
         self._dialog_buttons = QDialogButtonBox(
             QDialogButtonBox.Ok | QDialogButtonBox.Cancel
@@ -234,13 +253,27 @@ class MontageEditor(QDialog):
 
         self.show()
         self._mark_goods()
+        self._update_canvas()
+
+    @property
+    def _fwd_chnames_selected(self):
+        ch_names = []
+        for i, data_chname in enumerate(self._data_chnames):
+            DATA_CHNAME = data_chname.upper()
+            if self._FWD_CHNAMES_ALL_WITH_EMPTY_ITEMS[i] == DATA_CHNAME:
+                ch_names.append(data_chname)
+        return ch_names
 
     def _plot_montage(self, montage):
         colors = np.array(
-            [[c for c in self._GREY]] * len(self._fwd_chnames_all), dtype=float
+            [[c for c in self._GREY]]
+            * len(self._FWD_CHNAMES_ALL_WITH_EMPTY_ITEMS),
+            dtype=float,
         )
-        for i, data_chname in enumerate(self._data_chnames):
-            if data_chname == self._fwd_chnames_selected[i]:
+        FWD_CHNAMES_SELECTED = [c.upper() for c in self._fwd_chnames_selected]
+        for i, fwd_chname in enumerate(self._fwd_montage_all.ch_names):
+            FWD_CHNAME = fwd_chname.upper()
+            if FWD_CHNAME in FWD_CHNAMES_SELECTED:
                 colors[i] = np.array(self._GREEN)[:3]
             else:
                 colors[i] = np.array(self._RED)[:3]
@@ -250,7 +283,7 @@ class MontageEditor(QDialog):
             self._fwd_montage_all.get_pos2d(),
             colors=colors,
             bads=[],
-            ch_names=self._fwd_chnames_all,
+            ch_names=self._FWD_CHNAMES_ALL,
             title="",
             show_names=True,
             ax=self._axes,
@@ -262,9 +295,17 @@ class MontageEditor(QDialog):
         fig.axes[0].collections[0].set_sizes([200])
 
     @property
-    def _fwd_chnames_all(self):
+    def _FWD_CHNAMES_ALL(self):
         return [
-            self._fwd_chnames_list.item(i).text()
+            self._fwd_chnames_list.item(i).text().upper()
+            for i in range(self._fwd_chnames_list.count())
+            if self._fwd_chnames_list.item(i).text() != ""
+        ]
+
+    @property
+    def _FWD_CHNAMES_ALL_WITH_EMPTY_ITEMS(self):
+        return [
+            self._fwd_chnames_list.item(i).text().upper()
             for i in range(self._fwd_chnames_list.count())
         ]
 
@@ -274,8 +315,11 @@ class MontageEditor(QDialog):
         ch_names = []
         pos = []
         for i in range(self._fwd_chnames_list.count()):
-            ch_names.append(self._fwd_chnames_list.item(i).text())
-            pos.append(self._fwd_chnames_list.item(i).data(QtCore.Qt.UserRole))
+            if self._fwd_chnames_list.item(i).text() != "":
+                ch_names.append(self._fwd_chnames_list.item(i).text())
+                pos.append(
+                    self._fwd_chnames_list.item(i).data(QtCore.Qt.UserRole)
+                )
         pos = np.array(pos)
         lpa = self._fwd_montage_orig.lpa
         rpa = self._fwd_montage_orig.rpa
@@ -288,27 +332,27 @@ class MontageEditor(QDialog):
             lpa=lpa,
             rpa=rpa,
             kind=kind,
-            selection=np.arange(len(self._fwd_chnames_all)),
+            selection=np.arange(len(self._FWD_CHNAMES_ALL)),
         )
-
-    @property
-    def _fwd_chnames_selected(self):
-        ch_names = []
-        for i, data_chname in enumerate(self._data_chnames):
-            ch_names.append(self._fwd_chnames_list.item(i).text())
-        return ch_names
 
     @property
     def _fwd_pos_selected(self):
         pos = []
         for i, data_chname in enumerate(self._data_chnames):
-            pos.append(self._fwd_chnames_list.item(i).data(QtCore.Qt.UserRole))
+            DATA_CHNAME = data_chname.upper()
+            if self._FWD_CHNAMES_ALL_WITH_EMPTY_ITEMS[i] == DATA_CHNAME:
+                pos.append(
+                    self._fwd_chnames_list.item(i).data(QtCore.Qt.UserRole)
+                )
         nasion = self._fwd_montage_orig.nasion
-        lpa = self._fwd_montage_orig.lpa
+        if type(nasion) is np.ndarray:
+            pos.append(nasion)
         rpa = self._fwd_montage_orig.rpa
-        pos.append(nasion)
-        pos.append(lpa)
-        pos.append(rpa)
+        if type(rpa) is np.ndarray:
+            pos.append(rpa)
+        lpa = self._fwd_montage_orig.lpa
+        if type(lpa) is np.ndarray:
+            pos.append(lpa)
         return np.array(pos)
 
     @property
@@ -339,31 +383,44 @@ class MontageEditor(QDialog):
     def _align_lists(self):
         block_signals = QtCore.QSignalBlocker(self._fwd_chnames_list)  # noqa
         for i, data_chname in enumerate(self._data_chnames):
+            DATA_CHNAME = data_chname.upper()
             if (
-                data_chname in self._fwd_chnames_all
-                and data_chname != self._fwd_chnames_all[i]
+                DATA_CHNAME in self._FWD_CHNAMES_ALL
+                and DATA_CHNAME != self._FWD_CHNAMES_ALL_WITH_EMPTY_ITEMS[i]
             ):
-                ind_fwd = self._fwd_chnames_all.index(data_chname)
+                ind_fwd = self._FWD_CHNAMES_ALL_WITH_EMPTY_ITEMS.index(
+                    DATA_CHNAME
+                )
                 ind_data = self._data_chnames.index(data_chname)
                 fwd_item = self._fwd_chnames_list.takeItem(ind_fwd)
                 self._fwd_chnames_list.insertItem(ind_data, fwd_item)
+                if ind_fwd < ind_data:
+                    repl_item = self._fwd_chnames_list.takeItem(ind_data - 1)
+                    self._fwd_chnames_list.insertItem(ind_fwd, repl_item)
         self._mark_goods()
+        self._update_canvas()
 
     def _mark_goods(self):
         self._ok_to_close = True
         self._dialog_buttons.button(QDialogButtonBox.Ok).setDisabled(False)
         for i in range(self._fwd_chnames_list.count()):
             if i < len(self._data_chnames):
-                data_chname = self._data_chnames[i]
+                DATA_CHNAME = self._data_chnames[i].upper()
             else:
-                data_chname = None
-            if data_chname:
-                if self._fwd_chnames_list.item(i).text() == data_chname:
+                DATA_CHNAME = None
+            if DATA_CHNAME:
+                if self._FWD_CHNAMES_ALL_WITH_EMPTY_ITEMS[i] == DATA_CHNAME:
                     self._fwd_chnames_list.item(i).setBackground(
+                        QColor(*self._GREEN)
+                    )
+                    self._data_chnames_list.item(i).setBackground(
                         QColor(*self._GREEN)
                     )
                 else:
                     self._fwd_chnames_list.item(i).setBackground(
+                        QColor(*self._RED)
+                    )
+                    self._data_chnames_list.item(i).setBackground(
                         QColor(*self._RED)
                     )
                     self._ok_to_close = False
@@ -373,6 +430,14 @@ class MontageEditor(QDialog):
             else:
                 self._fwd_chnames_list.item(i).setBackground(QtCore.Qt.white)
 
+        data_chnames_upper = [d.upper() for d in self._data_chnames]
+        ch_names_intersect = [
+            n for n in self._FWD_CHNAMES_ALL if n.upper() in data_chnames_upper
+        ]
+        if len(ch_names_intersect) > 0.2 * len(self._data_chnames):
+            self._dialog_buttons.button(QDialogButtonBox.Ok).setDisabled(False)
+
+    def _update_canvas(self):
         self._axes.clear()
         self._plot_montage(self._fwd_montage_all)
         self._axes.figure.canvas.draw()
@@ -381,15 +446,23 @@ class MontageEditor(QDialog):
         block_signals = QtCore.QSignalBlocker(self._fwd_chnames_list)  # noqa
         self._fwd_chnames_list.sortItems()
         self._mark_goods()
+        self._update_canvas()
 
     def _bulk_edit(self, mode):
         self._ledit_widget._lineedit.textEdited.connect(
             partial(self._modify_selection, mode=mode)
         )
+        if mode == "append":
+            self._ledit_widget._lineedit.setText("<suffix>")
+        elif mode == "prepend":
+            self._ledit_widget._lineedit.setText("<prefix>")
+
         self._ledit_widget.show()
         self._ledit_widget._lineedit.setFocus()
         self._ledit_widget._lineedit.selectAll()
-        self._fwd_chnames_backup = self._fwd_chnames_all.copy()
+        self._fwd_chnames_backup = (
+            self._FWD_CHNAMES_ALL_WITH_EMPTY_ITEMS.copy()
+        )
         self._modify_selection(self._ledit_widget._lineedit.text(), mode=mode)
 
     def _modify_selection(self, new_text, mode):
@@ -402,18 +475,24 @@ class MontageEditor(QDialog):
             sel_inds = range(self._fwd_chnames_list.count())
         for i in sel_inds:
             cur_text = self._fwd_chnames_backup[i]
-            if mode == "append":
-                text_upd = cur_text + new_text
-            elif mode == "prepend":
-                text_upd = new_text + cur_text
-            if len(text_upd) < 15:  # mne-python restriction
-                self._fwd_chnames_list.item(i).setText(text_upd)
+            if cur_text:
+                if mode == "append":
+                    text_upd = cur_text + new_text
+                elif mode == "prepend":
+                    text_upd = new_text + cur_text
+                if len(text_upd) < 15:  # mne-python restriction
+                    self._fwd_chnames_list.item(i).setText(text_upd)
         self._mark_goods()
 
     def _reset_fwd_chnames(self):
         block_signals = QtCore.QSignalBlocker(self._fwd_chnames_list)  # noqa
         self._fwd_chnames_list.populate_with_montage(self._fwd_montage_orig)
+        if len(self._data_chnames) > len(self._fwd_montage_orig.ch_names):
+            self._fwd_chnames_list.add_empty_items(
+                len(self._data_chnames) - len(self._fwd_montage_orig.ch_names)
+            )
         self._mark_goods()
+        self._update_canvas()
 
     def _del_prefix(self):
         block_signals = QtCore.QSignalBlocker(self._fwd_chnames_list)  # noqa
@@ -423,13 +502,21 @@ class MontageEditor(QDialog):
             ]
         else:
             sel_inds = range(self._fwd_chnames_list.count())
-        ch_names = [self._fwd_chnames_list.item(i).text() for i in sel_inds]
+        ch_names = [
+            self._fwd_chnames_list.item(i).text()
+            for i in sel_inds
+            if self._fwd_chnames_list.item(i).text() != ""
+        ]
         if len(ch_names) == 1:
             return
         commonprefix = op.commonprefix(ch_names)
         for ind, name in zip(sel_inds, ch_names):
-            self._fwd_chnames_list.item(ind).setText(name[len(commonprefix) :])
+            if self._fwd_chnames_list.item(ind).text() != "":
+                self._fwd_chnames_list.item(ind).setText(
+                    name[len(commonprefix) :]
+                )
         self._mark_goods()
+        self._update_canvas()
 
     def _del_suffix(self):
         block_signals = QtCore.QSignalBlocker(self._fwd_chnames_list)  # noqa
@@ -439,21 +526,30 @@ class MontageEditor(QDialog):
             ]
         else:
             sel_inds = range(self._fwd_chnames_list.count())
-        ch_names = [self._fwd_chnames_list.item(i).text() for i in sel_inds]
+        ch_names = [
+            self._fwd_chnames_list.item(i).text()
+            for i in sel_inds
+            if self._fwd_chnames_list.item(i).text() != ""
+        ]
         if len(ch_names) == 1:
             return
         commonsuffix = _common_suffix(ch_names)
         for ind, name in zip(sel_inds, ch_names):
-            self._fwd_chnames_list.item(ind).setText(
-                name[: len(name) - len(commonsuffix)]
-            )
+            if self._fwd_chnames_list.item(ind).text() != "":
+                self._fwd_chnames_list.item(ind).setText(
+                    name[: len(name) - len(commonsuffix)]
+                )
         self._mark_goods()
+        self._update_canvas()
 
     def _on_adopt_data_chnames(self):
+        """When >>> button is clicked"""
         block_signals = QtCore.QSignalBlocker(self._fwd_chnames_list)  # noqa
         for i, data_chname in enumerate(self._data_chnames):
-            self._fwd_chnames_list.item(i).setText(data_chname)
+            if self._fwd_chnames_list.item(i).text() != "":
+                self._fwd_chnames_list.item(i).setText(data_chname)
         self._mark_goods()
+        self._update_canvas()
 
     def _on_ok(self):
         try:
