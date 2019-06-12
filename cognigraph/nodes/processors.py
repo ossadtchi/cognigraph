@@ -666,6 +666,7 @@ class Beamformer(_InverseSolverNode):
         self._forgetting_factor_per_sample = None  # type: float
 
         self.viz_type = "source time series"
+        self._noise_cov = None
 
     def _initialize(self):
         # self.fwd_dialog_signal_sender.open_dialog.emit()
@@ -699,6 +700,8 @@ class Beamformer(_InverseSolverNode):
                 self._upstream_mne_info["projs"],
                 nfree=1,
             )
+        else:
+            self._noise_cov = None
 
         frequency = self._upstream_mne_info["sfreq"]
         self._forgetting_factor_per_sample = np.power(
