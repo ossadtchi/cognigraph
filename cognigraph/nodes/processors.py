@@ -946,7 +946,6 @@ class MCE(_InverseSolverNode):
         self.input_data = []
         self.output = []
         self.viz_type = "source time series"
-        # pass
 
     def _initialize(self):
         # self.fwd_dialog_signal_sender.open_dialog.emit()

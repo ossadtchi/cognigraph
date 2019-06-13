@@ -9,9 +9,9 @@ from cognigraph.nodes.tests.prepare_tests_data import (info,  # noqa
 
 @pytest.fixture
 def mce(info, fwd_model_path):  # noqa
-    snr = 1
     n_comp = 10
-    mce = MCE(snr, fwd_model_path, n_comp)
+    print(fwd_model_path)
+    mce = MCE(fwd_model_path, n_comp)
     mce.mne_info = info
     N_SEN = len(info['ch_names'])
     mce.input = np.random.rand(N_SEN)
@@ -45,7 +45,7 @@ def test_change_api_attributes(mce):
     """Change snr and check if mne_inv is reset"""
     mce.initialize()
     mce.mne_inv = None
-    mce.snr += 1
+    mce.n_comp += 1
     mce.update()
     assert mce.mne_inv is not None
 
