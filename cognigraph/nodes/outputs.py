@@ -487,6 +487,15 @@ class FileOutput(OutputNode):
             "Channel names in data",
         )
         self._out_file.root.data.attrs.sfreq = info["sfreq"]
+        try:
+            fwd = self.traverse_back_and_find("_fwd")
+            self._out_file.create_array(
+                "src_xyz",
+                fwd['source_rr'],
+                "Source space coordinates",
+            )
+        except Exception:
+            pass
 
     def toggle(self):
         if self.disabled:
