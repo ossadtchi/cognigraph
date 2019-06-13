@@ -42,3 +42,5 @@
     ```bash
     cognigraph
     ```
+
+Руководство пользователя программой можно найти [здесь](https://cognigraph.github.io/cognigraph).
