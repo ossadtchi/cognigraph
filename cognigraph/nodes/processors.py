@@ -720,7 +720,7 @@ class Beamformer(_InverseSolverNode):
         self.fwd_surf = mne.convert_forward_solution(
             self._fwd, surf_ori=True, force_fixed=False
         )
-        self._compute_filters()
+        self._compute_filters(self._upstream_mne_info)
 
     def _update(self):
         t1 = time.time()
@@ -739,7 +739,7 @@ class Beamformer(_InverseSolverNode):
         if self.is_adaptive:
             self._update_covariance_matrix(input_array)
             t1 = time.time()
-            self._compute_filters()
+            self._compute_filters(raw_array.info)
             t2 = time.time()
             self._logger.timing(
                 "Assembled lcmv instance in {:.1f} ms".format((t2 - t1) * 1000)
@@ -772,9 +772,9 @@ class Beamformer(_InverseSolverNode):
         t2 = time.time()
         self._logger.timing("Finalized in {:.1f} ms".format((t2 - t1) * 1000))
 
-    def _compute_filters(self):
+    def _compute_filters(self, info):
         self._filters = make_lcmv(
-            info=self._upstream_mne_info,
+            info=info,
             forward=self.fwd_surf,
             data_cov=self._data_cov,
             reg=self.reg,
@@ -791,7 +791,7 @@ class Beamformer(_InverseSolverNode):
         #         or self._initialized_as_fixed is not self.fixed_orientation):
         # if old_val != new_val:  # we don't expect numpy arrays here
         if key in ("reg",):
-            self._compute_filters()
+            self._compute_filters(self._upstream_mne_info)
         else:
             self.initialize()
         output_history_is_no_longer_valid = True

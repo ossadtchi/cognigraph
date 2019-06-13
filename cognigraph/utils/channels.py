@@ -132,11 +132,12 @@ def save_montage(montage, save_dir, save_units="mm", overwrite=False):
 
 def capitalize_chnames(info):
     """Convert channel names in info to upper case; operates inplace"""
-    for i, c in enumerate(info['ch_names']):
-        info['ch_names'][i] = c.upper()
-        info['chs'][i]['ch_name'] = c.upper()
-    for i, c in enumerate(info['bads']):
-        info['bads'][i] = c.upper()
+    mne.rename_channels(info, lambda x: x.upper())
+    if 'projs' in info.keys():
+        for p in info['projs']:
+            print(p)
+            for i, c in enumerate(p['data']['col_names']):
+                p['data']['col_names'][i] = c.upper()
 
 
 def capitalize_chnames_fwd(fwd):
