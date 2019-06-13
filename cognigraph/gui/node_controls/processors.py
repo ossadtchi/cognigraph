@@ -276,6 +276,7 @@ class MNEControls(_InverseSolverNodeControls):
     PROCESSOR_CLASS = processors.MNE
     METHODS_COMBO_NAME = "Method: "
     FILE_PATH_STR_NAME = "Path to forward solution: "
+    SNR_NAME = "SNR: "
 
     def _create_parameters(self):
 
@@ -289,11 +290,25 @@ class MNEControls(_InverseSolverNodeControls):
         methods_combo.sigValueChanged.connect(self._on_method_changed)
         self.methods_combo = self.addChild(methods_combo)
 
+        snr_value = self._processor_node.snr
+        snr_spin_box = parameterTypes.SimpleParameter(
+            type="float",
+            name=self.SNR_NAME,
+            decimals=2,
+            limits=(0, 100.0),
+            value=snr_value,
+        )
+        snr_spin_box.sigValueChanged.connect(self._on_snr_changed)
+        self.snr_spin_box = self.addChild(snr_spin_box)
+
     def _on_method_changed(self, param, value):
         self._processor_node.method = value
 
     def _on_file_path_changed(self, param, value):
         self._processor_node.fwd_path = value
+
+    def _on_snr_changed(self, param, value):
+        self._processor_node.snr = value
 
 
 class EnvelopeExtractorControls(_ProcessorNodeControls):
@@ -439,16 +454,19 @@ class MCEControls(_InverseSolverNodeControls):
     PROCESSOR_CLASS = processors.MCE
 
     FILE_PATH_STR_NAME = "Path to forward solution: "
+    N_COMP_NAME = "Number of PCA components: "
 
     def _create_parameters(self):
-        # method_values = self.PROCESSOR_CLASS.SUPPORTED_METHODS
-        # method_value = self._processor_node.method
-        # methods_combo = parameterTypes.ListParameter(
-        # name=self.METHODS_COMBO_NAME, values=method_values,
-        # value=method_value)
-        # methods_combo.sigValueChanged.connect(self._on_method_changed)
-        # self.methods_combo = self.addChild(methods_combo)
-        pass
+        n_comp_value = self._processor_node.n_comp
+        n_comp_box = parameterTypes.SimpleParameter(
+            type="int",
+            name=self.N_COMP_NAME,
+            decimals=2,
+            limits=(1, 80),
+            value=n_comp_value,
+        )
+        n_comp_box.sigValueChanged.connect(self._on_n_comp_changed)
+        self.n_comp_box = self.addChild(n_comp_box)
 
     def _on_method_changed(self, param, value):
         # self._processor_node.method = value
@@ -456,6 +474,10 @@ class MCEControls(_InverseSolverNodeControls):
 
     def _on_file_path_changed(self, param, value):
         self._processor_node.fwd_path = value
+
+    def _on_n_comp_changed(self, value):
+        self._logger.debug('Setting n_comp to %s' % value)
+        self._processor_node.n_comp = value
 
 
 class ICARejectionControls(_ProcessorNodeControls):
@@ -611,9 +633,23 @@ class CoherenceControls(_ProcessorNodeControls):
 
     CONTROLS_LABEL = "Coherence controls"
     PROCESSOR_CLASS = processors.Coherence
+    METHODS_COMBO_NAME = "Method: "
+    SUPPORTED_METHODS = ("coh", "imcoh")
 
     def _create_parameters(self):
-        ...
+        method_values = self.SUPPORTED_METHODS
+        method_value = self._processor_node.method
+        methods_combo = parameterTypes.ListParameter(
+            name=self.METHODS_COMBO_NAME,
+            values=method_values,
+            value=method_value,
+        )
+        methods_combo.sigValueChanged.connect(self._on_method_changed)
+        self.methods_combo = self.addChild(methods_combo)
+
+    def _on_method_changed(self, param, value):
+        self._logger.debug('Setting method to %s' % value)
+        self._processor_node.method = value
 
 
 class SeedCoherenceControls(AtlasViewerControls):
@@ -622,6 +658,8 @@ class SeedCoherenceControls(AtlasViewerControls):
     OUTPUT_CLASS = processors.SeedCoherence
     CONTROLS_LABEL = "Seed Coherence controls"
     BUTTON_NAME = "Select seed"
+    METHODS_COMBO_NAME = "Method: "
+    SUPPORTED_METHODS = ("coh", "imcoh")
 
     def _on_initialize(self):
         self._logger.info("Initializing mesh for seed selection widget")
@@ -633,3 +671,19 @@ class SeedCoherenceControls(AtlasViewerControls):
         self.dialog = SeedSelectionDialog(
             self._processor_node.labels, self._mesh
         )
+
+    def _create_parameters(self):
+        AtlasViewerControls._create_parameters(self)
+        method_values = self.SUPPORTED_METHODS
+        method_value = self._processor_node.method
+        methods_combo = parameterTypes.ListParameter(
+            name=self.METHODS_COMBO_NAME,
+            values=method_values,
+            value=method_value,
+        )
+        methods_combo.sigValueChanged.connect(self._on_method_changed)
+        self.methods_combo = self.addChild(methods_combo)
+
+    def _on_method_changed(self, param, value):
+        self._logger.debug('Setting method to %s' % value)
+        self._processor_node.method = value

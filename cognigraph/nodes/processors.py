@@ -924,7 +924,6 @@ class MCE(_InverseSolverNode):
     UPSTREAM_CHANGES_IN_THESE_REQUIRE_REINITIALIZATION = ()
     CHANGES_IN_THESE_REQUIRE_RESET = (
         "fwd_path",
-        "snr",
         "n_comp",
         "subjects_dir",
         "subject",
@@ -932,16 +931,14 @@ class MCE(_InverseSolverNode):
 
     def __init__(
         self,
-        snr=1.0,
         fwd_path=None,
-        n_comp=40,
+        n_comp=30,
         subjects_dir=None,
         subject=None,
     ):
         _InverseSolverNode.__init__(
             self, subjects_dir=subjects_dir, subject=subject, fwd_path=fwd_path
         )
-        self.snr = snr
         self.fwd_path = fwd_path
         self.n_comp = n_comp
         self.mne_info = None
