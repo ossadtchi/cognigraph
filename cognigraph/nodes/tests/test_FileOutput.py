@@ -33,6 +33,7 @@ def test_change_api_attributes(file_outputter, tmp_path):
     file_outputter.parent.initialize()
     out_file_ini = file_outputter._out_file
     file_outputter.output_path = arbitrary_name
+    file_outputter.disabled = False
     file_outputter.update()
 
     assert file_outputter._out_file is not out_file_ini

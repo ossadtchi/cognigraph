@@ -464,6 +464,7 @@ class FileOutput(OutputNode):
         OutputNode.__init__(self)
         self.output_path = output_path
         self._out_file = None
+        self.disabled = True
 
     def _initialize(self):
         if self._out_file:  # for resets

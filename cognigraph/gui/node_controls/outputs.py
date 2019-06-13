@@ -309,7 +309,7 @@ class FileOutputControls(OutputNodeControls):
         self.file_path_button = self.addChild(file_path_button)
 
         start_stop_button = parameterTypes.ActionParameter(
-            type="action", name="Stop"
+            type="action", name="Start"
         )
 
         start_stop_button.sigActivated.connect(self._on_start_stop_toggled)
