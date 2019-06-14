@@ -467,36 +467,37 @@ class FileOutput(OutputNode):
         self.disabled = True
 
     def _initialize(self):
-        if self._out_file:  # for resets
-            self._out_file.close()
+        if not self.disabled:
+            if self._out_file:  # for resets
+                self._out_file.close()
 
-        info = self.traverse_back_and_find("mne_info")
-        col_size = info["nchan"]
-        self._out_file = tables.open_file(self.output_path, mode="w")
-        atom = tables.Float64Atom()
+            info = self.traverse_back_and_find("mne_info")
+            col_size = info["nchan"]
+            self._out_file = tables.open_file(self.output_path, mode="w")
+            atom = tables.Float64Atom()
 
-        self.output_array = self._out_file.create_earray(
-            self._out_file.root, "data", atom, (col_size, 0)
-        )
-        self.timestamps_array = self._out_file.create_earray(
-            self._out_file.root, "timestamps", atom, (1, 0)
-        )
-        self.ch_names = self._out_file.create_array(
-            self._out_file.root,
-            "ch_names",
-            np.array(info["ch_names"]),
-            "Channel names in data",
-        )
-        self._out_file.root.data.attrs.sfreq = info["sfreq"]
-        try:
-            fwd = self.traverse_back_and_find("_fwd")
-            self._out_file.create_array(
-                "src_xyz",
-                fwd['source_rr'],
-                "Source space coordinates",
+            self.output_array = self._out_file.create_earray(
+                self._out_file.root, "data", atom, (col_size, 0)
             )
-        except Exception:
-            pass
+            self.timestamps_array = self._out_file.create_earray(
+                self._out_file.root, "timestamps", atom, (1, 0)
+            )
+            self.ch_names = self._out_file.create_array(
+                self._out_file.root,
+                "ch_names",
+                np.array(info["ch_names"]),
+                "Channel names in data",
+            )
+            self._out_file.root.data.attrs.sfreq = info["sfreq"]
+            try:
+                fwd = self.traverse_back_and_find("_fwd")
+                self._out_file.create_array(
+                    "src_xyz",
+                    fwd['source_rr'],
+                    "Source space coordinates",
+                )
+            except Exception:
+                pass
 
     def toggle(self):
         if self.disabled:
