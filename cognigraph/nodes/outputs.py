@@ -464,10 +464,20 @@ class FileOutput(OutputNode):
         OutputNode.__init__(self)
         self.output_path = output_path
         self._out_file = None
-        self.disabled = True
+        self._disabled = True
+
+    @property
+    def disabled(self):
+        return self._disabled
+
+    @disabled.setter
+    def disabled(self, value):
+        pass
 
     def _initialize(self):
-        if not self.disabled:
+        if not self._disabled:
+            self._logger.debug('Initializing.')
+            self._logger.debug('Disabled = %s' % self._disabled)
             if self._out_file:  # for resets
                 self._out_file.close()
 
@@ -492,25 +502,28 @@ class FileOutput(OutputNode):
             try:
                 fwd = self.traverse_back_and_find("_fwd")
                 self._out_file.create_array(
+                    self._out_file.root,
                     "src_xyz",
                     fwd['source_rr'],
                     "Source space coordinates",
                 )
-            except Exception:
-                pass
+            except Exception as e:
+                self._logger.exception(e)
+                self._logger.warning('Forward model not found.'
+                                     ' Skip adding source coordinates.')
 
     def toggle(self):
-        if self.disabled:
+        if self._disabled:
             self._start()
         else:
             self._stop()
 
     def _stop(self):
         self._out_file.close()
-        self.disabled = True
+        self._disabled = True
 
     def _start(self):
-        self.disabled = False
+        self._disabled = False
         self._initialize()
 
     def _update(self):
