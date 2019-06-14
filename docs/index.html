@@ -103,6 +103,7 @@
 <li><a class="reference internal" href="#id15">Расчет источников</a></li>
 <li><a class="reference internal" href="#id16">Визуализация источников и сигналов</a></li>
 <li><a class="reference internal" href="#id17">Оценка и визуализация коннективности</a></li>
+<li><a class="reference internal" href="#id18">Вывод активности в файл</a></li>
 </ul>
 </div>
             
@@ -379,6 +380,18 @@ Norm Estimate и его модификации dSPM и sLORETA.
 Выбор источника, с которым будет измеряться коннективность осуществляется кнопкой
 <code class="docutils literal notranslate"><span class="pre">Select</span> <span class="pre">seed</span></code> в настройках узла. Далее для визуализации необходимо добавить узел
 <code class="docutils literal notranslate"><span class="pre">Brain</span> <span class="pre">Viewer</span></code>, либо сразу, либо после добавления <code class="docutils literal notranslate"><span class="pre">Envelope</span> <span class="pre">Extractor</span></code></p>
+</div>
+<div class="section" id="id18">
+<h1>Вывод активности в файл<a class="headerlink" href="#id18" title="Permalink to this headline">¶</a></h1>
+<p>Для вывода выходного сигнала любого узла к нему необходимо добавить
+узел <code class="docutils literal notranslate"><span class="pre">File</span> <span class="pre">Output</span></code>. Для выбора файла, в который будет производиться запись
+необходимо нажать на кнопку <code class="docutils literal notranslate"><span class="pre">Output</span> <span class="pre">path</span></code>. Для начала записи — на кнопку
+<code class="docutils literal notranslate"><span class="pre">Start</span></code>, для окончания – <code class="docutils literal notranslate"><span class="pre">Stop</span></code>. При повторном нажатии на <code class="docutils literal notranslate"><span class="pre">Start</span></code> файл будет перезаписан.
+Выходной файл записывается в формате hdf5 при помощи пакета pytables.
+Читать его рекомендуется при помощи той же библиотеки.</p>
+<p>В файл записывается как сама активность, так и временные метки, а также имена каналов,
+частота дискретизации и координаты источников в случае, если
+среди потомков данного выходного узла есть узлы, решающие обратную задачу.</p>
 </div>
 
 
