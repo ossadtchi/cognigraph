@@ -131,6 +131,7 @@ class BrainViewerControls(OutputNodeControls):
         )
         self.lower_limit_spinbox = self.addChild(lower_limit_spinbox)
         self.upper_limit_spinbox = self.addChild(upper_limit_spinbox)
+        self._on_limits_mode_changed(None, limits_mode_value)
 
         threshold_value = self._output_node.threshold_pct
         threshold_slider = SliderParameter(
