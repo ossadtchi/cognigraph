@@ -104,6 +104,7 @@
 <li><a class="reference internal" href="#id16">Визуализация источников и сигналов</a></li>
 <li><a class="reference internal" href="#id17">Оценка и визуализация коннективности</a></li>
 <li><a class="reference internal" href="#id18">Вывод активности в файл</a></li>
+<li><a class="reference internal" href="#id19">Редактор монтажа</a></li>
 </ul>
 </div>
             
@@ -249,7 +250,8 @@
 <p>При расчете новой прямой модели в секции редактора <code class="docutils literal notranslate"><span class="pre">Select</span> <span class="pre">montage</span> <span class="pre">and</span> <span class="pre">spacing</span></code>
 доступна загрузка монтажа из файла, а также опция редактрования выбранного монтажа.
 Чтобы отредактировать выбранный или загруженный монтаж, необходимо установить
-галочку <code class="docutils literal notranslate"><span class="pre">Use</span> <span class="pre">custom</span> <span class="pre">montage</span></code> и кликнуть по кнопке <code class="docutils literal notranslate"><span class="pre">Edit</span></code>.</p>
+галочку <code class="docutils literal notranslate"><span class="pre">Use</span> <span class="pre">custom</span> <span class="pre">montage</span></code> и кликнуть по кнопке <code class="docutils literal notranslate"><span class="pre">Edit</span></code>
+(для работы с редактором см. <a class="reference internal" href="#id19">Редактор монтажа</a>).</p>
 <p>После установки монтажа и количества источников в самой правой части редактора,
 которая называется <code class="docutils literal notranslate"><span class="pre">Forward</span> <span class="pre">computation</span> <span class="pre">parameters</span></code>, можно добавить файл корегистрации
 электродов с анатомией (при его наличии) а также уточнить значения проводимостей
@@ -392,6 +394,43 @@ Norm Estimate и его модификации dSPM и sLORETA.
 <p>В файл записывается как сама активность, так и временные метки, а также имена каналов,
 частота дискретизации и координаты источников в случае, если
 среди потомков данного выходного узла есть узлы, решающие обратную задачу.</p>
+</div>
+<div class="section" id="id19">
+<h1>Редактор монтажа<a class="headerlink" href="#id19" title="Permalink to this headline">¶</a></h1>
+<p>Редактор монтажа позволяет переименовать каналы в выбранном монтаже, чтобы они соответствовали
+именам каналов в данных.
+Переименование необходимо в том числе для того, чтобы сопоставить электродам из данных
+положения на голове испытуемого.</p>
+<p>Редактор монтажа содержит два списка, кнопки для редакции имен каналов в прямой модели,
+и виджет, отображающий положения электродов на голове испытуемого.
+Именам электродов, взятым их данных, в редакторе монтажа соответствует левый список.
+Правый список содержит имена, которые будут записаны во вновь созданный монтаж.
+В случае, если имя из левого списка и имя из правого списка, соответствующие
+одному и тому же порядковому номеру, совпадают, это имя в левом и правом списке
+окрашиваются в зеленый цвет. При этом каналу из данных сопоставляется
+положение (возможно перименованного) электрода из редактируемого монтажа.</p>
+<p>Редактор монтажа позволяет успешно закончить редактирование (кнопка Ок становится активной)
+в случае, если по крайней мере 20% всех каналов из данных сопоставлены с именами из редактируемого
+монтажа.</p>
+<p>Для редактирования имен каналов и их порядка предусмотрены следующие средства:</p>
+<ol class="arabic simple">
+<li><p><strong>Двойной клик по имени канала из правого списка</strong>. Позволяет отредактировать
+имя одного канала.</p></li>
+<li><p><strong>Drag and drop каналов из правого списка</strong>. Позволяет передвинуть один или несколько каналов.</p></li>
+<li><p><strong>Кнопки</strong> <code class="docutils literal notranslate"><span class="pre">Add</span> <span class="pre">prefix\Add</span> <span class="pre">suffix</span></code>. Одновременно для всех выделенных (или вообще для всех, если выделение отсутствует) каналов из правого списка позволяет добавить общую строку в начало или конец. Например, если в данных каналы названы по схеме “EEG TP9, EEG Fz, EEG Cz” и т.д., а в монтаже имеются каналы “TP9, Fz, Cz …”, кликнув на <code class="docutils literal notranslate"><span class="pre">Add</span> <span class="pre">prefix</span></code> и дописав “EEG ” в появившейся строке ввода, можем добавить соответствующую открывающую строку ко всем именам каналов из редактируемого монтажа.</p></li>
+<li><p><strong>Кнопки</strong> <code class="docutils literal notranslate"><span class="pre">Del</span> <span class="pre">prefix\Del</span> <span class="pre">suffix</span></code>. Позволяют удалить общую начальную или конечную строку для всех выделенных (или вообще для всех, если выделения нет) каналов из правого списка.</p></li>
+<li><p><strong>Кнопка</strong> <code class="docutils literal notranslate"><span class="pre">Sort</span></code>. Сортирует каналы в правом списке.</p></li>
+<li><p><strong>Кнопка</strong> <code class="docutils literal notranslate"><span class="pre">Align</span></code>. Автоматически ставит на нужные позиции каналы из редактируемого монтажа,
+если они есть в данных.</p></li>
+<li><p><strong>Кнопка</strong> <code class="docutils literal notranslate"><span class="pre">&gt;&gt;</span></code>. По порядку присваивает каналам из правого списка имена из левого списка.</p></li>
+<li><p><strong>Кнопка</strong> <code class="docutils literal notranslate"><span class="pre">Reset</span></code>. Возвращает каналы из правого списка к исходному состоянию.</p></li>
+</ol>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Имена каналов из левого и правого списка в редакторе монтажа, как и во всей остальной
+программе, сравниваются в верхнем регистре, т.е. Tp9 и TP9 считается одним и тем же каналом
+и не нуждается в переименовании</p>
+</div>
 </div>
 
 
