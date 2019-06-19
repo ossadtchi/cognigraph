@@ -1,0 +1,5 @@
+<!DOCTYPE RCC><RCC version="1.0">
+<qresource>
+<file alias="cognigraph_icon.png">images/cognigraph_icon.png</file>
+</qresource>
+</RCC>

@@ -18,6 +18,7 @@ from .async_pipeline_update import AsyncPipelineInitializer, AsyncUpdater
 from .controls import Controls
 from .. import PIPELINES_DIR
 from .. import nodes
+from . import qrc_resources  # noqa
 
 import logging
 import json
@@ -48,6 +49,8 @@ class GUIWindow(QMainWindow):
         self.init_basic(pipeline)
         self.init_ui()
         self.init_controls()
+        self.setWindowTitle("Cognigraph")
+        self.setWindowIcon(QIcon(':/cognigraph_icon.png'))
 
     def init_basic(self, pipeline):
         self._pipeline = pipeline  # type: Pipeline
