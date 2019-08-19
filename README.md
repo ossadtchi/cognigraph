@@ -21,7 +21,7 @@
     и скопировать в него следующие команды:
 
     ```bash
-    git clone --recursive git@github.com:Cognigraph/cognigraph.git
+    git clone --recursive https://github.com/Cognigraph/cognigraph.git
     cd cognigraph
     conda env create -f environment.yml
     conda activate cogni
