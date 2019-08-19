@@ -30,6 +30,6 @@ dependencies:
         - PyOpenGL_accelerate
         - pytest-sugar
         - tables
-        - vispy
+        - vispy==0.5.3
         - codecov
 
