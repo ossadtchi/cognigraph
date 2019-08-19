@@ -216,7 +216,6 @@ class DataDownloader:
                         self._logger.info('Downloading "%s"', fname)
                         self._download(downloadable_url, path, md5_hash)
                         dl_succeeded = True
-                        raise Exception
                     except Exception:
                         self._logger.warning(
                             "Download failed. Retrying... (%d out of %d)"
