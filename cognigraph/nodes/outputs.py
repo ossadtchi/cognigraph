@@ -347,8 +347,17 @@ class BrainViewer(_WidgetOutput):
                 self.forward_solution
             )
             adj_mat = mesh_edges(self._mesh._faces)
+            self._logger.debug(
+                "Calculating smoothing matrix."                
+                )
             smoothing_mat = smoothing_matrix(sources_idx, adj_mat)
+	    self._logger.debug(
+                "Saving smoothing matrix."                
+                )
             sparse.save_npz(smoothing_matrix_file_path, smoothing_mat)
+	    self._logger.debug(
+                "Saved."                
+                )
             return smoothing_mat
 
     def _start_gif(self):
