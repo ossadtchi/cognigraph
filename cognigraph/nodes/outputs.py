@@ -348,14 +348,14 @@ class BrainViewer(_WidgetOutput):
             )
             adj_mat = mesh_edges(self._mesh._faces)
             self._logger.debug(
-                "Calculating smoothing matrix."                
-                )
+                "Calculating smoothing matrix."
+            )
             smoothing_mat = smoothing_matrix(sources_idx, adj_mat)
-	    self._logger.debug(
+            self._logger.debug(
                 "Saving smoothing matrix."                
                 )
             sparse.save_npz(smoothing_matrix_file_path, smoothing_mat)
-	    self._logger.debug(
+            self._logger.debug(
                 "Saved."                
                 )
             return smoothing_mat
