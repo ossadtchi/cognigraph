@@ -352,11 +352,11 @@ class BrainViewer(_WidgetOutput):
             )
             smoothing_mat = smoothing_matrix(sources_idx, adj_mat)
             self._logger.debug(
-                "Saving smoothing matrix."                
+                "Saving smoothing matrix."
             )
             sparse.save_npz(smoothing_matrix_file_path, smoothing_mat)
             self._logger.debug(
-                "Saved."                
+                "Saved."
             )
             return smoothing_mat
 
